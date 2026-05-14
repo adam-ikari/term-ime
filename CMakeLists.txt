@@ -9,12 +9,32 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 # ============================================================
+# Dependencies
+# ============================================================
+add_subdirectory(deps/ftxui)
+add_subdirectory(deps/spdlog)
+add_subdirectory(deps/json)
+
+# Use system librime
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(RIME REQUIRED rime)
+
+# Use system libuv
+find_library(LIBUV_LIBRARY uv REQUIRED)
+find_path(LIBUV_INCLUDE_DIR uv.h REQUIRED)
+
+# RxCpp is header-only
+set(RXCPP_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/rxcpp/Rx/v2/src)
+
+# ============================================================
 # IME Library (independent, reusable)
 # ============================================================
 add_library(term-ime-lib STATIC
     src/ime/engine.cpp
-    src/ime/pinyin.cpp
-    src/ime/dict.cpp
+    src/ime/rime_engine.cpp
+    src/ime/language.cpp
+    src/ime/ranker.cpp
+    src/ime/neural_ranker.cpp
     src/util/utf8.cpp
 )
 
@@ -22,6 +42,13 @@ target_include_directories(term-ime-lib
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
         $<INSTALL_INTERFACE:include>
+        ${RIME_INCLUDE_DIRS}
+)
+
+target_link_libraries(term-ime-lib
+    PUBLIC ${RIME_LIBRARIES}
+    PUBLIC nlohmann_json::nlohmann_json
+    PUBLIC spdlog::spdlog
 )
 
 set_target_properties(term-ime-lib PROPERTIES
@@ -47,6 +74,8 @@ target_include_directories(term-terminal
 target_link_libraries(term-terminal
     PUBLIC term-ime-lib
     PRIVATE util
+    PRIVATE spdlog::spdlog
+    PRIVATE nlohmann_json::nlohmann_json
 )
 
 # ============================================================
@@ -55,15 +84,18 @@ target_link_libraries(term-terminal
 add_library(term-core STATIC
     src/core/event_loop.cpp
     src/core/app.cpp
+    src/core/config.cpp
 )
 
 target_include_directories(term-core
     PUBLIC ${CMAKE_SOURCE_DIR}/src
+    PUBLIC ${LIBUV_INCLUDE_DIR}
 )
 
 target_link_libraries(term-core
     PUBLIC term-terminal
     PUBLIC term-ime-lib
+    PUBLIC ${LIBUV_LIBRARY}
 )
 
 # ============================================================
@@ -73,16 +105,7 @@ add_executable(term-ime src/main.cpp)
 
 target_link_libraries(term-ime
     PRIVATE term-core
-    PRIVATE util
-)
-
-# ============================================================
-# Event-driven version
-# ============================================================
-add_executable(term-ime-event src/main_event.cpp)
-
-target_link_libraries(term-ime-event
-    PRIVATE term-core
+    PRIVATE spdlog::spdlog
 )
 
 # ============================================================
@@ -95,8 +118,10 @@ install(TARGETS term-ime-lib term-terminal term-core
 
 install(FILES
     src/ime/engine.hpp
-    src/ime/pinyin.hpp
-    src/ime/dict.hpp
+    src/ime/rime_engine.hpp
+    src/ime/language.hpp
+    src/ime/ranker.hpp
+    src/ime/neural_ranker.hpp
     DESTINATION include/term-ime
 )
 

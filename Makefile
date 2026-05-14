@@ -19,7 +19,7 @@ OBJS = $(SRCS:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
 
 TARGET = term-ime
 
-.PHONY: all clean dirs
+.PHONY: all clean dirs format build test
 
 all: dirs $(TARGET)
 
@@ -34,3 +34,15 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET)
+
+# Format code using clang-format
+format:
+	find src -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
+
+# Build using cmake (recommended)
+build:
+	rm -rf build && mkdir build && cd build && cmake .. && make -j$(nproc)
+
+# Run tests
+test:
+	./build/term-ime --help || true
