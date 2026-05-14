@@ -36,6 +36,7 @@ add_library(term-ime-lib STATIC
     src/ime/ranker.cpp
     src/ime/neural_ranker.cpp
     src/util/utf8.cpp
+    src/util/logger.cpp
 )
 
 target_include_directories(term-ime-lib
