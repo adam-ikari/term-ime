@@ -11,23 +11,34 @@ Component CreateCandidateBar(
 ) {
     return Renderer([candidates, selected, buffer]() {
         if (!candidates || candidates->empty()) {
-            return text("") | size(HEIGHT, EQUAL, 1);
+            // 显示提示信息
+            return hbox({
+                text(" 按 Ctrl+Space 切换中英文 ") | dim,
+                text(" | ") | color(Color::GrayDark),
+                text(" 数字键选择候选词 ") | dim,
+                text(" | ") | color(Color::GrayDark),
+                text(" Esc 取消 ") | dim,
+            }) | size(HEIGHT, EQUAL, 1);
         }
 
         std::vector<Element> items;
 
         // 显示拼音缓冲区
-        items.push_back(text(" 拼音: " + (buffer ? *buffer : "") + " "));
+        std::string buf = buffer ? *buffer : "";
+        items.push_back(text(" 拼音: " + buf + " ") | bold);
 
         // 显示候选词
         for (size_t i = 0; i < candidates->size(); ++i) {
             std::string label = std::to_string(i + 1) + "." + (*candidates)[i];
             if (selected && i == *selected) {
-                items.push_back(text("[" + label + "]") | inverted);
+                items.push_back(text(" [" + label + "] ") | inverted | bold);
             } else {
-                items.push_back(text(" " + label + " "));
+                items.push_back(text(" " + label + " ") | color(Color::Yellow));
             }
         }
+
+        // 添加翻页提示
+        items.push_back(text("  ←→翻页 ") | dim);
 
         return hbox(items) | inverted | size(HEIGHT, EQUAL, 1);
     });
@@ -35,8 +46,17 @@ Component CreateCandidateBar(
 
 Component CreateModeIndicator(const std::string* mode) {
     return Renderer([mode]() {
-        std::string m = mode ? *mode : "中文";
-        return text(" [" + m + "] ") | bold | color(Color::Cyan);
+        std::string m = mode ? *mode : "简体中文";
+        // 根据模式显示不同颜色
+        Color mode_color = (m.find("简体") != std::string::npos) ? Color::Green :
+                           (m.find("繁体") != std::string::npos) ? Color::Yellow :
+                           Color::Cyan;
+        return hbox({
+            text(" 【") | dim,
+            text(m) | bold | color(mode_color),
+            text("】 ") | dim,
+            text("Ctrl+Space切换") | dim | color(Color::GrayDark),
+        });
     });
 }
 
