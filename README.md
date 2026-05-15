@@ -10,6 +10,7 @@
 - **异步事件驱动**: 基于 libuv 的高性能事件循环
 - **智能候选词**: 可选的神经网络排序（ONNX Runtime）
 - **UTF-8 支持**: 完整的 UTF-8 编解码，支持 CJK 宽字符
+- **FTXUI 渲染**: 函数式终端 UI 组件
 
 ## 依赖
 
@@ -26,6 +27,7 @@
 - FTXUI - 终端 UI 组件
 - spdlog - 日志库
 - nlohmann_json - JSON 解析
+- googletest - 单元测试框架
 
 ## 构建
 
@@ -33,7 +35,7 @@
 # 安装依赖
 sudo apt-get install librime-dev libuv1-dev rime-data-luna-pinyin
 
-# 克隆仓库
+# 克隆仓库（包含子模块）
 git clone --recursive https://github.com/user/term-ime.git
 cd term-ime
 
@@ -59,11 +61,23 @@ make build
 
 ## 使用方法
 
-- 输入小写字母开始拼音输入
-- 数字键 1-9 选择候选词
-- Escape 取消输入
-- Ctrl+Space 切换中英文模式
-- Ctrl+C 退出程序
+### 快捷键
+
+| 快捷键 | 功能 |
+|--------|------|
+| `Ctrl+A` `Space` | 切换中英文模式 |
+| `1-9` | 选择候选词 |
+| `Space` | 选择第一个候选词（候选状态时） |
+| `Esc` | 取消输入 |
+| `exit` | 退出 shell |
+
+### 操作流程
+
+1. 启动后进入英文模式，状态栏显示 `【EN】`
+2. 按 `Ctrl+A` 然后按 `Space` 切换到中文模式
+3. 输入拼音（如 `nihao`），显示候选词
+4. 按 `1-9` 选择候选词，或按 `Space` 选择第一个
+5. 输入 `exit` 退出程序
 
 ## 配置
 
@@ -72,11 +86,12 @@ make build
 ```json
 {
   "languages": [
-    {"id": "zh-CN", "name": "中文", "schema": "luna_pinyin", "enabled": true},
-    {"id": "zh-TW", "name": "繁體", "schema": "terra_pinyin", "enabled": true},
+    {"id": "zh-CN-simp", "name": "简体中文", "schema": "luna_pinyin_simp", "enabled": true},
+    {"id": "zh-CN", "name": "繁体中文", "schema": "luna_pinyin", "enabled": true},
+    {"id": "zh-TW", "name": "正體中文", "schema": "terra_pinyin", "enabled": false},
     {"id": "ja", "name": "日本語", "schema": "kana", "enabled": false}
   ],
-  "active_language": "zh-CN",
+  "active_language": "zh-CN-simp",
   "neural_ranker": {
     "enabled": false,
     "model_path": "models/ranker.onnx"
@@ -104,9 +119,15 @@ src/
 │   ├── screen.hpp/cpp     # 屏幕缓冲
 │   └── parser.hpp/cpp     # 转义序列解析
 ├── ui/
-│   └── renderer.hpp/cpp   # 终端渲染
+│   └── renderer.hpp/cpp   # FTXUI 终端渲染
 └── util/
     └── utf8.hpp/cpp       # UTF-8 工具
+
+tests/
+├── test_main.cpp          # 测试入口
+├── test_utf8.cpp          # UTF-8 编解码测试
+├── test_config.cpp        # 配置测试
+└── test_ime_state.cpp     # IME 状态测试
 ```
 
 ## 开发
@@ -122,8 +143,29 @@ make format
 ### 运行测试
 
 ```bash
-make test
+make build
+./build/term-ime-tests
 ```
+
+或使用 CTest:
+
+```bash
+cd build && ctest --output-on-failure
+```
+
+### 测试覆盖
+
+- **UTF-8 测试**: ASCII/中文/Emoji 编解码
+- **配置测试**: 默认配置、JSON 序列化
+- **IME 状态测试**: 候选词结构、状态枚举
+
+## CI/CD
+
+项目使用 GitHub Actions 自动构建和测试：
+
+- 每次 push 和 PR 自动触发
+- 构建并运行单元测试
+- 代码格式检查（clang-format）
 
 ## 功能列表
 
@@ -135,7 +177,13 @@ make test
 - [x] 终端大小变化处理
 - [x] libuv 异步事件循环
 - [x] 可配置多语言支持
-- [x] 神经网络候选词排序（可选）
+- [x] FTXUI 候选词渲染
+- [x] Ctrl+A+Space 模式切换
+- [x] 空格选择第一个候选词
+- [x] 进入/退出时清屏
+- [x] 单元测试框架
+- [x] CI/CD 自动构建
+- [ ] 神经网络候选词排序
 - [ ] 更多转义序列支持
 - [ ] 颜色支持
 - [ ] 主题切换
