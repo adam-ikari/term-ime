@@ -3,15 +3,22 @@
 #include <spdlog/spdlog.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <stdexcept>
 
 App::App() = default;
 
 App::~App() {
-    if (initialized_) {
-        renderer_.restore();
+    try {
+        if (initialized_) {
+            renderer_.restore();
+        }
+        delete screen_;
+        screen_ = nullptr;
+        delete parser_;
+        parser_ = nullptr;
+    } catch (const std::exception& e) {
+        spdlog::error("Exception in App destructor: {}", e.what());
     }
-    delete screen_;
-    delete parser_;
 }
 
 bool App::init(const std::string& shell) {
@@ -23,43 +30,64 @@ bool App::init(const std::string& shell) {
         return false;
     }
 
-    // Initialize renderer
-    spdlog::info("Initializing renderer");
-    renderer_.init();
+    try {
+        // Initialize renderer
+        spdlog::info("Initializing renderer");
+        renderer_.init();
 
-    // Spawn shell in PTY
-    spdlog::info("Spawning PTY");
-    if (!pty_.spawn(shell)) {
-        spdlog::error("Failed to spawn shell");
+        // Spawn shell in PTY
+        spdlog::info("Spawning PTY");
+        if (!pty_.spawn(shell)) {
+            spdlog::error("Failed to spawn shell: {}", shell);
+            renderer_.restore();
+            return false;
+        }
+
+        // Get terminal size
+        struct winsize ws;
+        if (ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws) < 0 ||
+            ws.ws_row == 0 || ws.ws_row > 1000 ||
+            ws.ws_col == 0 || ws.ws_col > 1000) {
+            spdlog::warn("Failed to get terminal size, using defaults");
+            ws.ws_row = 24;
+            ws.ws_col = 80;
+        }
+
+        // Create screen and parser
+        spdlog::info("Creating screen {}x{}", ws.ws_row - 1, ws.ws_col);
+        screen_ = new Screen(ws.ws_row - 1, ws.ws_col);
+        if (!screen_) {
+            spdlog::error("Failed to create screen");
+            renderer_.restore();
+            return false;
+        }
+
+        parser_ = new Parser(*screen_);
+        if (!parser_) {
+            spdlog::error("Failed to create parser");
+            delete screen_;
+            screen_ = nullptr;
+            renderer_.restore();
+            return false;
+        }
+
+        // Initialize Rime IME
+        spdlog::info("Initializing Rime IME");
+        if (!ime_.initialize()) {
+            spdlog::warn("Failed to initialize Rime IME, continuing without IME");
+        } else {
+            spdlog::info("Rime IME initialized");
+        }
+
+        initialized_ = true;
+        spdlog::info("App::init complete");
+        return true;
+
+    } catch (const std::exception& e) {
+        spdlog::error("Exception during init: {}", e.what());
         renderer_.restore();
         return false;
     }
-
-    // Get terminal size
-    struct winsize ws;
-    if (ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws) < 0 ||
-        ws.ws_row == 0 || ws.ws_row > 1000 ||
-        ws.ws_col == 0 || ws.ws_col > 1000) {
-        ws.ws_row = 24;
-        ws.ws_col = 80;
-    }
-
-    // Create screen and parser
-    spdlog::info("Creating screen {}x{}", ws.ws_row - 1, ws.ws_col);
-    screen_ = new Screen(ws.ws_row - 1, ws.ws_col);
-    parser_ = new Parser(*screen_);
-
-    // Initialize Rime IME
-    spdlog::info("Initializing Rime IME");
-    if (!ime_.initialize()) {
-        spdlog::warn("Failed to initialize Rime IME");
-    } else {
-        spdlog::info("Rime IME initialized");
-    }
-
-    initialized_ = true;
-    spdlog::info("App::init complete");
-    return true;
 }
 
 void App::on_pty_data(const char* data, size_t len) {

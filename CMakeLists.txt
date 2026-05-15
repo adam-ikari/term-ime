@@ -14,6 +14,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 add_subdirectory(deps/ftxui)
 add_subdirectory(deps/spdlog)
 add_subdirectory(deps/json)
+add_subdirectory(deps/googletest)
 
 # Use system librime
 find_package(PkgConfig REQUIRED)
@@ -24,7 +25,7 @@ find_library(LIBUV_LIBRARY uv REQUIRED)
 find_path(LIBUV_INCLUDE_DIR uv.h REQUIRED)
 
 # RxCpp is header-only
-set(RXCPP_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/rxcpp/Rx/v2/src)
+# set(RXCPP_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/rxcpp/Rx/v2/src)
 
 # ============================================================
 # IME Library (independent, reusable)
@@ -143,3 +144,27 @@ install(FILES data/pinyin.dict DESTINATION share/term-ime)
 
 # Copy data directory to build for testing
 configure_file(${CMAKE_SOURCE_DIR}/data/pinyin.dict ${CMAKE_BINARY_DIR}/data/pinyin.dict COPYONLY)
+
+# ============================================================
+# Tests
+# ============================================================
+enable_testing()
+
+# Test executable
+add_executable(term-ime-tests
+    tests/test_main.cpp
+    tests/test_utf8.cpp
+    tests/test_config.cpp
+    tests/test_ime_state.cpp
+)
+
+target_link_libraries(term-ime-tests
+    PRIVATE term-ime-lib
+    PRIVATE term-core
+    PRIVATE GTest::gtest
+    PRIVATE GTest::gtest_main
+)
+
+# Register tests with CTest
+include(GoogleTest)
+gtest_discover_tests(term-ime-tests)
