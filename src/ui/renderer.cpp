@@ -19,9 +19,21 @@ Renderer::~Renderer() {
 void Renderer::init() {
     tty_fd_ = STDIN_FILENO;
 
+    // 检查是否是 TTY
+    if (!isatty(tty_fd_)) {
+        // 非 TTY 环境，不初始化
+        initialized_ = false;
+        return;
+    }
+
     // Save current terminal settings
     saved_termios_ = new termios;
-    tcgetattr(tty_fd_, saved_termios_);
+    if (tcgetattr(tty_fd_, saved_termios_) < 0) {
+        delete saved_termios_;
+        saved_termios_ = nullptr;
+        initialized_ = false;
+        return;
+    }
 
     // Set raw mode:
     // - 关闭 ICANON (行缓冲) - 立即读取每个字符

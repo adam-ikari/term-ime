@@ -17,6 +17,12 @@ App::~App() {
 bool App::init(const std::string& shell) {
     spdlog::info("App::init starting");
 
+    // 检查是否是 TTY
+    if (!isatty(STDIN_FILENO)) {
+        spdlog::error("Not a TTY, cannot run");
+        return false;
+    }
+
     // Initialize renderer
     spdlog::info("Initializing renderer");
     renderer_.init();
