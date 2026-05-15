@@ -74,38 +74,31 @@ void App::on_pty_data(const char* data, size_t len) {
 void App::on_keyboard_data(const char* data, size_t len) {
     if (len == 0) return;
 
-    // Alt+; 检测: ESC (0x1b) 后跟 ';' (0x3b)
-    static std::string escape_buffer;
-    static bool waiting_alt_seq = false;
-
     int ch = static_cast<int>(data[0]);
 
-    // 检测 ESC 开始的序列
-    if (ch == 27 && escape_buffer.empty()) {
-        escape_buffer += static_cast<char>(ch);
-        waiting_alt_seq = true;
+    // Shift+Space 检测
+    // 大多数终端中 Shift+Space 发送 ESC ' ' (27, 32) 或普通空格
+    // 如果是 ESC 后跟空格，则是 Shift+Space
+    static bool last_was_esc = false;
+
+    if (ch == 27) {
+        last_was_esc = true;
         return;
     }
 
-    // 检测 Alt+; (ESC + ';')
-    if (waiting_alt_seq && ch == ';') {
+    // ESC + Space = Shift+Space，切换模式
+    if (last_was_esc && ch == ' ') {
         ime_.toggle_mode();
-        escape_buffer.clear();
-        waiting_alt_seq = false;
+        last_was_esc = false;
         render();
         return;
     }
 
-    // 如果有 ESC 但不是 Alt+;，转发给 shell
-    if (!escape_buffer.empty()) {
-        escape_buffer += static_cast<char>(ch);
-        pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
-        escape_buffer.clear();
-        waiting_alt_seq = false;
-        return;
+    // 如果是 ESC 但不是 Shift+Space，转发 ESC 和当前字符
+    if (last_was_esc) {
+        pty_.write(std::vector<uint8_t>{27});
+        last_was_esc = false;
     }
-
-    waiting_alt_seq = false;
 
     // Check if IME should handle this
     if (ime_.state() == ImeState::Composing || ime_.state() == ImeState::Selecting) {
