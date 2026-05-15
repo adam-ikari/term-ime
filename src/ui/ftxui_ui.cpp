@@ -13,11 +13,17 @@ Component CreateCandidateBar(
         if (!candidates || candidates->empty()) {
             // 显示提示信息
             return hbox({
-                text(" 按 Ctrl+Space 切换中英文 ") | dim,
-                text(" | ") | color(Color::GrayDark),
-                text(" 数字键选择候选词 ") | dim,
-                text(" | ") | color(Color::GrayDark),
+                text(" Ctrl+Space 切换中英文 ") | dim,
+                text("│") | color(Color::GrayDark),
+                text(" 1-9 选择候选词 ") | dim,
+                text("│") | color(Color::GrayDark),
+                text(" ←→ 翻页 ") | dim,
+                text("│") | color(Color::GrayDark),
                 text(" Esc 取消 ") | dim,
+                text("│") | color(Color::GrayDark),
+                text(" Backspace 删除 ") | dim,
+                text("│") | color(Color::GrayDark),
+                text(" Ctrl+C 退出 ") | dim,
             }) | size(HEIGHT, EQUAL, 1);
         }
 
@@ -39,6 +45,8 @@ Component CreateCandidateBar(
 
         // 添加翻页提示
         items.push_back(text("  ←→翻页 ") | dim);
+        items.push_back(text(" PgUp/PgDn ") | dim);
+        items.push_back(text(" Backspace删除 ") | dim);
 
         return hbox(items) | inverted | size(HEIGHT, EQUAL, 1);
     });
@@ -55,7 +63,9 @@ Component CreateModeIndicator(const std::string* mode) {
             text(" 【") | dim,
             text(m) | bold | color(mode_color),
             text("】 ") | dim,
-            text("Ctrl+Space切换") | dim | color(Color::GrayDark),
+            text("Ctrl+Space切换 ") | dim | color(Color::GrayDark),
+            text("│ ") | dim,
+            text("Shift 切换简繁 ") | dim | color(Color::GrayDark),
         });
     });
 }

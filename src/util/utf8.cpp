@@ -24,6 +24,11 @@ char32_t utf8::decode(const uint8_t* data, size_t len, size_t& pos) {
 std::string utf8::encode(char32_t ch) {
     std::string result;
 
+    // Handle null or invalid characters
+    if (ch == 0 || ch > 0x10FFFF) {
+        return " ";  // Return space for invalid characters
+    }
+
     if (ch < 0x80) {
         result += static_cast<char>(ch);
     } else if (ch < 0x800) {

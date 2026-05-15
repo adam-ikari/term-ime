@@ -66,7 +66,6 @@ add_library(term-terminal STATIC
     src/terminal/screen.cpp
     src/terminal/parser.cpp
     src/ui/renderer.cpp
-    src/ui/ftxui_ui.cpp
 )
 
 target_include_directories(term-terminal
@@ -78,7 +77,6 @@ target_link_libraries(term-terminal
     PRIVATE util
     PRIVATE spdlog::spdlog
     PRIVATE nlohmann_json::nlohmann_json
-    PRIVATE ftxui::component
     PRIVATE ftxui::dom
     PRIVATE ftxui::screen
 )
@@ -110,6 +108,8 @@ add_executable(term-ime src/main.cpp)
 
 target_link_libraries(term-ime
     PRIVATE term-core
+    PRIVATE term-terminal
+    PRIVATE term-ime-lib
     PRIVATE spdlog::spdlog
 )
 

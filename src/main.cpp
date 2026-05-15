@@ -1,5 +1,6 @@
 #include "core/event_loop.hpp"
 #include "core/app.hpp"
+#include <spdlog/spdlog.h>
 #include <unistd.h>
 #include <signal.h>
 #include <cstdio>
@@ -9,17 +10,24 @@ int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
 
+    spdlog::info("term-ime starting");
+
     const char* shell = getenv("SHELL");
     if (!shell) shell = "/bin/bash";
 
     // Create event loop
+    spdlog::info("Creating event loop");
     EventLoop loop;
 
     // Create application
+    spdlog::info("Creating app");
     App app;
     if (!app.init(shell)) {
+        spdlog::error("App init failed");
         return 1;
     }
+
+    spdlog::info("Registering callbacks");
 
     // Register PTY reader
     loop.watch_fd(app.pty_fd(), [&app](const char* data, size_t len) {
@@ -47,7 +55,9 @@ int main(int argc, char* argv[]) {
     });
 
     // Run event loop
+    spdlog::info("Starting event loop");
     loop.run();
+    spdlog::info("Event loop finished");
 
     return 0;
 }

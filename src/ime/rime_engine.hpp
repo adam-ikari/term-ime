@@ -36,7 +36,7 @@ public:
 private:
     RimeApi* rime_ = nullptr;
     RimeSessionId session_ = 0;
-    ImeMode mode_ = ImeMode::Chinese;
+    ImeMode mode_ = ImeMode::English;  // 默认英文模式，不影响终端正常使用
     std::string shared_data_dir_;
     std::string user_data_dir_;
 

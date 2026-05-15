@@ -95,7 +95,8 @@ std::string RimeIme::buffer() const {
 
     RIME_STRUCT(RimeContext, context);
     if (rime_->get_context(session_, &context)) {
-        std::string result(context.composition.preedit);
+        const char* preedit = context.composition.preedit;
+        std::string result(preedit ? preedit : "");
         rime_->free_context(&context);
         return result;
     }
@@ -110,8 +111,14 @@ std::vector<Candidate> RimeIme::candidates() const {
     if (rime_->get_context(session_, &context)) {
         for (int i = 0; i < context.menu.num_candidates; ++i) {
             Candidate cand;
-            cand.text = utf8_to_utf32(context.menu.candidates[i].text);
-            cand.code = context.menu.candidates[i].comment ? context.menu.candidates[i].comment : "";
+            const char* text = context.menu.candidates[i].text;
+            const char* comment = context.menu.candidates[i].comment;
+
+            // Safety check for null pointers
+            if (text) {
+                cand.text = utf8_to_utf32(text);
+            }
+            cand.code = comment ? comment : "";
             result.push_back(cand);
         }
         rime_->free_context(&context);
@@ -129,7 +136,8 @@ std::u32string RimeIme::select(int index) {
     // Get committed text
     RIME_STRUCT(RimeCommit, commit);
     if (rime_->get_commit(session_, &commit)) {
-        std::u32string result = utf8_to_utf32(commit.text);
+        const char* text = commit.text;
+        std::u32string result = text ? utf8_to_utf32(text) : U"";
         rime_->free_commit(&commit);
         return result;
     }
@@ -189,10 +197,15 @@ void RimeIme::update_state() {
 
 std::u32string RimeIme::utf8_to_utf32(const std::string& utf8) const {
     std::u32string result;
+    if (utf8.empty()) return result;
+
     const uint8_t* data = reinterpret_cast<const uint8_t*>(utf8.data());
     size_t pos = 0;
     while (pos < utf8.size()) {
-        result += utf8::decode(data, utf8.size(), pos);
+        char32_t ch = utf8::decode(data, utf8.size(), pos);
+        if (ch != 0) {  // Skip null characters
+            result += ch;
+        }
     }
     return result;
 }
