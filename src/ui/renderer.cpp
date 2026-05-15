@@ -27,6 +27,13 @@ void Renderer::init() {
         return;
     }
 
+    // Clear screen first (before raw mode)
+    // ESC[2J = clear entire screen
+    // ESC[H = move cursor to home
+    // ESC[3J = clear scrollback (optional)
+    printf("\033[2J\033[H\033[3J");
+    fflush(stdout);
+
     // Save current terminal settings
     saved_termios_ = new termios;
     if (tcgetattr(tty_fd_, saved_termios_) < 0) {
@@ -45,12 +52,6 @@ void Renderer::init() {
     raw.c_cc[VMIN] = 0;
     raw.c_cc[VTIME] = 1;
     tcsetattr(tty_fd_, TCSAFLUSH, &raw);
-
-    // Clear screen on enter
-    // ESC[2J = clear entire screen
-    // ESC[H = move cursor to home
-    printf("\033[2J\033[H");
-    fflush(stdout);
 
     initialized_ = true;
 }
