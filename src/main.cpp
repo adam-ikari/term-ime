@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
         std::filesystem::create_directories(log_dir);
         auto logger = spdlog::basic_logger_mt("term-ime", log_dir + "/term-ime.log", true);
         spdlog::set_default_logger(logger);
-        spdlog::set_level(spdlog::level::info);
+        spdlog::set_level(spdlog::level::debug);
     } catch (const std::exception& e) {
         // 如果无法创建文件日志，禁用日志
         spdlog::set_level(spdlog::level::off);

@@ -97,8 +97,11 @@ void App::on_keyboard_data(const char* data, size_t len) {
     if (!escape_buffer.empty()) {
         escape_buffer += static_cast<char>(ch);
 
+        spdlog::debug("ESC buffer: {}, size: {}", escape_buffer, escape_buffer.size());
+
         // ESC + Space = Shift+Space，切换模式
         if (escape_buffer == "\x1b ") {
+            spdlog::info("Shift+Space detected, toggling mode");
             ime_.toggle_mode();
             escape_buffer.clear();
             render();
@@ -115,6 +118,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
             }
             // 不是功能键序列，检查是否是 Shift+Space
             if (second == ' ') {
+                spdlog::info("Shift+Space detected (size 2), toggling mode");
                 ime_.toggle_mode();
                 escape_buffer.clear();
                 render();
@@ -128,6 +132,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 return;
             }
             // 转发 ESC 和当前字符给 shell
+            spdlog::debug("Forwarding ESC sequence: {}", escape_buffer);
             pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
             escape_buffer.clear();
             return;
@@ -139,12 +144,14 @@ void App::on_keyboard_data(const char* data, size_t len) {
             char last = escape_buffer.back();
             // 序列以字母结尾（A-Z, a-z）
             if ((last >= 'A' && last <= 'Z') || (last >= 'a' && last <= 'z')) {
+                spdlog::debug("Forwarding function key sequence: {}", escape_buffer);
                 pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
                 escape_buffer.clear();
                 return;
             }
             // 序列以 ~ 结尾
             if (last == '~') {
+                spdlog::debug("Forwarding function key sequence (~): {}", escape_buffer);
                 pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
                 escape_buffer.clear();
                 return;
@@ -152,6 +159,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
             // 继续收集
             if (escape_buffer.size() > 10) {
                 // 太长了，直接转发
+                spdlog::debug("ESC sequence too long, forwarding: {}", escape_buffer);
                 pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
                 escape_buffer.clear();
             }
