@@ -86,12 +86,12 @@ make build
 ```json
 {
   "languages": [
-    {"id": "zh-CN-simp", "name": "简体中文", "schema": "luna_pinyin_simp", "enabled": true},
-    {"id": "zh-CN", "name": "繁体中文", "schema": "luna_pinyin", "enabled": true},
-    {"id": "zh-TW", "name": "正體中文", "schema": "terra_pinyin", "enabled": false},
+    {"id": "zh-Hans", "name": "简体中文", "schema": "luna_pinyin_simp", "enabled": true},
+    {"id": "zh-Hant", "name": "繁體中文", "schema": "luna_pinyin", "enabled": true},
+    {"id": "zh-Hant-TW", "name": "正體中文（台灣）", "schema": "terra_pinyin", "enabled": false},
     {"id": "ja", "name": "日本語", "schema": "kana", "enabled": false}
   ],
-  "active_language": "zh-CN-simp",
+  "active_language": "zh-Hans",
   "neural_ranker": {
     "enabled": false,
     "model_path": "models/ranker.onnx"

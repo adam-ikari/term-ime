@@ -46,9 +46,9 @@ NeuralRankerConfig NeuralRankerConfig::from_json(const json& j) {
 // AppConfig implementation
 std::vector<LanguageConfig> AppConfig::default_languages() {
     return {
-        {"zh-CN-simp", "简体中文", "luna_pinyin_simp", true},
-        {"zh-CN", "繁体中文", "luna_pinyin", true},
-        {"zh-TW", "正體中文", "terra_pinyin", false}
+        {"zh-Hans", "简体中文", "luna_pinyin_simp", true},
+        {"zh-Hant", "繁體中文", "luna_pinyin", true},
+        {"zh-Hant-TW", "正體中文（台灣）", "terra_pinyin", false}
     };
 }
 
@@ -91,7 +91,7 @@ AppConfig AppConfig::from_json(const json& j) {
         cfg.languages = default_languages();
     }
 
-    cfg.active_language = j.value("active_language", "zh-CN");
+    cfg.active_language = j.value("active_language", "zh-Hans");
 
     cfg.dict_path = j.value("dict_path", "data/pinyin.dict");
     cfg.extra_dicts = j.value("extra_dicts", std::vector<std::string>{});

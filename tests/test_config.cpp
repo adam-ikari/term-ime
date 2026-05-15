@@ -21,7 +21,7 @@ TEST_F(ConfigTest, DefaultLanguages) {
     // Should have Chinese (simplified is first)
     bool has_chinese = false;
     for (const auto& lang : languages) {
-        if (lang.id == "zh-CN-simp") {
+        if (lang.id == "zh-Hans") {
             has_chinese = true;
             EXPECT_EQ(lang.name, "简体中文");
             EXPECT_TRUE(lang.enabled);
