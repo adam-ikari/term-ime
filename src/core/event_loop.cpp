@@ -133,18 +133,24 @@ void EventLoop::timer_callback(uv_timer_t* handle) {
 
 void EventLoop::io_callback(uv_poll_t* handle, int status, int events) {
     auto* io = static_cast<IoHandle*>(handle->data);
-    if (io && io->callback && status == 0) {
-        // Read available data
-        char buf[4096];
-        ssize_t n = read(io->fd, buf, sizeof(buf));
-        if (n > 0) {
-            io->callback(buf, n);
-        } else if (n == 0) {
-            // EOF - PTY 关闭，shell 退出
-            // 传递空数据通知上层
+    if (!io || !io->callback) return;
+
+    // Read available data
+    char buf[4096];
+    ssize_t n = read(io->fd, buf, sizeof(buf));
+
+    if (n > 0) {
+        io->callback(buf, n);
+    } else if (n == 0) {
+        // EOF - PTY closed, shell exited
+        spdlog::info("EOF on fd {}, calling callback with len=0", io->fd);
+        io->callback(nullptr, 0);
+    } else {
+        // n < 0: check if it's a real error or just EAGAIN
+        if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+            spdlog::warn("Read error on fd {}: {}", io->fd, strerror(errno));
             io->callback(nullptr, 0);
         }
-        // n < 0 时忽略（EAGAIN 等非阻塞情况）
     }
 }
 
