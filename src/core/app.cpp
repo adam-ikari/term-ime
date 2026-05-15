@@ -15,10 +15,14 @@ App::~App() {
 }
 
 bool App::init(const std::string& shell) {
+    spdlog::info("App::init starting");
+
     // Initialize renderer
+    spdlog::info("Initializing renderer");
     renderer_.init();
 
     // Spawn shell in PTY
+    spdlog::info("Spawning PTY");
     if (!pty_.spawn(shell)) {
         spdlog::error("Failed to spawn shell");
         renderer_.restore();
@@ -30,10 +34,12 @@ bool App::init(const std::string& shell) {
     ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws);
 
     // Create screen and parser
+    spdlog::info("Creating screen {}x{}", ws.ws_row - 1, ws.ws_col);
     screen_ = new Screen(ws.ws_row - 1, ws.ws_col);
     parser_ = new Parser(*screen_);
 
     // Initialize Rime IME
+    spdlog::info("Initializing Rime IME");
     if (!ime_.initialize()) {
         spdlog::warn("Failed to initialize Rime IME");
     } else {
@@ -41,20 +47,60 @@ bool App::init(const std::string& shell) {
     }
 
     initialized_ = true;
+    spdlog::info("App::init complete");
     return true;
 }
 
 void App::on_pty_data(const char* data, size_t len) {
+    // 直接转发 PTY 输出到终端，不解析
+    // 这样可以获得和原生终端一样的体验
+    renderer_.forward_output(data, len);
+
+    // 同时更新内部屏幕状态（用于光标位置跟踪等）
     if (parser_) {
         parser_->feed(reinterpret_cast<const uint8_t*>(data), len);
-        render();
     }
+
+    // 显示候选词栏（覆盖最后一行）
+    std::string mode = (ime_.mode() == ImeMode::Chinese) ? "中文" : "EN";
+    renderer_.render_candidates(ime_.candidates(), selected_candidate_, ime_.buffer(), mode);
 }
 
 void App::on_keyboard_data(const char* data, size_t len) {
     if (len == 0) return;
 
+    // Alt+Enter 检测: ESC (0x1b) 后跟 Enter
+    static std::string escape_buffer;
+    static bool waiting_alt_enter = false;
+
     int ch = static_cast<int>(data[0]);
+
+    // 检测 ESC 开始的序列
+    if (ch == 27 && escape_buffer.empty()) {
+        escape_buffer += static_cast<char>(ch);
+        waiting_alt_enter = true;
+        return;
+    }
+
+    // 检测 Alt+Enter (ESC + Enter)
+    if (waiting_alt_enter && (ch == '\r' || ch == '\n')) {
+        ime_.toggle_mode();
+        escape_buffer.clear();
+        waiting_alt_enter = false;
+        render();
+        return;
+    }
+
+    // 如果有 ESC 但不是 Alt+Enter，转发给 shell
+    if (!escape_buffer.empty()) {
+        escape_buffer += static_cast<char>(ch);
+        pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
+        escape_buffer.clear();
+        waiting_alt_enter = false;
+        return;
+    }
+
+    waiting_alt_enter = false;
 
     // Check if IME should handle this
     if (ime_.state() == ImeState::Composing || ime_.state() == ImeState::Selecting) {
@@ -115,11 +161,14 @@ void App::on_quit(int signum) {
 void App::render() {
     if (!screen_) return;
 
+    spdlog::debug("render: starting");
     renderer_.render(*screen_);
+    spdlog::debug("render: screen done");
 
-    if (ime_.state() != ImeState::Inactive) {
-        renderer_.render_candidates(ime_.candidates(), selected_candidate_, ime_.buffer());
-    }
+    // 总是显示候选词栏（包括空状态提示）
+    std::string mode = (ime_.mode() == ImeMode::Chinese) ? "中文" : "EN";
+    renderer_.render_candidates(ime_.candidates(), selected_candidate_, ime_.buffer(), mode);
+    spdlog::debug("render: candidates done");
 }
 
 int App::pty_fd() const {
