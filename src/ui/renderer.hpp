@@ -2,6 +2,7 @@
 
 #include "../terminal/screen.hpp"
 #include "../ime/engine.hpp"
+#include <ftxui/dom/elements.hpp>
 #include <string>
 
 class Renderer {
@@ -16,8 +17,10 @@ public:
     void restore();
 
     void render(const Screen& screen);
+    void forward_output(const char* data, size_t len);
     void render_candidates(const std::vector<Candidate>& candidates,
-                           size_t selected, const std::string& buffer);
+                           size_t selected, const std::string& buffer,
+                           const std::string& mode = "EN");
 
     int read_key();
     int get_tty_fd() const;
@@ -26,4 +29,10 @@ private:
     int tty_fd_ = -1;
     bool initialized_ = false;
     struct termios* saved_termios_ = nullptr;
+
+    // FTXUI elements builder
+    ftxui::Element build_candidate_bar(const std::vector<Candidate>& candidates,
+                                        size_t selected, const std::string& buffer,
+                                        const std::string& mode) const;
+    ftxui::Element build_empty_bar(const std::string& mode) const;
 };

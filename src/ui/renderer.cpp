@@ -1,9 +1,13 @@
 #include "renderer.hpp"
 #include "../util/utf8.hpp"
+#include <ftxui/screen/screen.hpp>
+#include <ftxui/screen/string.hpp>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <cstdio>
+
+namespace ftxui {
 
 Renderer::Renderer() = default;
 
@@ -27,8 +31,10 @@ void Renderer::init() {
     raw.c_cc[VTIME] = 1;
     tcsetattr(tty_fd_, TCSAFLUSH, &raw);
 
-    // Hide cursor, enable alternate screen
-    printf("\x1b[?25l\x1b[?1049h");
+    // 不使用 alternate screen，直接在主屏幕上渲染
+    // 这样 PTY 输出可以正常显示
+    // Hide cursor
+    printf("\x1b[?25l");
     fflush(stdout);
 
     initialized_ = true;
@@ -44,64 +50,129 @@ void Renderer::restore() {
         saved_termios_ = nullptr;
     }
 
-    // Show cursor, disable alternate screen
-    printf("\x1b[?25h\x1b[?1049l");
+    // Show cursor
+    printf("\x1b[?25h");
     fflush(stdout);
 
     initialized_ = false;
 }
 
 void Renderer::render(const Screen& screen) {
-    // Move cursor to home position
-    printf("\x1b[H");
+    // 直接转发 PTY 数据，不再重绘整个屏幕
+}
 
-    for (int row = 0; row < screen.rows(); ++row) {
-        for (int col = 0; col < screen.cols(); ++col) {
-            Cell cell = screen.get(row, col);
-            std::string utf8 = utf8::encode(cell.ch);
-            printf("%s", utf8.c_str());
-        }
-        if (row < screen.rows() - 1) {
-            printf("\r\n");
-        }
-    }
+void Renderer::forward_output(const char* data, size_t len) {
+    // 直接转发 PTY 输出到终端
+    fwrite(data, 1, len, stdout);
     fflush(stdout);
 }
 
-void Renderer::render_candidates(const std::vector<Candidate>& candidates,
-                                  size_t selected, const std::string& buffer) {
-    if (candidates.empty()) return;
+Element Renderer::build_empty_bar(const std::string& mode) const {
+    using namespace ftxui;
 
-    // Move to bottom line
+    // 模式指示器
+    Color mode_color = (mode == "中文") ? Color::Green : Color::Cyan;
+    auto mode_indicator = hbox({
+        text(" 【") | dim,
+        text(mode) | bold | color(mode_color),
+        text("】 ") | dim,
+    });
+
+    // 提示信息
+    auto hints = hbox({
+        text(" Alt+Enter 切换中英文 ") | dim | color(Color::GrayDark),
+        text("│") | color(Color::GrayDark),
+        text(" 1-9 选择候选词 ") | dim | color(Color::GrayDark),
+        text("│") | color(Color::GrayDark),
+        text(" Esc 取消 ") | dim | color(Color::GrayDark),
+        text("│") | color(Color::GrayDark),
+        text(" 输入exit退出 ") | dim | color(Color::GrayDark),
+    });
+
+    return hbox({
+        mode_indicator,
+        filler(),
+        hints,
+    }) | inverted | size(HEIGHT, EQUAL, 1);
+}
+
+Element Renderer::build_candidate_bar(const std::vector<Candidate>& candidates,
+                                       size_t selected, const std::string& buffer,
+                                       const std::string& mode) const {
+    using namespace ftxui;
+
+    std::vector<Element> items;
+
+    // 模式指示器
+    Color mode_color = (mode == "中文") ? Color::Green : Color::Cyan;
+    items.push_back(hbox({
+        text(" 【") | dim,
+        text(mode) | bold | color(mode_color),
+        text("】 ") | dim,
+    }));
+
+    // 拼音缓冲区
+    items.push_back(text(" 拼音: " + buffer + " ") | bold);
+
+    // 候选词
+    for (size_t i = 0; i < candidates.size() && i < 9; ++i) {
+        std::string text_str;
+        for (char32_t ch : candidates[i].text) {
+            if (ch != 0) {
+                text_str += utf8::encode(ch);
+            }
+        }
+
+        std::string label = std::to_string(i + 1) + "." + text_str;
+        if (i == selected) {
+            items.push_back(text(" [" + label + "] ") | bold | bgcolor(Color::Blue));
+        } else {
+            items.push_back(text(" " + label + " ") | color(Color::Yellow));
+        }
+    }
+
+    // 快捷键提示
+    items.push_back(text("  Esc取消 ") | dim | color(Color::GrayDark));
+
+    return hbox(items) | inverted | size(HEIGHT, EQUAL, 1);
+}
+
+void Renderer::render_candidates(const std::vector<Candidate>& candidates,
+                                  size_t selected, const std::string& buffer,
+                                  const std::string& mode) {
     struct winsize ws;
-    if (ioctl(tty_fd_, TIOCGWINSZ, &ws) < 0) {
+    if (ioctl(tty_fd_, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0) {
         ws.ws_row = 24;
         ws.ws_col = 80;
     }
 
-    printf("\x1b[%d;1H", ws.ws_row);  // Last line
-    printf("\x1b[7m");  // Reverse video
-    fflush(stdout);
-
-    // Show buffer
-    printf(" 拼音: %s ", buffer.c_str());
-
-    // Show candidates
-    size_t idx = 0;
-    for (const auto& cand : candidates) {
-        std::string text;
-        for (char32_t ch : cand.text) {
-            text += utf8::encode(ch);
-        }
-        if (idx == selected) {
-            printf(" [%zu.%s] ", idx + 1, text.c_str());
-        } else {
-            printf(" %zu.%s ", idx + 1, text.c_str());
-        }
-        ++idx;
+    // 使用 FTXUI 构建 Element
+    Element element;
+    if (candidates.empty()) {
+        element = build_empty_bar(mode);
+    } else {
+        element = build_candidate_bar(candidates, selected, buffer, mode);
     }
 
-    printf("\x1b[0m");  // Reset attributes
+    // 创建 Screen 并渲染
+    auto screen = Screen::Create(Dimension::Fixed(ws.ws_col), Dimension::Fixed(1));
+    Render(screen, element);
+
+    // 保存当前光标位置
+    printf("\x1b[s");
+
+    // 移动到最后一行
+    printf("\x1b[%d;1H", ws.ws_row);
+
+    // 清除该行
+    printf("\x1b[2K");
+
+    // 输出 FTXUI 渲染结果
+    std::string output = screen.ToString();
+    fwrite(output.c_str(), 1, output.size(), stdout);
+
+    // 恢复光标位置
+    printf("\x1b[u");
     fflush(stdout);
 }
 
@@ -117,3 +188,5 @@ int Renderer::read_key() {
 int Renderer::get_tty_fd() const {
     return tty_fd_;
 }
+
+}  // namespace ftxui
