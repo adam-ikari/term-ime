@@ -31,7 +31,12 @@ bool App::init(const std::string& shell) {
 
     // Get terminal size
     struct winsize ws;
-    ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws);
+    if (ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws) < 0 ||
+        ws.ws_row == 0 || ws.ws_row > 1000 ||
+        ws.ws_col == 0 || ws.ws_col > 1000) {
+        ws.ws_row = 24;
+        ws.ws_col = 80;
+    }
 
     // Create screen and parser
     spdlog::info("Creating screen {}x{}", ws.ws_row - 1, ws.ws_col);
