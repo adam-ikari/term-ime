@@ -57,6 +57,13 @@ bool App::init(const std::string& shell) {
 }
 
 void App::on_pty_data(const char* data, size_t len) {
+    // 检测 PTY 关闭 (EOF)
+    if (len == 0 || data == nullptr) {
+        spdlog::info("PTY closed, exiting");
+        renderer_.restore();
+        _exit(0);
+    }
+
     // 直接转发 PTY 输出到终端，不解析
     // 这样可以获得和原生终端一样的体验
     renderer_.forward_output(data, len);

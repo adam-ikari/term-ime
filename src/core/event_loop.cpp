@@ -139,7 +139,12 @@ void EventLoop::io_callback(uv_poll_t* handle, int status, int events) {
         ssize_t n = read(io->fd, buf, sizeof(buf));
         if (n > 0) {
             io->callback(buf, n);
+        } else if (n == 0) {
+            // EOF - PTY 关闭，shell 退出
+            // 传递空数据通知上层
+            io->callback(nullptr, 0);
         }
+        // n < 0 时忽略（EAGAIN 等非阻塞情况）
     }
 }
 
