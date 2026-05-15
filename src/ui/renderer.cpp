@@ -27,13 +27,6 @@ void Renderer::init() {
         return;
     }
 
-    // Clear screen first (before raw mode)
-    // ESC[2J = clear entire screen
-    // ESC[H = move cursor to home
-    // ESC[3J = clear scrollback (optional)
-    printf("\033[2J\033[H\033[3J");
-    fflush(stdout);
-
     // Save current terminal settings
     saved_termios_ = new termios;
     if (tcgetattr(tty_fd_, saved_termios_) < 0) {
@@ -42,6 +35,17 @@ void Renderer::init() {
         initialized_ = false;
         return;
     }
+
+    // Switch to alternate screen buffer first
+    // This preserves the original screen content
+    printf("\033[?1049h");
+    fflush(stdout);
+
+    // Clear screen
+    // ESC[2J = clear entire screen
+    // ESC[H = move cursor to home
+    printf("\033[2J\033[H");
+    fflush(stdout);
 
     // Set raw mode:
     // - 关闭 ICANON (行缓冲) - 立即读取每个字符
@@ -59,10 +63,13 @@ void Renderer::init() {
 void Renderer::restore() {
     if (!initialized_) return;
 
-    // Clear screen on exit
-    // ESC[2J = clear entire screen
-    // ESC[H = move cursor to home
+    // Clear screen
     printf("\033[2J\033[H");
+    fflush(stdout);
+
+    // Switch back to main screen buffer
+    // This restores the original terminal content
+    printf("\033[?1049l");
     fflush(stdout);
 
     // Restore terminal settings
