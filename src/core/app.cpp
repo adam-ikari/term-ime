@@ -57,13 +57,6 @@ bool App::init(const std::string& shell) {
 }
 
 void App::on_pty_data(const char* data, size_t len) {
-    // 检测 PTY 关闭 (EOF)
-    if (len == 0 || data == nullptr) {
-        spdlog::info("PTY closed, exiting");
-        renderer_.restore();
-        _exit(0);
-    }
-
     // 直接转发 PTY 输出到终端，不解析
     // 这样可以获得和原生终端一样的体验
     renderer_.forward_output(data, len);
@@ -81,38 +74,38 @@ void App::on_pty_data(const char* data, size_t len) {
 void App::on_keyboard_data(const char* data, size_t len) {
     if (len == 0) return;
 
-    // Alt+Enter 检测: ESC (0x1b) 后跟 Enter
+    // Alt+; 检测: ESC (0x1b) 后跟 ';' (0x3b)
     static std::string escape_buffer;
-    static bool waiting_alt_enter = false;
+    static bool waiting_alt_seq = false;
 
     int ch = static_cast<int>(data[0]);
 
     // 检测 ESC 开始的序列
     if (ch == 27 && escape_buffer.empty()) {
         escape_buffer += static_cast<char>(ch);
-        waiting_alt_enter = true;
+        waiting_alt_seq = true;
         return;
     }
 
-    // 检测 Alt+Enter (ESC + Enter)
-    if (waiting_alt_enter && (ch == '\r' || ch == '\n')) {
+    // 检测 Alt+; (ESC + ';')
+    if (waiting_alt_seq && ch == ';') {
         ime_.toggle_mode();
         escape_buffer.clear();
-        waiting_alt_enter = false;
+        waiting_alt_seq = false;
         render();
         return;
     }
 
-    // 如果有 ESC 但不是 Alt+Enter，转发给 shell
+    // 如果有 ESC 但不是 Alt+;，转发给 shell
     if (!escape_buffer.empty()) {
         escape_buffer += static_cast<char>(ch);
         pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
         escape_buffer.clear();
-        waiting_alt_enter = false;
+        waiting_alt_seq = false;
         return;
     }
 
-    waiting_alt_enter = false;
+    waiting_alt_seq = false;
 
     // Check if IME should handle this
     if (ime_.state() == ImeState::Composing || ime_.state() == ImeState::Selecting) {

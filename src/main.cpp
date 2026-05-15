@@ -44,8 +44,15 @@ int main(int argc, char* argv[]) {
     spdlog::info("Registering callbacks");
 
     // Register PTY reader
-    loop.watch_fd(app.pty_fd(), [&app](const char* data, size_t len) {
-        app.on_pty_data(data, len);
+    loop.watch_fd(app.pty_fd(), [&app, &loop](const char* data, size_t len) {
+        if (len == 0 || data == nullptr) {
+            // PTY closed (EOF), exit gracefully
+            spdlog::info("PTY closed, exiting");
+            app.on_quit(0);
+            loop.stop();
+        } else {
+            app.on_pty_data(data, len);
+        }
     });
 
     // Register keyboard reader
