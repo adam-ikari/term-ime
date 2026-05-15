@@ -2,12 +2,11 @@
 #include "../util/utf8.hpp"
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/screen/string.hpp>
+#include <ftxui/dom/elements.hpp>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <cstdio>
-
-namespace ftxui {
 
 Renderer::Renderer() = default;
 
@@ -32,7 +31,6 @@ void Renderer::init() {
     tcsetattr(tty_fd_, TCSAFLUSH, &raw);
 
     // 不使用 alternate screen，直接在主屏幕上渲染
-    // 这样 PTY 输出可以正常显示
     // Hide cursor
     printf("\x1b[?25l");
     fflush(stdout);
@@ -67,7 +65,7 @@ void Renderer::forward_output(const char* data, size_t len) {
     fflush(stdout);
 }
 
-Element Renderer::build_empty_bar(const std::string& mode) const {
+ftxui::Element Renderer::build_empty_bar(const std::string& mode) const {
     using namespace ftxui;
 
     // 模式指示器
@@ -96,9 +94,9 @@ Element Renderer::build_empty_bar(const std::string& mode) const {
     }) | inverted | size(HEIGHT, EQUAL, 1);
 }
 
-Element Renderer::build_candidate_bar(const std::vector<Candidate>& candidates,
-                                       size_t selected, const std::string& buffer,
-                                       const std::string& mode) const {
+ftxui::Element Renderer::build_candidate_bar(const std::vector<Candidate>& candidates,
+                                              size_t selected, const std::string& buffer,
+                                              const std::string& mode) const {
     using namespace ftxui;
 
     std::vector<Element> items;
@@ -147,16 +145,19 @@ void Renderer::render_candidates(const std::vector<Candidate>& candidates,
     }
 
     // 使用 FTXUI 构建 Element
-    Element element;
+    ftxui::Element element;
     if (candidates.empty()) {
         element = build_empty_bar(mode);
     } else {
         element = build_candidate_bar(candidates, selected, buffer, mode);
     }
 
-    // 创建 Screen 并渲染
-    auto screen = Screen::Create(Dimension::Fixed(ws.ws_col), Dimension::Fixed(1));
-    Render(screen, element);
+    // 创建 FTXUI Screen 并渲染
+    auto ftxui_screen = ftxui::Screen::Create(
+        ftxui::Dimension::Fixed(ws.ws_col),
+        ftxui::Dimension::Fixed(1)
+    );
+    ftxui::Render(ftxui_screen, element);
 
     // 保存当前光标位置
     printf("\x1b[s");
@@ -168,7 +169,7 @@ void Renderer::render_candidates(const std::vector<Candidate>& candidates,
     printf("\x1b[2K");
 
     // 输出 FTXUI 渲染结果
-    std::string output = screen.ToString();
+    std::string output = ftxui_screen.ToString();
     fwrite(output.c_str(), 1, output.size(), stdout);
 
     // 恢复光标位置
@@ -188,5 +189,3 @@ int Renderer::read_key() {
 int Renderer::get_tty_fd() const {
     return tty_fd_;
 }
-
-}  // namespace ftxui

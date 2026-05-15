@@ -99,6 +99,8 @@ target_link_libraries(term-core
     PUBLIC term-terminal
     PUBLIC term-ime-lib
     PUBLIC ${LIBUV_LIBRARY}
+    PRIVATE ftxui::dom
+    PRIVATE ftxui::screen
 )
 
 # ============================================================
@@ -111,6 +113,8 @@ target_link_libraries(term-ime
     PRIVATE term-terminal
     PRIVATE term-ime-lib
     PRIVATE spdlog::spdlog
+    PRIVATE ftxui::dom
+    PRIVATE ftxui::screen
 )
 
 # ============================================================
