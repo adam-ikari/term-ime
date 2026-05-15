@@ -46,10 +46,11 @@ void Renderer::init() {
     raw.c_cc[VTIME] = 1;
     tcsetattr(tty_fd_, TCSAFLUSH, &raw);
 
-    // Clear screen on enter using FTXUI
-    using namespace ftxui;
-    auto ftxui_screen = ftxui::Screen::Create(Dimension::Full(), Dimension::Fixed(1));
-    std::cout << ftxui_screen.ResetPosition(true) << std::flush;
+    // Clear screen on enter
+    // ESC[2J = clear entire screen
+    // ESC[H = move cursor to home
+    printf("\033[2J\033[H");
+    fflush(stdout);
 
     initialized_ = true;
 }
@@ -57,10 +58,11 @@ void Renderer::init() {
 void Renderer::restore() {
     if (!initialized_) return;
 
-    // Clear screen on exit using FTXUI
-    using namespace ftxui;
-    auto ftxui_screen = ftxui::Screen::Create(Dimension::Full(), Dimension::Fixed(1));
-    std::cout << ftxui_screen.ResetPosition(true) << std::flush;
+    // Clear screen on exit
+    // ESC[2J = clear entire screen
+    // ESC[H = move cursor to home
+    printf("\033[2J\033[H");
+    fflush(stdout);
 
     // Restore terminal settings
     if (saved_termios_) {
