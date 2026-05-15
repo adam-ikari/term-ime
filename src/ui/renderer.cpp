@@ -23,10 +23,12 @@ void Renderer::init() {
     saved_termios_ = new termios;
     tcgetattr(tty_fd_, saved_termios_);
 
-    // Set raw mode: 关闭 ICANON (行缓冲)，但保持 ECHO 让输入可见
-    // ISIG 关闭以捕获 Ctrl+C 等，但我们在 App 中处理
+    // Set raw mode:
+    // - 关闭 ICANON (行缓冲) - 立即读取每个字符
+    // - 关闭 ECHO - PTY 会回显，不需要本地回显
+    // - 关闭 ISIG - 捕获 Ctrl+C 等信号
     termios raw = *saved_termios_;
-    raw.c_lflag &= ~(ICANON | ISIG);
+    raw.c_lflag &= ~(ICANON | ECHO | ISIG);
     raw.c_cc[VMIN] = 0;
     raw.c_cc[VTIME] = 1;
     tcsetattr(tty_fd_, TCSAFLUSH, &raw);
