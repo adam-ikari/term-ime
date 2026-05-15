@@ -23,17 +23,13 @@ void Renderer::init() {
     saved_termios_ = new termios;
     tcgetattr(tty_fd_, saved_termios_);
 
-    // Set raw mode
+    // Set raw mode: 关闭 ICANON (行缓冲)，但保持 ECHO 让输入可见
+    // ISIG 关闭以捕获 Ctrl+C 等，但我们在 App 中处理
     termios raw = *saved_termios_;
-    raw.c_lflag &= ~(ICANON | ECHO | ISIG);
+    raw.c_lflag &= ~(ICANON | ISIG);
     raw.c_cc[VMIN] = 0;
     raw.c_cc[VTIME] = 1;
     tcsetattr(tty_fd_, TCSAFLUSH, &raw);
-
-    // 不使用 alternate screen，直接在主屏幕上渲染
-    // Hide cursor
-    printf("\x1b[?25l");
-    fflush(stdout);
 
     initialized_ = true;
 }
@@ -47,10 +43,6 @@ void Renderer::restore() {
         delete saved_termios_;
         saved_termios_ = nullptr;
     }
-
-    // Show cursor
-    printf("\x1b[?25h");
-    fflush(stdout);
 
     initialized_ = false;
 }
