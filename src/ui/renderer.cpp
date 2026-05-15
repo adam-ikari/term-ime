@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <cstdio>
+#include <iostream>
 
 Renderer::Renderer() = default;
 
@@ -45,11 +46,21 @@ void Renderer::init() {
     raw.c_cc[VTIME] = 1;
     tcsetattr(tty_fd_, TCSAFLUSH, &raw);
 
+    // Clear screen on enter using FTXUI
+    using namespace ftxui;
+    auto ftxui_screen = ftxui::Screen::Create(Dimension::Full(), Dimension::Fixed(1));
+    std::cout << ftxui_screen.ResetPosition(true) << std::flush;
+
     initialized_ = true;
 }
 
 void Renderer::restore() {
     if (!initialized_) return;
+
+    // Clear screen on exit using FTXUI
+    using namespace ftxui;
+    auto ftxui_screen = ftxui::Screen::Create(Dimension::Full(), Dimension::Fixed(1));
+    std::cout << ftxui_screen.ResetPosition(true) << std::flush;
 
     // Restore terminal settings
     if (saved_termios_) {
