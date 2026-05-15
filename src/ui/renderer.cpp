@@ -72,13 +72,11 @@ ftxui::Element Renderer::build_empty_bar(const std::string& mode) const {
 
     // 提示信息
     auto hints = hbox({
-        text(" Alt+Enter 切换中英文 ") | dim | color(Color::GrayDark),
+        text(" Alt+; 切换中英文 ") | dim | color(Color::GrayDark),
         text("│") | color(Color::GrayDark),
         text(" 1-9 选择候选词 ") | dim | color(Color::GrayDark),
         text("│") | color(Color::GrayDark),
         text(" Esc 取消 ") | dim | color(Color::GrayDark),
-        text("│") | color(Color::GrayDark),
-        text(" 输入exit退出 ") | dim | color(Color::GrayDark),
     });
 
     return hbox({
