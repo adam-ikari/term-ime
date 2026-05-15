@@ -82,84 +82,62 @@ void App::on_keyboard_data(const char* data, size_t len) {
 
     int ch = static_cast<int>(data[0]);
 
-    // 转义序列缓冲区（用于检测功能键序列）
+    // 转义序列缓冲区
     static std::string escape_buffer;
 
-    // Shift+Space 检测：ESC + Space
-    // 同时处理其他 ESC 序列
+    // tmux-style prefix key: Ctrl+A (char 1) then command key
+    // Ctrl+A = ASCII 1 (0x01), same as GNU Screen default
+    if (ch == 1) {  // Ctrl+A
+        prefix_pending_ = true;
+        spdlog::info("Prefix key Ctrl+A received, waiting for command");
+        return;
+    }
+
+    // Handle command after prefix
+    if (prefix_pending_) {
+        prefix_pending_ = false;
+        if (ch == ' ') {  // Ctrl+A + Space = toggle mode
+            spdlog::info("Ctrl+A + Space detected, toggling mode");
+            ime_.toggle_mode();
+            render();
+            return;
+        }
+        // Unknown command after prefix, forward both keys to shell
+        pty_.write(std::vector<uint8_t>{1});  // Send Ctrl+A first
+        pty_.write(std::vector<uint8_t>(data, data + len));
+        return;
+    }
+
+    // 处理 ESC 序列
     if (ch == 27) {
         escape_buffer.clear();
         escape_buffer += static_cast<char>(ch);
         return;
     }
 
-    // 处理 ESC 后续字符
     if (!escape_buffer.empty()) {
         escape_buffer += static_cast<char>(ch);
 
-        spdlog::debug("ESC buffer: {}, size: {}", escape_buffer, escape_buffer.size());
-
-        // ESC + Space = Shift+Space，切换模式
-        if (escape_buffer == "\x1b ") {
-            spdlog::info("Shift+Space detected, toggling mode");
-            ime_.toggle_mode();
-            escape_buffer.clear();
-            render();
-            return;
-        }
-
-        // ESC 单独按下（超时后只有一个 ESC 字符）
-        // 如果正在输入中文，取消输入；否则转发给 shell
+        // 功能键序列：ESC [ ... 或 ESC O ...
         if (escape_buffer.size() == 2) {
             char second = escape_buffer[1];
             if (second == '[' || second == 'O') {
-                // 功能键序列开始，继续收集
-                return;
+                return;  // 继续收集
             }
-            // 不是功能键序列，检查是否是 Shift+Space
-            if (second == ' ') {
-                spdlog::info("Shift+Space detected (size 2), toggling mode");
-                ime_.toggle_mode();
-                escape_buffer.clear();
-                render();
-                return;
-            }
-            // 其他情况：如果正在输入中文，取消输入
-            if (ime_.state() == ImeState::Composing || ime_.state() == ImeState::Selecting) {
-                ime_.cancel();
-                escape_buffer.clear();
-                render();
-                return;
-            }
-            // 转发 ESC 和当前字符给 shell
-            spdlog::debug("Forwarding ESC sequence: {}", escape_buffer);
+            // 不是功能键，转发给 shell
             pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
             escape_buffer.clear();
             return;
         }
 
-        // 收集功能键序列直到完成
-        // 功能键序列格式：ESC [ <params> <final> 或 ESC O <final>
         if (escape_buffer.size() >= 3) {
             char last = escape_buffer.back();
-            // 序列以字母结尾（A-Z, a-z）
-            if ((last >= 'A' && last <= 'Z') || (last >= 'a' && last <= 'z')) {
-                spdlog::debug("Forwarding function key sequence: {}", escape_buffer);
+            if ((last >= 'A' && last <= 'Z') || (last >= 'a' && last <= 'z') || last == '~') {
                 pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
                 escape_buffer.clear();
                 return;
             }
-            // 序列以 ~ 结尾
-            if (last == '~') {
-                spdlog::debug("Forwarding function key sequence (~): {}", escape_buffer);
-                pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
-                escape_buffer.clear();
-                return;
-            }
-            // 继续收集
             if (escape_buffer.size() > 10) {
-                // 太长了，直接转发
-                spdlog::debug("ESC sequence too long, forwarding: {}", escape_buffer);
                 pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
                 escape_buffer.clear();
             }
@@ -172,6 +150,17 @@ void App::on_keyboard_data(const char* data, size_t len) {
         if (ch >= '1' && ch <= '9') {
             int idx = ch - '1';
             auto result = ime_.select(idx);
+            if (!result.empty()) {
+                std::string utf8;
+                for (char32_t c : result) {
+                    utf8 += utf8::encode(c);
+                }
+                pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+            }
+            render();
+        } else if (ch == ' ') {
+            // Space selects first candidate (common behavior for non-English IMEs)
+            auto result = ime_.select(0);
             if (!result.empty()) {
                 std::string utf8;
                 for (char32_t c : result) {

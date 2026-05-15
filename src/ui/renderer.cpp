@@ -84,7 +84,7 @@ ftxui::Element Renderer::build_empty_bar(const std::string& mode) const {
 
     // 提示信息
     auto hints = hbox({
-        text(" Shift+Space 切换 ") | dim | color(Color::GrayDark),
+        text(" Ctrl+A+Space 切换 ") | dim | color(Color::GrayDark),
         text("│") | color(Color::GrayDark),
         text(" 1-9 选择 ") | dim | color(Color::GrayDark),
         text("│") | color(Color::GrayDark),

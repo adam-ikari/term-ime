@@ -67,13 +67,18 @@ bool RimeIme::input(char ch) {
 ImeState RimeIme::state() const {
     if (!rime_ || !session_) return ImeState::Inactive;
 
-    RIME_STRUCT(RimeStatus, status);
-    if (rime_->get_status(session_, &status)) {
-        if (status.is_composing) {
-            rime_->free_status(&status);
+    RIME_STRUCT(RimeContext, context);
+    if (rime_->get_context(session_, &context)) {
+        bool has_composition = context.composition.length > 0;
+        bool has_candidates = context.menu.num_candidates > 0;
+        rime_->free_context(&context);
+
+        if (has_candidates) {
+            return ImeState::Selecting;
+        }
+        if (has_composition) {
             return ImeState::Composing;
         }
-        rime_->free_status(&status);
     }
     return ImeState::Inactive;
 }

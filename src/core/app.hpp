@@ -48,4 +48,7 @@ private:
     RimeIme ime_;
     size_t selected_candidate_ = 0;
     bool initialized_ = false;
+
+    // Prefix key state (tmux-style: Ctrl+B then command key)
+    bool prefix_pending_ = false;  // True after Ctrl+B, waiting for command key
 };
