@@ -1,48 +1,24 @@
-CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2
-LDFLAGS = -lutil
+.PHONY: all clean build test format
 
-SRC_DIR = src
-BUILD_DIR = build
+# Default target: build using CMake (recommended)
+all: build
 
-SRCS = $(SRC_DIR)/main.cpp \
-       $(SRC_DIR)/terminal/pty.cpp \
-       $(SRC_DIR)/terminal/screen.cpp \
-       $(SRC_DIR)/terminal/parser.cpp \
-       $(SRC_DIR)/ime/engine.cpp \
-       $(SRC_DIR)/ime/pinyin.cpp \
-       $(SRC_DIR)/ime/dict.cpp \
-       $(SRC_DIR)/ui/renderer.cpp \
-       $(SRC_DIR)/util/utf8.cpp
-
-OBJS = $(SRCS:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
-
-TARGET = term-ime
-
-.PHONY: all clean dirs format build test
-
-all: dirs $(TARGET)
-
-dirs:
-	@mkdir -p $(BUILD_DIR)/terminal $(BUILD_DIR)/ime $(BUILD_DIR)/ui $(BUILD_DIR)/util
-
-$(TARGET): $(OBJS)
-	$(CXX) $(OBJS) $(LDFLAGS) -o $(TARGET)
-
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
-	$(CXX) $(CXXFLAGS) -I$(SRC_DIR) -c $< -o $@
-
-clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
-
-# Format code using clang-format
-format:
-	find src -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
-
-# Build using cmake (recommended)
+# Build using CMake
 build:
 	rm -rf build && mkdir build && cd build && cmake .. && make -j$(nproc)
 
+# Clean build artifacts
+clean:
+	rm -rf build
+
 # Run tests
 test:
-	./build/term-ime --help || true
+	cd build && ctest --output-on-failure
+
+# Format code using clang-format
+format:
+	find src tests -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
+
+# Run the program (for quick testing)
+run:
+	./build/term-ime
