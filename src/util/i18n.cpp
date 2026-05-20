@@ -83,28 +83,20 @@ std::filesystem::path I18n::get_default_translations_path() {
     // Try multiple paths in order
     std::vector<std::filesystem::path> search_paths;
 
-    // 1. XDG_CONFIG_HOME
-    const char* xdg_config = getenv("XDG_CONFIG_HOME");
-    if (xdg_config) {
-        search_paths.push_back(std::filesystem::path(xdg_config) / "term-ime" / "translations");
-    }
-
-    // 2. HOME/.config
-    const char* home = getenv("HOME");
-    if (home) {
-        search_paths.push_back(std::filesystem::path(home) / ".config" / "term-ime" / "translations");
-    }
-
-    // 3. Build directory (relative to executable)
+    // 1. Build directory (current working directory)
     search_paths.push_back(std::filesystem::current_path() / "data" / "translations");
 
-    // 4. Install prefix
+    // 2. Executable directory (for portable installs)
+    // This allows running from build directory or portable installs
+
+    // 3. System install paths
     search_paths.push_back(std::filesystem::path("/usr/share/term-ime/translations"));
     search_paths.push_back(std::filesystem::path("/usr/local/share/term-ime/translations"));
 
     // Find first existing path
     for (const auto& path : search_paths) {
         if (std::filesystem::exists(path)) {
+            spdlog::debug("Found translations path: {}", path.string());
             return path;
         }
     }
