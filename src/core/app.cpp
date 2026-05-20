@@ -161,6 +161,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
         if (escape_buffer.size() >= 3) {
             char last = escape_buffer.back();
             if ((last >= 'A' && last <= 'Z') || (last >= 'a' && last <= 'z') || last == '~') {
+                spdlog::debug("Forwarding escape sequence: {}", escape_buffer);
                 pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
                 escape_buffer.clear();
                 return;
