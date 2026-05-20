@@ -173,7 +173,9 @@ Element HintsBar() {
         Text("|") | TextColor(FtxuiColor::GrayDark),
         HintItem({.key = "Esc", .action = I18n::t("hint.cancel")}),
         Text("|") | TextColor(FtxuiColor::GrayDark),
-        HintItem({.key = "Ctrl+A,A", .action = I18n::t("hint.ai_toggle")})
+        HintItem({.key = "Ctrl+A,A", .action = I18n::t("hint.ai_toggle")}),
+        Text("|") | TextColor(FtxuiColor::GrayDark),
+        HintItem({.key = "Ctrl+A,L", .action = I18n::t("hint.switch_lang")})
     });
 }
 

@@ -1,5 +1,6 @@
 #include "app.hpp"
 #include "event_loop.hpp"
+#include "util/i18n.hpp"
 #include <spdlog/spdlog.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -22,6 +23,11 @@ App::~App() {
 bool App::init(const AppConfig& config) {
     spdlog::info("App::init starting");
     config_ = config;
+
+    // Initialize i18n with UI language from config
+    I18n::Lang ui_lang = I18n::parse_lang(config_.ui_language);
+    I18n::init(ui_lang);
+    spdlog::info("UI language initialized: {}", config_.ui_language);
 
     // 检查是否是 TTY
     if (!isatty(STDIN_FILENO)) {
@@ -205,6 +211,24 @@ void App::on_keyboard_data(const char* data, size_t len) {
             if (input_result.data.size() == 2 && input_result.data[0] == 1 && input_result.data[1] == 'a') {
                 spdlog::info("Ctrl+A + A detected, toggling AI ranking");
                 toggle_ai_ranking();
+                continue;
+            }
+        }
+
+        // Handle UI language switch (Ctrl+A + L)
+        if (input_result.forward && !input_result.data.empty()) {
+            if (input_result.data.size() == 2 && input_result.data[0] == 1 && input_result.data[1] == 'l') {
+                spdlog::info("Ctrl+A + L detected, cycling UI language");
+                // Cycle through available languages
+                auto langs = available_ui_languages();
+                auto current = I18n::lang_code(I18n::current_lang());
+                for (size_t i = 0; i < langs.size(); ++i) {
+                    if (langs[i].first == current) {
+                        std::string next = langs[(i + 1) % langs.size()].first;
+                        switch_ui_language(next);
+                        break;
+                    }
+                }
                 continue;
             }
         }
@@ -428,6 +452,23 @@ void App::on_model_downloaded(bool success, const std::string& path) {
 
 bool App::is_ai_ranking_enabled() const {
     return ai_ranking_enabled_;
+}
+
+void App::switch_ui_language(const std::string& lang_code) {
+    I18n::Lang new_lang = I18n::parse_lang(lang_code);
+    I18n::set_lang(new_lang);
+    config_.ui_language = lang_code;
+    spdlog::info("UI language switched to: {}", lang_code);
+    render();
+}
+
+std::vector<std::pair<std::string, std::string>> App::available_ui_languages() {
+    return {
+        {"en", "English"},
+        {"zh-CN", "简体中文"},
+        {"zh-TW", "繁體中文"},
+        {"ja", "日本語"}
+    };
 }
 
 void App::on_language_change(const LanguageConfig& lang) {

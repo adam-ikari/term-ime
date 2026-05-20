@@ -68,6 +68,7 @@ json AppConfig::to_json() const {
     }
     j["languages"] = langs;
     j["active_language"] = active_language;
+    j["ui_language"] = ui_language;
 
     j["dict_path"] = dict_path;
     j["extra_dicts"] = extra_dicts;
@@ -101,6 +102,7 @@ AppConfig AppConfig::from_json(const json& j) {
     }
 
     cfg.active_language = j.value("active_language", "zh-Hans");
+    cfg.ui_language = j.value("ui_language", "zh-CN");
 
     cfg.dict_path = j.value("dict_path", "data/pinyin.dict");
     cfg.extra_dicts = j.value("extra_dicts", std::vector<std::string>{});

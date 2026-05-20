@@ -39,6 +39,9 @@ struct AppConfig {
     std::vector<LanguageConfig> languages;
     std::string active_language = "zh-Hans";  // Current active language
 
+    // UI language for i18n
+    std::string ui_language = "zh-CN";  // UI display language: "en", "zh-CN", "zh-TW", "ja"
+
     // IME settings
     std::string dict_path = "data/pinyin.dict";
     std::vector<std::string> extra_dicts;

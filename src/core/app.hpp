@@ -58,6 +58,12 @@ public:
     // Check if AI ranking is enabled
     bool is_ai_ranking_enabled() const;
 
+    // Switch UI language
+    void switch_ui_language(const std::string& lang_code);
+
+    // Get available UI languages
+    static std::vector<std::pair<std::string, std::string>> available_ui_languages();
+
 private:
     Renderer renderer_;
     Pty pty_;

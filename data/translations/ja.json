@@ -8,11 +8,13 @@
   "hint.select": "選択",
   "hint.cancel": "取消",
   "hint.ai_toggle": "AI並替",
+  "hint.switch_lang": "言語",
 
   "status.pinyin": "ピンイン",
   "status.initializing": "初期化中...",
   "status.loading_model": "モデル読込中...",
   "status.downloading": "ダウンロード中...",
+  "status.ui_lang": "UI言語",
 
   "error.init_failed": "初期化失敗",
   "error.model_not_found": "モデルが見つかりません",
@@ -30,5 +32,8 @@
   "settings.ai_ranking": "AI並替",
   "settings.backend": "バックエンド",
   "settings.threads": "スレッド数",
-  "settings.model": "モデル"
+  "settings.model": "モデル",
+  "settings.title": "設定",
+  "settings.ui_language": "UI言語",
+  "settings.close": "閉じる"
 }

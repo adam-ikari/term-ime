@@ -8,11 +8,13 @@
   "hint.select": "选择",
   "hint.cancel": "取消",
   "hint.ai_toggle": "AI排序",
+  "hint.switch_lang": "切换语言",
 
   "status.pinyin": "拼音",
   "status.initializing": "初始化中...",
   "status.loading_model": "加载模型中...",
   "status.downloading": "下载中...",
+  "status.ui_lang": "界面语言",
 
   "error.init_failed": "初始化失败",
   "error.model_not_found": "模型未找到",
@@ -30,5 +32,8 @@
   "settings.ai_ranking": "AI排序",
   "settings.backend": "后端",
   "settings.threads": "线程数",
-  "settings.model": "模型"
+  "settings.model": "模型",
+  "settings.title": "设置",
+  "settings.ui_language": "界面语言",
+  "settings.close": "关闭"
 }
