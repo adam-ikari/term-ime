@@ -1,9 +1,9 @@
 #include "renderer.hpp"
 #include "../util/utf8.hpp"
 #include "../util/i18n.hpp"
+#include "jsx.hpp"
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/screen/string.hpp>
-#include <ftxui/dom/elements.hpp>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
@@ -93,91 +93,11 @@ void Renderer::forward_output(const char* data, size_t len) {
     fflush(stdout);
 }
 
-ftxui::Element Renderer::build_empty_bar(const std::string& mode) const {
-    using namespace ftxui;
-
-    // Mode indicator
-    Color mode_color = (mode.find("中文") != std::string::npos) ? Color::Green : Color::Cyan;
-    auto mode_indicator = hbox({
-        text(" 【") | dim,
-        text(mode) | bold | color(mode_color),
-        text("】 ") | dim,
-    });
-
-    // Hints with i18n
-    auto hints = hbox({
-        text(" Ctrl+A,Space " + I18n::t("hint.toggle_mode") + " ") | dim | color(Color::GrayDark),
-        text("│") | color(Color::GrayDark),
-        text(" 1-9 " + I18n::t("hint.select") + " ") | dim | color(Color::GrayDark),
-        text("│") | color(Color::GrayDark),
-        text(" Esc " + I18n::t("hint.cancel") + " ") | dim | color(Color::GrayDark),
-        text("│") | color(Color::GrayDark),
-        text(" Ctrl+A,A " + I18n::t("hint.ai_toggle") + " ") | dim | color(Color::GrayDark),
-    });
-
-    return hbox({
-        mode_indicator,
-        filler(),
-        hints,
-    }) | inverted | size(HEIGHT, EQUAL, 1);
-}
-
-ftxui::Element Renderer::build_candidate_bar(const std::vector<Candidate>& candidates,
-                                              size_t selected, const std::string& buffer,
-                                              const std::string& mode) const {
-    using namespace ftxui;
-
-    std::vector<Element> items;
-
-    // Mode indicator
-    Color mode_color = (mode.find("中文") != std::string::npos) ? Color::Green : Color::Cyan;
-    items.push_back(hbox({
-        text(" 【") | dim,
-        text(mode) | bold | color(mode_color),
-        text("】 ") | dim,
-    }));
-
-    // Pinyin buffer
-    items.push_back(text(" " + I18n::t("status.pinyin") + ": " + buffer + " ") | bold);
-
-    // 候选词
-    for (size_t i = 0; i < candidates.size() && i < 9; ++i) {
-        std::string text_str;
-        for (char32_t ch : candidates[i].text) {
-            if (ch != 0) {
-                text_str += utf8::encode(ch);
-            }
-        }
-
-        std::string label = std::to_string(i + 1) + "." + text_str;
-        if (i == selected) {
-            items.push_back(text(" [" + label + "] ") | bold | bgcolor(Color::Blue));
-        } else {
-            items.push_back(text(" " + label + " ") | color(Color::Yellow));
-        }
-    }
-
-    // Cancel hint
-    items.push_back(text("  Esc" + I18n::t("hint.cancel") + " ") | dim | color(Color::GrayDark));
-
-    return hbox(items) | inverted | size(HEIGHT, EQUAL, 1);
-}
-
-void Renderer::render_candidates(const std::vector<Candidate>& candidates,
-                                  size_t selected, const std::string& buffer,
-                                  const std::string& mode) {
+void Renderer::render_element(const ui::Element& element) {
     struct winsize ws;
     if (ioctl(tty_fd_, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0) {
         ws.ws_row = 24;
         ws.ws_col = 80;
-    }
-
-    // 使用 FTXUI 构建 Element
-    ftxui::Element element;
-    if (candidates.empty()) {
-        element = build_empty_bar(mode);
-    } else {
-        element = build_candidate_bar(candidates, selected, buffer, mode);
     }
 
     // 创建 FTXUI Screen 并渲染
@@ -203,6 +123,33 @@ void Renderer::render_candidates(const std::vector<Candidate>& candidates,
     // 恢复光标位置
     printf("\x1b[u");
     fflush(stdout);
+}
+
+void Renderer::render_candidates(const std::vector<Candidate>& candidates,
+                                  size_t selected, const std::string& buffer,
+                                  const std::string& mode) {
+    render_candidates_ex(candidates, selected, buffer, mode, false, false, false, 0);
+}
+
+void Renderer::render_candidates_ex(const std::vector<Candidate>& candidates,
+                                     size_t selected, const std::string& buffer,
+                                     const std::string& mode,
+                                     bool ai_enabled, bool ai_loading,
+                                     bool downloading, int download_progress) {
+    // 使用 JSX 风格组件构建 UI
+    auto element = ui::MainBar({
+        .mode = mode,
+        .lang_name = "",  // Not used in current design
+        .candidates = candidates,
+        .selected = selected,
+        .buffer = buffer,
+        .ai_enabled = ai_enabled,
+        .ai_loading = ai_loading,
+        .downloading = downloading,
+        .download_progress = download_progress
+    });
+
+    render_element(element);
 }
 
 int Renderer::read_key() {

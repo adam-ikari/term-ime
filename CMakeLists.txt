@@ -129,6 +129,8 @@ add_library(term-terminal STATIC
     src/terminal/screen.cpp
     src/terminal/parser.cpp
     src/ui/renderer.cpp
+    src/ui/jsx.cpp
+    src/ui/components.cpp
 )
 
 target_include_directories(term-terminal

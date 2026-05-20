@@ -2,7 +2,7 @@
 
 #include "../terminal/screen.hpp"
 #include "../ime/engine.hpp"
-#include <ftxui/dom/elements.hpp>
+#include "components.hpp"
 #include <string>
 
 class Renderer {
@@ -22,6 +22,13 @@ public:
                            size_t selected, const std::string& buffer,
                            const std::string& mode = "EN");
 
+    // Extended render with AI status
+    void render_candidates_ex(const std::vector<Candidate>& candidates,
+                              size_t selected, const std::string& buffer,
+                              const std::string& mode,
+                              bool ai_enabled, bool ai_loading,
+                              bool downloading, int download_progress);
+
     int read_key();
     int get_tty_fd() const;
 
@@ -30,9 +37,5 @@ private:
     bool initialized_ = false;
     struct termios* saved_termios_ = nullptr;
 
-    // FTXUI elements builder
-    ftxui::Element build_candidate_bar(const std::vector<Candidate>& candidates,
-                                        size_t selected, const std::string& buffer,
-                                        const std::string& mode) const;
-    ftxui::Element build_empty_bar(const std::string& mode) const;
+    void render_element(const ui::Element& element);
 };

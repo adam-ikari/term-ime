@@ -126,7 +126,6 @@ void App::on_pty_data(const char* data, size_t len) {
 
 void App::render_candidates_bar() {
     std::string mode = (ime_ && ime_->mode() == ImeMode::Chinese) ? "中文" : "EN";
-    std::string lang_name = language_manager_.current().name;
 
     // Get candidates from IME
     auto candidates = ime_ ? ime_->candidates() : std::vector<Candidate>();
@@ -149,16 +148,17 @@ void App::render_candidates_bar() {
         );
     }
 
-    // Build status string with AI indicator
-    std::string status = lang_name + " " + mode;
-
-    if (model_downloading_.load()) {
-        status += " [下载模型 " + std::to_string(model_download_progress_) + "%]";
-    } else if (ai_ranking_enabled_) {
-        status += ai_ranking_in_progress_ ? " [AI...]" : " [AI]";
-    }
-
-    renderer_.render_candidates(candidates, selected_candidate_, buffer, status);
+    // Use extended render with AI status
+    renderer_.render_candidates_ex(
+        candidates,
+        selected_candidate_,
+        buffer,
+        mode,
+        ai_ranking_enabled_,
+        ai_ranking_in_progress_,
+        model_downloading_.load(),
+        model_download_progress_
+    );
 }
 
 void App::on_ranking_complete(std::vector<Candidate> ranked) {
@@ -168,10 +168,18 @@ void App::on_ranking_complete(std::vector<Candidate> ranked) {
     // Re-render with ranked candidates
     if (ime_ && ime_->state() != ImeState::Inactive) {
         std::string mode = ime_->mode() == ImeMode::Chinese ? "中文" : "EN";
-        std::string lang_name = language_manager_.current().name;
-        std::string status = lang_name + " " + mode + " [AI]";
+        std::string buffer = ime_->buffer();
 
-        renderer_.render_candidates(ranked, selected_candidate_, ime_->buffer(), status);
+        renderer_.render_candidates_ex(
+            ranked,
+            selected_candidate_,
+            buffer,
+            mode,
+            true,  // ai_enabled
+            false, // ai_loading (ranking complete)
+            false, // downloading
+            0
+        );
     }
 }
 
