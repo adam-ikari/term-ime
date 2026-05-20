@@ -203,6 +203,13 @@ install(FILES data/pinyin.dict DESTINATION share/term-ime)
 # Copy data directory to build for testing
 configure_file(${CMAKE_SOURCE_DIR}/data/pinyin.dict ${CMAKE_BINARY_DIR}/data/pinyin.dict COPYONLY)
 
+# Copy translation files
+file(GLOB TRANSLATION_FILES "${CMAKE_SOURCE_DIR}/data/translations/*.json")
+foreach(TRANSLATION_FILE ${TRANSLATION_FILES})
+    get_filename_component(FILENAME ${TRANSLATION_FILE} NAME)
+    configure_file(${TRANSLATION_FILE} ${CMAKE_BINARY_DIR}/data/translations/${FILENAME} COPYONLY)
+endforeach()
+
 # ============================================================
 # Tests
 # ============================================================

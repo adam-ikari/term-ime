@@ -1,0 +1,34 @@
+{
+  "mode.chinese": "中文",
+  "mode.english": "EN",
+  "mode.ai": "[AI]",
+  "mode.ai_loading": "[AI...]",
+
+  "hint.toggle_mode": "Toggle",
+  "hint.select": "Select",
+  "hint.cancel": "Cancel",
+  "hint.ai_toggle": "AI Rank",
+
+  "status.pinyin": "Pinyin",
+  "status.initializing": "Initializing...",
+  "status.loading_model": "Loading model...",
+  "status.downloading": "Downloading...",
+
+  "error.init_failed": "Initialization failed",
+  "error.model_not_found": "Model not found",
+  "error.config_load_failed": "Config load failed",
+  "error.download_failed": "Download failed",
+
+  "kaomoji.happy": "Happy",
+  "kaomoji.sad": "Sad",
+  "kaomoji.love": "Love",
+  "kaomoji.angry": "Angry",
+  "kaomoji.cute": "Cute",
+  "kaomoji.search": "Search Kaomoji",
+
+  "settings.language": "Language",
+  "settings.ai_ranking": "AI Ranking",
+  "settings.backend": "Backend",
+  "settings.threads": "Threads",
+  "settings.model": "Model"
+}
