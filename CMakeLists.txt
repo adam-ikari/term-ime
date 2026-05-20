@@ -91,6 +91,7 @@ add_library(term-ime-lib STATIC
     src/ime/kaomoji.cpp
     src/util/utf8.cpp
     src/util/logger.cpp
+    src/util/i18n.cpp
 )
 
 target_include_directories(term-ime-lib

@@ -1,6 +1,7 @@
 #include "core/event_loop.hpp"
 #include "core/app.hpp"
 #include "core/config.hpp"
+#include "util/i18n.hpp"
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <unistd.h>
@@ -34,6 +35,17 @@ int main(int argc, char* argv[]) {
     }
     AppConfig config = AppConfig::load(config_path);
     spdlog::info("Loaded config from: {}", config_path);
+
+    // Initialize i18n based on active language
+    I18n::Lang i18n_lang = I18n::Lang::EN;
+    if (config.active_language == "zh-Hans") {
+        i18n_lang = I18n::Lang::ZH_CN;
+    } else if (config.active_language == "zh-Hant" || config.active_language == "zh-Hant-TW") {
+        i18n_lang = I18n::Lang::ZH_TW;
+    } else if (config.active_language == "ja") {
+        i18n_lang = I18n::Lang::JA;
+    }
+    I18n::init(i18n_lang);
 
     // Override shell from environment if not set in config
     if (config.shell.empty() || config.shell == "/bin/bash") {

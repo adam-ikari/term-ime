@@ -1,5 +1,6 @@
 #include "renderer.hpp"
 #include "../util/utf8.hpp"
+#include "../util/i18n.hpp"
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/screen/string.hpp>
 #include <ftxui/dom/elements.hpp>
@@ -95,21 +96,23 @@ void Renderer::forward_output(const char* data, size_t len) {
 ftxui::Element Renderer::build_empty_bar(const std::string& mode) const {
     using namespace ftxui;
 
-    // 模式指示器
-    Color mode_color = (mode == "中文") ? Color::Green : Color::Cyan;
+    // Mode indicator
+    Color mode_color = (mode.find("中文") != std::string::npos) ? Color::Green : Color::Cyan;
     auto mode_indicator = hbox({
         text(" 【") | dim,
         text(mode) | bold | color(mode_color),
         text("】 ") | dim,
     });
 
-    // 提示信息
+    // Hints with i18n
     auto hints = hbox({
-        text(" Ctrl+A,Space 切换 ") | dim | color(Color::GrayDark),
+        text(" Ctrl+A,Space " + I18n::t("hint.toggle_mode") + " ") | dim | color(Color::GrayDark),
         text("│") | color(Color::GrayDark),
-        text(" 1-9 选择 ") | dim | color(Color::GrayDark),
+        text(" 1-9 " + I18n::t("hint.select") + " ") | dim | color(Color::GrayDark),
         text("│") | color(Color::GrayDark),
-        text(" Esc 取消 ") | dim | color(Color::GrayDark),
+        text(" Esc " + I18n::t("hint.cancel") + " ") | dim | color(Color::GrayDark),
+        text("│") | color(Color::GrayDark),
+        text(" Ctrl+A,A " + I18n::t("hint.ai_toggle") + " ") | dim | color(Color::GrayDark),
     });
 
     return hbox({
@@ -126,16 +129,16 @@ ftxui::Element Renderer::build_candidate_bar(const std::vector<Candidate>& candi
 
     std::vector<Element> items;
 
-    // 模式指示器
-    Color mode_color = (mode == "中文") ? Color::Green : Color::Cyan;
+    // Mode indicator
+    Color mode_color = (mode.find("中文") != std::string::npos) ? Color::Green : Color::Cyan;
     items.push_back(hbox({
         text(" 【") | dim,
         text(mode) | bold | color(mode_color),
         text("】 ") | dim,
     }));
 
-    // 拼音缓冲区
-    items.push_back(text(" 拼音: " + buffer + " ") | bold);
+    // Pinyin buffer
+    items.push_back(text(" " + I18n::t("status.pinyin") + ": " + buffer + " ") | bold);
 
     // 候选词
     for (size_t i = 0; i < candidates.size() && i < 9; ++i) {
@@ -154,8 +157,8 @@ ftxui::Element Renderer::build_candidate_bar(const std::vector<Candidate>& candi
         }
     }
 
-    // 快捷键提示
-    items.push_back(text("  Esc取消 ") | dim | color(Color::GrayDark));
+    // Cancel hint
+    items.push_back(text("  Esc" + I18n::t("hint.cancel") + " ") | dim | color(Color::GrayDark));
 
     return hbox(items) | inverted | size(HEIGHT, EQUAL, 1);
 }
