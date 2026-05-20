@@ -25,6 +25,15 @@ set(ENABLE_LOGGING OFF CACHE BOOL "" FORCE)
 set(ENABLE_THREADING ON CACHE BOOL "" FORCE)
 add_subdirectory(deps/librime EXCLUDE_FROM_ALL)
 
+# llama.cpp - minimal build for LLM ranking
+set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_COMMON OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+add_subdirectory(deps/llama.cpp EXCLUDE_FROM_ALL)
+
 # Use system libuv
 find_library(LIBUV_LIBRARY uv REQUIRED)
 find_path(LIBUV_INCLUDE_DIR uv.h REQUIRED)
@@ -47,6 +56,7 @@ add_library(term-ime-lib STATIC
     src/ime/rime_engine.cpp
     src/ime/language.cpp
     src/ime/ranker.cpp
+    src/ime/llama_ranker.cpp
     src/util/utf8.cpp
     src/util/logger.cpp
 )
@@ -56,6 +66,7 @@ target_include_directories(term-ime-lib
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
         $<INSTALL_INTERFACE:include>
         ${CMAKE_SOURCE_DIR}/deps/librime/include
+        ${CMAKE_SOURCE_DIR}/deps/llama.cpp/include
 )
 
 target_link_libraries(term-ime-lib
@@ -63,6 +74,7 @@ target_link_libraries(term-ime-lib
     PUBLIC nlohmann_json::nlohmann_json
     PUBLIC spdlog::spdlog
     PUBLIC utf8proc
+    PUBLIC llama
 )
 
 set_target_properties(term-ime-lib PROPERTIES

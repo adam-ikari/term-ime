@@ -24,6 +24,27 @@ LanguageConfig LanguageConfig::from_json(const json& j) {
     return cfg;
 }
 
+// LlamaRankerConfig implementation
+json LlamaRankerConfig::to_json() const {
+    return json{
+        {"enabled", enabled},
+        {"model_path", model_path},
+        {"n_threads", n_threads},
+        {"max_tokens", max_tokens},
+        {"timeout_ms", timeout_ms}
+    };
+}
+
+LlamaRankerConfig LlamaRankerConfig::from_json(const json& j) {
+    LlamaRankerConfig cfg;
+    cfg.enabled = j.value("enabled", false);
+    cfg.model_path = j.value("model_path", "");
+    cfg.n_threads = j.value("n_threads", 2);
+    cfg.max_tokens = j.value("max_tokens", 10);
+    cfg.timeout_ms = j.value("timeout_ms", 100);
+    return cfg;
+}
+
 // AppConfig implementation
 std::vector<LanguageConfig> AppConfig::default_languages() {
     return {
@@ -53,6 +74,8 @@ json AppConfig::to_json() const {
 
     j["show_mode_indicator"] = show_mode_indicator;
     j["candidate_bar_position"] = candidate_bar_position;
+
+    j["llama_ranker"] = llama_ranker.to_json();
 
     j["log_level"] = log_level;
     j["log_file"] = log_file;
@@ -84,6 +107,10 @@ AppConfig AppConfig::from_json(const json& j) {
 
     cfg.show_mode_indicator = j.value("show_mode_indicator", true);
     cfg.candidate_bar_position = j.value("candidate_bar_position", "bottom");
+
+    if (j.contains("llama_ranker")) {
+        cfg.llama_ranker = LlamaRankerConfig::from_json(j["llama_ranker"]);
+    }
 
     cfg.log_level = j.value("log_level", "warn");
     cfg.log_file = j.value("log_file", "");

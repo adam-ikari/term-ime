@@ -25,3 +25,6 @@
 [submodule "deps/librime"]
 	path = deps/librime
 	url = https://github.com/rime/librime.git
+[submodule "deps/llama.cpp"]
+	path = deps/llama.cpp
+	url = https://github.com/ggerganov/llama.cpp
