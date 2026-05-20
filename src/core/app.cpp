@@ -108,113 +108,120 @@ void App::on_pty_data(const char* data, size_t len) {
 void App::on_keyboard_data(const char* data, size_t len) {
     if (len == 0) return;
 
-    int ch = static_cast<int>(data[0]);
+    // 处理每个字节
+    for (size_t i = 0; i < len; ++i) {
+        int ch = static_cast<int>(data[i]);
 
-    // 转义序列缓冲区
-    static std::string escape_buffer;
+        // 转义序列缓冲区
+        static std::string escape_buffer;
 
-    // tmux-style prefix key: Ctrl+A (char 1) then command key
-    // Ctrl+A = ASCII 1 (0x01), same as GNU Screen default
-    if (ch == 1) {  // Ctrl+A
-        prefix_pending_ = true;
-        spdlog::info("Prefix key Ctrl+A received, waiting for command");
-        return;
-    }
-
-    // Handle command after prefix
-    if (prefix_pending_) {
-        prefix_pending_ = false;
-        if (ch == ' ') {  // Ctrl+A + Space = toggle mode
-            spdlog::info("Ctrl+A + Space detected, toggling mode");
-            ime_.toggle_mode();
-            render();
-            return;
-        }
-        // Unknown command after prefix, forward both keys to shell
-        pty_.write(std::vector<uint8_t>{1});  // Send Ctrl+A first
-        pty_.write(std::vector<uint8_t>(data, data + len));
-        return;
-    }
-
-    // 处理 ESC 序列
-    if (ch == 27) {
-        escape_buffer.clear();
-        escape_buffer += static_cast<char>(ch);
-        return;
-    }
-
-    if (!escape_buffer.empty()) {
-        escape_buffer += static_cast<char>(ch);
-
-        // 功能键序列：ESC [ ... 或 ESC O ...
-        if (escape_buffer.size() == 2) {
-            char second = escape_buffer[1];
-            if (second == '[' || second == 'O') {
-                return;  // 继续收集
-            }
-            // 不是功能键，转发给 shell
-            pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
-            escape_buffer.clear();
+        // tmux-style prefix key: Ctrl+A (char 1) then command key
+        // Ctrl+A = ASCII 1 (0x01), same as GNU Screen default
+        if (ch == 1) {  // Ctrl+A
+            prefix_pending_ = true;
+            spdlog::info("Prefix key Ctrl+A received, waiting for command");
             return;
         }
 
-        if (escape_buffer.size() >= 3) {
-            char last = escape_buffer.back();
-            if ((last >= 'A' && last <= 'Z') || (last >= 'a' && last <= 'z') || last == '~') {
-                spdlog::debug("Forwarding escape sequence: {}", escape_buffer);
-                pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
-                escape_buffer.clear();
+        // Handle command after prefix
+        if (prefix_pending_) {
+            prefix_pending_ = false;
+            if (ch == ' ') {  // Ctrl+A + Space = toggle mode
+                spdlog::info("Ctrl+A + Space detected, toggling mode");
+                ime_.toggle_mode();
+                render();
                 return;
             }
-            if (escape_buffer.size() > 10) {
+            // Unknown command after prefix, forward both keys to shell
+            pty_.write(std::vector<uint8_t>{1});  // Send Ctrl+A first
+            pty_.write(std::vector<uint8_t>(data + i, data + len));  // Send remaining
+            return;
+        }
+
+        // 处理 ESC 序列
+        if (ch == 27) {
+            escape_buffer.clear();
+            escape_buffer += static_cast<char>(ch);
+            spdlog::debug("ESC received, starting escape sequence");
+            continue;  // 继续处理下一个字节
+        }
+
+        if (!escape_buffer.empty()) {
+            escape_buffer += static_cast<char>(ch);
+            spdlog::debug("ESC buffer: {}, size: {}", escape_buffer, escape_buffer.size());
+
+            // 功能键序列：ESC [ ... 或 ESC O ...
+            if (escape_buffer.size() == 2) {
+                char second = escape_buffer[1];
+                if (second == '[' || second == 'O') {
+                    continue;  // 继续收集下一个字节
+                }
+                // 不是功能键，转发给 shell
+                spdlog::debug("Not a function key, forwarding: {}", escape_buffer);
                 pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
                 escape_buffer.clear();
+                continue;
             }
-        }
-        return;
-    }
 
-    // Check if IME should handle this
-    if (ime_.state() == ImeState::Composing || ime_.state() == ImeState::Selecting) {
-        if (ch >= '1' && ch <= '9') {
-            int idx = ch - '1';
-            auto result = ime_.select(idx);
-            if (!result.empty()) {
-                std::string utf8;
-                for (char32_t c : result) {
-                    utf8 += utf8::encode(c);
+            if (escape_buffer.size() >= 3) {
+                char last = escape_buffer.back();
+                if ((last >= 'A' && last <= 'Z') || (last >= 'a' && last <= 'z') || last == '~') {
+                    spdlog::info("Forwarding escape sequence: {}", escape_buffer);
+                    pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
+                    escape_buffer.clear();
+                    continue;
                 }
-                pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
-            }
-            render();
-        } else if (ch == ' ') {
-            // Space selects first candidate (common behavior for non-English IMEs)
-            auto result = ime_.select(0);
-            if (!result.empty()) {
-                std::string utf8;
-                for (char32_t c : result) {
-                    utf8 += utf8::encode(c);
+                if (escape_buffer.size() > 10) {
+                    spdlog::warn("Escape sequence too long, forwarding: {}", escape_buffer);
+                    pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
+                    escape_buffer.clear();
                 }
-                pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
             }
-            render();
-        } else if (ch == '\b' || ch == 127) {
-            ime_.cancel();
-            render();
-        } else if (ch >= 'a' && ch <= 'z') {
-            ime_.input(static_cast<char>(ch));
-            selected_candidate_ = 0;
-            render();
-        } else {
-            pty_.write(std::vector<uint8_t>(data, data + len));
+            continue;
         }
-    } else {
-        if (ime_.mode() == ImeMode::Chinese && ch >= 'a' && ch <= 'z') {
-            ime_.input(static_cast<char>(ch));
-            selected_candidate_ = 0;
-            render();
+
+        // Check if IME should handle this
+        if (ime_.state() == ImeState::Composing || ime_.state() == ImeState::Selecting) {
+            if (ch >= '1' && ch <= '9') {
+                int idx = ch - '1';
+                auto result = ime_.select(idx);
+                if (!result.empty()) {
+                    std::string utf8;
+                    for (char32_t c : result) {
+                        utf8 += utf8::encode(c);
+                    }
+                    pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+                }
+                render();
+            } else if (ch == ' ') {
+                // Space selects first candidate (common behavior for non-English IMEs)
+                auto result = ime_.select(0);
+                if (!result.empty()) {
+                    std::string utf8;
+                    for (char32_t c : result) {
+                        utf8 += utf8::encode(c);
+                    }
+                    pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+                }
+                render();
+            } else if (ch == '\b' || ch == 127) {
+                ime_.cancel();
+                render();
+            } else if (ch >= 'a' && ch <= 'z') {
+                ime_.input(static_cast<char>(ch));
+                selected_candidate_ = 0;
+                render();
+            } else {
+                pty_.write(std::vector<uint8_t>{static_cast<uint8_t>(ch)});
+            }
         } else {
-            pty_.write(std::vector<uint8_t>(data, data + len));
+            if (ime_.mode() == ImeMode::Chinese && ch >= 'a' && ch <= 'z') {
+                ime_.input(static_cast<char>(ch));
+                selected_candidate_ = 0;
+                render();
+            } else {
+                pty_.write(std::vector<uint8_t>{static_cast<uint8_t>(ch)});
+            }
         }
     }
 }
