@@ -86,6 +86,19 @@ bool App::init(const AppConfig& config) {
             spdlog::info("Rime IME initialized");
         }
 
+        // Initialize LLM ranker if enabled in config
+        if (config_.llama_ranker.enabled) {
+            spdlog::info("Initializing LLM ranker");
+            llama_ranker_ = std::make_unique<LlamaRanker>();
+            if (llama_ranker_->initialize(config_.llama_ranker)) {
+                ai_ranking_enabled_ = true;
+                spdlog::info("LLM ranker initialized");
+            } else {
+                spdlog::warn("Failed to initialize LLM ranker, continuing without AI ranking");
+                llama_ranker_.reset();
+            }
+        }
+
         initialized_ = true;
         spdlog::info("App::init complete");
         return true;
@@ -99,21 +112,63 @@ bool App::init(const AppConfig& config) {
 
 void App::on_pty_data(const char* data, size_t len) {
     // 直接转发 PTY 输出到终端，不解析
-    // 这样可以获得和原生终端一样的体验
     renderer_.forward_output(data, len);
 
-    // 同时更新内部屏幕状态（用于光标位置跟踪等）
+    // 同时更新内部屏幕状态
     if (parser_) {
         parser_->feed(reinterpret_cast<const uint8_t*>(data), len);
     }
 
-    // 显示候选词栏（覆盖最后一行）
+    // 显示候选词栏
+    render_candidates_bar();
+}
+
+void App::render_candidates_bar() {
     std::string mode = (ime_ && ime_->mode() == ImeMode::Chinese) ? "中文" : "EN";
     std::string lang_name = language_manager_.current().name;
-    renderer_.render_candidates(ime_ ? ime_->candidates() : std::vector<Candidate>(),
-                                selected_candidate_,
-                                ime_ ? ime_->buffer() : "",
-                                lang_name + " " + mode);
+
+    // Get candidates from IME
+    auto candidates = ime_ ? ime_->candidates() : std::vector<Candidate>();
+    std::string buffer = ime_ ? ime_->buffer() : "";
+
+    // Apply AI ranking if enabled and candidates available
+    if (ai_ranking_enabled_ && llama_ranker_ && !candidates.empty() && !ai_ranking_in_progress_) {
+        // Store candidates for async ranking
+        last_candidates_ = candidates;
+
+        // Start async ranking (delayed execution)
+        ai_ranking_in_progress_ = true;
+        llama_ranker_->rank_async(
+            candidates,
+            "",  // context (could be from screen)
+            buffer,
+            [this](std::vector<Candidate> ranked) {
+                on_ranking_complete(std::move(ranked));
+            }
+        );
+    }
+
+    // Build status string with AI indicator
+    std::string status = lang_name + " " + mode;
+    if (ai_ranking_enabled_) {
+        status += ai_ranking_in_progress_ ? " [AI...]" : " [AI]";
+    }
+
+    renderer_.render_candidates(candidates, selected_candidate_, buffer, status);
+}
+
+void App::on_ranking_complete(std::vector<Candidate> ranked) {
+    ai_ranking_in_progress_ = false;
+    last_candidates_ = ranked;
+
+    // Re-render with ranked candidates
+    if (ime_ && ime_->state() != ImeState::Inactive) {
+        std::string mode = ime_->mode() == ImeMode::Chinese ? "中文" : "EN";
+        std::string lang_name = language_manager_.current().name;
+        std::string status = lang_name + " " + mode + " [AI]";
+
+        renderer_.render_candidates(ranked, selected_candidate_, ime_->buffer(), status);
+    }
 }
 
 void App::on_keyboard_data(const char* data, size_t len) {
@@ -125,7 +180,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
 
         auto input_result = input_processor_.process(byte);
 
-        // Handle toggle mode command
+        // Handle toggle mode command (Ctrl+A + Space)
         if (input_result.toggle_mode) {
             spdlog::info("Ctrl+A + Space detected, toggling mode");
             ime_->toggle_mode();
@@ -133,12 +188,21 @@ void App::on_keyboard_data(const char* data, size_t len) {
             continue;
         }
 
+        // Handle AI ranking toggle (Ctrl+A + A)
+        if (input_result.forward && !input_result.data.empty()) {
+            if (input_result.data.size() == 2 && input_result.data[0] == 1 && input_result.data[1] == 'a') {
+                spdlog::info("Ctrl+A + A detected, toggling AI ranking");
+                toggle_ai_ranking();
+                continue;
+            }
+        }
+
         // Check if this is an escape sequence
         bool is_escape_sequence = !input_result.data.empty() && input_result.data[0] == 0x1b;
 
         // If IME is composing, intercept all input except selection keys
         if (ime_->state() == ImeState::Composing || ime_->state() == ImeState::Selecting) {
-            // Escape sequences are ignored while composing (arrow keys, etc.)
+            // Escape sequences are ignored while composing
             if (is_escape_sequence && input_result.forward) {
                 spdlog::debug("IME composing: ignoring escape sequence");
                 continue;
@@ -226,13 +290,7 @@ void App::render() {
     renderer_.render(*screen_);
     spdlog::debug("render: screen done");
 
-    // 总是显示候选词栏（包括空状态提示）
-    std::string mode = (ime_ && ime_->mode() == ImeMode::Chinese) ? "中文" : "EN";
-    std::string lang_name = language_manager_.current().name;
-    renderer_.render_candidates(ime_ ? ime_->candidates() : std::vector<Candidate>(),
-                                selected_candidate_,
-                                ime_ ? ime_->buffer() : "",
-                                lang_name + " " + mode);
+    render_candidates_bar();
     spdlog::debug("render: candidates done");
 }
 
@@ -250,6 +308,29 @@ const LanguageConfig& App::current_language() const {
 
 bool App::switch_language(const std::string& lang_id) {
     return language_manager_.switch_language(lang_id);
+}
+
+void App::toggle_ai_ranking() {
+    if (!llama_ranker_) {
+        // Initialize ranker on first toggle
+        spdlog::info("Initializing LLM ranker on demand");
+        llama_ranker_ = std::make_unique<LlamaRanker>();
+        if (llama_ranker_->initialize(config_.llama_ranker)) {
+            ai_ranking_enabled_ = true;
+            spdlog::info("LLM ranker initialized and enabled");
+        } else {
+            spdlog::warn("Failed to initialize LLM ranker");
+            llama_ranker_.reset();
+        }
+    } else {
+        ai_ranking_enabled_ = !ai_ranking_enabled_;
+        spdlog::info("AI ranking {}", ai_ranking_enabled_ ? "enabled" : "disabled");
+    }
+    render();
+}
+
+bool App::is_ai_ranking_enabled() const {
+    return ai_ranking_enabled_;
 }
 
 void App::on_language_change(const LanguageConfig& lang) {
