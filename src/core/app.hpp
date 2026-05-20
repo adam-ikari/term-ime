@@ -7,6 +7,7 @@
 #include "ime/language.hpp"
 #include "ime/llama_ranker.hpp"
 #include "ui/renderer.hpp"
+#include "ui/settings.hpp"
 #include "input_processor.hpp"
 #include "config.hpp"
 #include "util/utf8.hpp"
@@ -64,6 +65,12 @@ public:
     // Get available UI languages
     static std::vector<std::pair<std::string, std::string>> available_ui_languages();
 
+    // Toggle settings panel
+    void toggle_settings();
+
+    // Check if settings panel is visible
+    bool is_settings_visible() const;
+
 private:
     Renderer renderer_;
     Pty pty_;
@@ -82,10 +89,14 @@ private:
     std::atomic<bool> model_downloading_{false};
     int model_download_progress_ = 0;
     std::vector<Candidate> last_candidates_;  // Cache for async ranking
+    ui::SettingsState settings_state_;  // Settings panel state
 
     void on_language_change(const LanguageConfig& lang);
     void on_ranking_complete(std::vector<Candidate> ranked);
     void render_candidates_bar();
     void start_model_download();
     void on_model_downloaded(bool success, const std::string& path);
+    void on_settings_change(const std::string& key, const std::string& value);
+    void on_settings_close();
+    void render_settings_panel();
 };

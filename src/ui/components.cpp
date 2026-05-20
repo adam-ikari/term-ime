@@ -175,7 +175,7 @@ Element HintsBar() {
         Text("|") | TextColor(FtxuiColor::GrayDark),
         HintItem({.key = "Ctrl+A,A", .action = I18n::t("hint.ai_toggle")}),
         Text("|") | TextColor(FtxuiColor::GrayDark),
-        HintItem({.key = "Ctrl+A,L", .action = I18n::t("hint.switch_lang")})
+        HintItem({.key = "Ctrl+A,S", .action = I18n::t("settings.title")})
     });
 }
 

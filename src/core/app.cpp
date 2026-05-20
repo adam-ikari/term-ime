@@ -106,6 +106,15 @@ bool App::init(const AppConfig& config) {
             }
         }
 
+        // Initialize settings panel
+        ui::settings_init(settings_state_, config_);
+        settings_state_.on_change = [this](const std::string& key, const std::string& value) {
+            on_settings_change(key, value);
+        };
+        settings_state_.on_close = [this]() {
+            on_settings_close();
+        };
+
         initialized_ = true;
         spdlog::info("App::init complete");
         return true;
@@ -192,6 +201,16 @@ void App::on_ranking_complete(std::vector<Candidate> ranked) {
 void App::on_keyboard_data(const char* data, size_t len) {
     if (len == 0 || !ime_) return;
 
+    // If settings panel is visible, handle keys for it
+    if (settings_state_.visible) {
+        for (size_t i = 0; i < len; ++i) {
+            uint8_t byte = static_cast<uint8_t>(data[i]);
+            ui::settings_handle_key(settings_state_, byte);
+        }
+        render();
+        return;
+    }
+
     // Process each byte through InputProcessor state machine
     for (size_t i = 0; i < len; ++i) {
         uint8_t byte = static_cast<uint8_t>(data[i]);
@@ -229,6 +248,15 @@ void App::on_keyboard_data(const char* data, size_t len) {
                         break;
                     }
                 }
+                continue;
+            }
+        }
+
+        // Handle settings panel (Ctrl+A + S)
+        if (input_result.forward && !input_result.data.empty()) {
+            if (input_result.data.size() == 2 && input_result.data[0] == 1 && input_result.data[1] == 's') {
+                spdlog::info("Ctrl+A + S detected, toggling settings");
+                toggle_settings();
                 continue;
             }
         }
@@ -469,6 +497,46 @@ std::vector<std::pair<std::string, std::string>> App::available_ui_languages() {
         {"zh-TW", "繁體中文"},
         {"ja", "日本語"}
     };
+}
+
+void App::toggle_settings() {
+    settings_state_.visible = !settings_state_.visible;
+    if (settings_state_.visible) {
+        ui::settings_init(settings_state_, config_);
+    }
+    render();
+}
+
+bool App::is_settings_visible() const {
+    return settings_state_.visible;
+}
+
+void App::on_settings_change(const std::string& key, const std::string& value) {
+    spdlog::info("Settings changed: {} = {}", key, value);
+
+    if (key == "ui_language") {
+        I18n::Lang lang = I18n::parse_lang(value);
+        I18n::set_lang(lang);
+        config_.ui_language = value;
+        // Re-init settings to update labels
+        ui::settings_init(settings_state_, config_);
+    } else if (key == "ai_ranking") {
+        config_.llama_ranker.enabled = (value == "on");
+    } else if (key == "backend") {
+        config_.llama_ranker.backend = value;
+    } else if (key == "threads") {
+        config_.llama_ranker.n_threads = std::stoi(value);
+    }
+
+    render();
+}
+
+void App::on_settings_close() {
+    settings_state_.visible = false;
+    // Save config to file
+    config_.save(AppConfig::default_path());
+    spdlog::info("Settings saved to: {}", AppConfig::default_path());
+    render();
 }
 
 void App::on_language_change(const LanguageConfig& lang) {
