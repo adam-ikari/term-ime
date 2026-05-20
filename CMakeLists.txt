@@ -237,6 +237,19 @@ target_link_libraries(term-ime-tests
     PRIVATE GTest::gtest_main
 )
 
+# UI JSX test
+add_executable(test-ui-jsx
+    tests/test_ui_jsx.cpp
+)
+
+target_link_libraries(test-ui-jsx
+    PRIVATE term-terminal
+    PRIVATE term-ime-lib
+    PRIVATE spdlog::spdlog
+    PRIVATE ftxui::dom
+    PRIVATE ftxui::screen
+)
+
 # Register tests with CTest
 include(GoogleTest)
 gtest_discover_tests(term-ime-tests)
