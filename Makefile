@@ -1,11 +1,11 @@
-.PHONY: all clean build test format
+.PHONY: all clean build test format run
 
-# Default target: build using CMake (recommended)
+# Default target: build using CMake
 all: build
 
 # Build using CMake
 build:
-	rm -rf build && mkdir build && cd build && cmake .. && make -j$(nproc)
+	rm -rf build && mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j$$(nproc)
 
 # Clean build artifacts
 clean:
@@ -13,7 +13,7 @@ clean:
 
 # Run tests
 test:
-	cd build && ctest --output-on-failure
+	./build/term-ime-tests
 
 # Format code using clang-format
 format:

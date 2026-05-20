@@ -59,13 +59,6 @@ TEST_F(ConfigTest, LanguageConfigFromJson) {
     EXPECT_FALSE(lang.enabled);
 }
 
-TEST_F(ConfigTest, NeuralRankerConfigDefault) {
-    NeuralRankerConfig config;
-    EXPECT_FALSE(config.enabled);
-    EXPECT_EQ(config.max_candidates, 10);
-    EXPECT_FLOAT_EQ(config.threshold, 0.5f);
-}
-
 TEST_F(ConfigTest, AppConfigToJson) {
     AppConfig config;
     config.shell = "/bin/zsh";
@@ -76,4 +69,14 @@ TEST_F(ConfigTest, AppConfigToJson) {
     EXPECT_EQ(j["shell"], "/bin/zsh");
     EXPECT_EQ(j["page_size"], 10);
     EXPECT_EQ(j["log_level"], "debug");
+}
+
+TEST_F(ConfigTest, RimeDataDirs) {
+    AppConfig config;
+    EXPECT_TRUE(config.rime_shared_data_dir.empty());
+    EXPECT_TRUE(config.rime_user_data_dir.empty());
+
+    config.rime_shared_data_dir = "/custom/rime-data";
+    json j = config.to_json();
+    EXPECT_EQ(j["rime_shared_data_dir"], "/custom/rime-data");
 }

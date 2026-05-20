@@ -12,17 +12,15 @@ App::~App() {
         if (initialized_) {
             renderer_.restore();
         }
-        delete screen_;
-        screen_ = nullptr;
-        delete parser_;
-        parser_ = nullptr;
+        // unique_ptr handles cleanup automatically
     } catch (const std::exception& e) {
         spdlog::error("Exception in App destructor: {}", e.what());
     }
 }
 
-bool App::init(const std::string& shell) {
+bool App::init(const AppConfig& config) {
     spdlog::info("App::init starting");
+    config_ = config;
 
     // 检查是否是 TTY
     if (!isatty(STDIN_FILENO)) {
@@ -37,8 +35,8 @@ bool App::init(const std::string& shell) {
 
         // Spawn shell in PTY
         spdlog::info("Spawning PTY");
-        if (!pty_.spawn(shell)) {
-            spdlog::error("Failed to spawn shell: {}", shell);
+        if (!pty_.spawn(config.shell)) {
+            spdlog::error("Failed to spawn shell: {}", config.shell);
             renderer_.restore();
             return false;
         }
@@ -55,27 +53,36 @@ bool App::init(const std::string& shell) {
 
         // Create screen and parser
         spdlog::info("Creating screen {}x{}", ws.ws_row - 1, ws.ws_col);
-        screen_ = new Screen(ws.ws_row - 1, ws.ws_col);
+        screen_ = std::make_unique<Screen>(ws.ws_row - 1, ws.ws_col);
         if (!screen_) {
             spdlog::error("Failed to create screen");
             renderer_.restore();
             return false;
         }
 
-        parser_ = new Parser(*screen_);
+        parser_ = std::make_unique<Parser>(*screen_);
         if (!parser_) {
             spdlog::error("Failed to create parser");
-            delete screen_;
-            screen_ = nullptr;
+            screen_.reset();
             renderer_.restore();
             return false;
         }
 
-        // Initialize Rime IME
-        spdlog::info("Initializing Rime IME");
-        if (!ime_.initialize()) {
+        // Initialize language manager
+        spdlog::info("Loading language configuration");
+        language_manager_.load(config_);
+        language_manager_.on_language_change(
+            [this](const LanguageConfig& lang) { on_language_change(lang); });
+
+        // Initialize Rime IME with current language's schema
+        const auto& current_lang = language_manager_.current();
+        spdlog::info("Initializing Rime IME with schema: {}", current_lang.schema);
+
+        ime_ = std::make_unique<RimeIme>();
+        if (!ime_->initialize()) {
             spdlog::warn("Failed to initialize Rime IME, continuing without IME");
         } else {
+            ime_->select_schema(current_lang.schema);
             spdlog::info("Rime IME initialized");
         }
 
@@ -101,127 +108,94 @@ void App::on_pty_data(const char* data, size_t len) {
     }
 
     // 显示候选词栏（覆盖最后一行）
-    std::string mode = (ime_.mode() == ImeMode::Chinese) ? "中文" : "EN";
-    renderer_.render_candidates(ime_.candidates(), selected_candidate_, ime_.buffer(), mode);
+    std::string mode = (ime_ && ime_->mode() == ImeMode::Chinese) ? "中文" : "EN";
+    std::string lang_name = language_manager_.current().name;
+    renderer_.render_candidates(ime_ ? ime_->candidates() : std::vector<Candidate>(),
+                                selected_candidate_,
+                                ime_ ? ime_->buffer() : "",
+                                lang_name + " " + mode);
 }
 
 void App::on_keyboard_data(const char* data, size_t len) {
-    if (len == 0) return;
+    if (len == 0 || !ime_) return;
 
-    // 处理每个字节
+    // Process each byte through InputProcessor state machine
     for (size_t i = 0; i < len; ++i) {
-        int ch = static_cast<int>(data[i]);
+        uint8_t byte = static_cast<uint8_t>(data[i]);
 
-        // 转义序列缓冲区
-        static std::string escape_buffer;
+        auto input_result = input_processor_.process(byte);
 
-        // tmux-style prefix key: Ctrl+A (char 1) then command key
-        // Ctrl+A = ASCII 1 (0x01), same as GNU Screen default
-        if (ch == 1) {  // Ctrl+A
-            prefix_pending_ = true;
-            spdlog::info("Prefix key Ctrl+A received, waiting for command");
-            return;
-        }
-
-        // Handle command after prefix
-        if (prefix_pending_) {
-            prefix_pending_ = false;
-            if (ch == ' ') {  // Ctrl+A + Space = toggle mode
-                spdlog::info("Ctrl+A + Space detected, toggling mode");
-                ime_.toggle_mode();
-                render();
-                return;
-            }
-            // Unknown command after prefix, forward both keys to shell
-            pty_.write(std::vector<uint8_t>{1});  // Send Ctrl+A first
-            pty_.write(std::vector<uint8_t>(data + i, data + len));  // Send remaining
-            return;
-        }
-
-        // 处理 ESC 序列
-        if (ch == 27) {
-            escape_buffer.clear();
-            escape_buffer += static_cast<char>(ch);
-            spdlog::debug("ESC received, starting escape sequence");
-            continue;  // 继续处理下一个字节
-        }
-
-        if (!escape_buffer.empty()) {
-            escape_buffer += static_cast<char>(ch);
-            spdlog::debug("ESC buffer: {}, size: {}", escape_buffer, escape_buffer.size());
-
-            // 功能键序列：ESC [ ... 或 ESC O ...
-            if (escape_buffer.size() == 2) {
-                char second = escape_buffer[1];
-                if (second == '[' || second == 'O') {
-                    continue;  // 继续收集下一个字节
-                }
-                // 不是功能键，转发给 shell
-                spdlog::debug("Not a function key, forwarding: {}", escape_buffer);
-                pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
-                escape_buffer.clear();
-                continue;
-            }
-
-            if (escape_buffer.size() >= 3) {
-                char last = escape_buffer.back();
-                if ((last >= 'A' && last <= 'Z') || (last >= 'a' && last <= 'z') || last == '~') {
-                    spdlog::info("Forwarding escape sequence: {}", escape_buffer);
-                    pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
-                    escape_buffer.clear();
-                    continue;
-                }
-                if (escape_buffer.size() > 10) {
-                    spdlog::warn("Escape sequence too long, forwarding: {}", escape_buffer);
-                    pty_.write(std::vector<uint8_t>(escape_buffer.begin(), escape_buffer.end()));
-                    escape_buffer.clear();
-                }
-            }
+        // Handle toggle mode command
+        if (input_result.toggle_mode) {
+            spdlog::info("Ctrl+A + Space detected, toggling mode");
+            ime_->toggle_mode();
+            render();
             continue;
         }
 
-        // Check if IME should handle this
-        if (ime_.state() == ImeState::Composing || ime_.state() == ImeState::Selecting) {
+        // Check if this is an escape sequence
+        bool is_escape_sequence = !input_result.data.empty() && input_result.data[0] == 0x1b;
+
+        // If IME is composing, intercept all input except selection keys
+        if (ime_->state() == ImeState::Composing || ime_->state() == ImeState::Selecting) {
+            // Escape sequences are ignored while composing (arrow keys, etc.)
+            if (is_escape_sequence && input_result.forward) {
+                spdlog::debug("IME composing: ignoring escape sequence");
+                continue;
+            }
+
+            char ch = static_cast<char>(byte);
             if (ch >= '1' && ch <= '9') {
+                // Select candidate
                 int idx = ch - '1';
-                auto result = ime_.select(idx);
-                if (!result.empty()) {
+                auto candidates = ime_->select(idx);
+                if (!candidates.empty()) {
                     std::string utf8;
-                    for (char32_t c : result) {
+                    for (char32_t c : candidates) {
                         utf8 += utf8::encode(c);
                     }
                     pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
                 }
                 render();
+                continue;
             } else if (ch == ' ') {
-                // Space selects first candidate (common behavior for non-English IMEs)
-                auto result = ime_.select(0);
-                if (!result.empty()) {
+                // Space selects first candidate
+                auto candidates = ime_->select(0);
+                if (!candidates.empty()) {
                     std::string utf8;
-                    for (char32_t c : result) {
+                    for (char32_t c : candidates) {
                         utf8 += utf8::encode(c);
                     }
                     pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
                 }
                 render();
+                continue;
             } else if (ch == '\b' || ch == 127) {
-                ime_.cancel();
+                ime_->cancel();
                 render();
+                continue;
             } else if (ch >= 'a' && ch <= 'z') {
-                ime_.input(static_cast<char>(ch));
+                ime_->input(ch);
                 selected_candidate_ = 0;
                 render();
-            } else {
-                pty_.write(std::vector<uint8_t>{static_cast<uint8_t>(ch)});
+                continue;
             }
-        } else {
-            if (ime_.mode() == ImeMode::Chinese && ch >= 'a' && ch <= 'z') {
-                ime_.input(static_cast<char>(ch));
-                selected_candidate_ = 0;
-                render();
-            } else {
-                pty_.write(std::vector<uint8_t>{static_cast<uint8_t>(ch)});
-            }
+            // Other keys are ignored while composing
+            spdlog::debug("IME composing: ignoring key 0x{:02x}", byte);
+            continue;
+        }
+
+        // Not composing - check if should start composing
+        if (ime_->mode() == ImeMode::Chinese && byte >= 'a' && byte <= 'z' && !input_processor_.in_escape()) {
+            ime_->input(static_cast<char>(byte));
+            selected_candidate_ = 0;
+            render();
+            continue;
+        }
+
+        // Forward to shell if requested
+        if (input_result.forward && !input_result.data.empty()) {
+            pty_.write(input_result.data);
         }
     }
 }
@@ -253,8 +227,12 @@ void App::render() {
     spdlog::debug("render: screen done");
 
     // 总是显示候选词栏（包括空状态提示）
-    std::string mode = (ime_.mode() == ImeMode::Chinese) ? "中文" : "EN";
-    renderer_.render_candidates(ime_.candidates(), selected_candidate_, ime_.buffer(), mode);
+    std::string mode = (ime_ && ime_->mode() == ImeMode::Chinese) ? "中文" : "EN";
+    std::string lang_name = language_manager_.current().name;
+    renderer_.render_candidates(ime_ ? ime_->candidates() : std::vector<Candidate>(),
+                                selected_candidate_,
+                                ime_ ? ime_->buffer() : "",
+                                lang_name + " " + mode);
     spdlog::debug("render: candidates done");
 }
 
@@ -264,4 +242,20 @@ int App::pty_fd() const {
 
 int App::tty_fd() const {
     return renderer_.get_tty_fd();
+}
+
+const LanguageConfig& App::current_language() const {
+    return language_manager_.current();
+}
+
+bool App::switch_language(const std::string& lang_id) {
+    return language_manager_.switch_language(lang_id);
+}
+
+void App::on_language_change(const LanguageConfig& lang) {
+    spdlog::info("Language changed to: {} ({})", lang.name, lang.schema);
+    if (ime_ && !lang.schema.empty()) {
+        ime_->select_schema(lang.schema);
+    }
+    render();
 }

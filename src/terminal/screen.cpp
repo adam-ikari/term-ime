@@ -1,4 +1,5 @@
 #include "screen.hpp"
+#include "../util/utf8.hpp"
 
 Screen::Screen(int rows, int cols) {
     resize(rows, cols);
@@ -7,7 +8,8 @@ Screen::Screen(int rows, int cols) {
 void Screen::put(char32_t ch, int row, int col) {
     if (row >= 0 && row < rows_ && col >= 0 && col < cols_) {
         grid_[row][col].ch = ch;
-        grid_[row][col].wide = (ch >= 0x4E00 && ch <= 0x9FFF);
+        // Use utf8proc for proper width detection (CJK, emojis, etc.)
+        grid_[row][col].wide = (utf8::width(ch) == 2);
     }
 }
 

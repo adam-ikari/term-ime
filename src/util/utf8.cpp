@@ -1,65 +1,65 @@
 #include "utf8.hpp"
+#include <utf8proc.h>
 
-char32_t utf8::decode(const uint8_t* data, size_t len, size_t& pos) {
+namespace utf8 {
+
+char32_t decode(const uint8_t* data, size_t len, size_t& pos) {
     if (pos >= len) return U'\0';
 
-    uint8_t first = data[pos++];
-    int n = char_len(first);
+    // Use utf8proc for proper decoding
+    int32_t codepoint = 0;
+    utf8proc_ssize_t bytes_read = utf8proc_iterate(data + pos, len - pos, &codepoint);
 
-    char32_t result = 0;
-
-    if (n == 1) {
-        return static_cast<char32_t>(first);
+    if (bytes_read < 0) {
+        // Invalid UTF-8, skip one byte
+        pos++;
+        return U'�'; // Replacement character
     }
 
-    result = static_cast<char32_t>(first & (0xFF >> (n + 1)));
-
-    for (int i = 1; i < n && pos < len; ++i) {
-        result = (result << 6) | (data[pos++] & 0x3F);
-    }
-
-    return result;
+    pos += bytes_read;
+    return static_cast<char32_t>(codepoint);
 }
 
-std::string utf8::encode(char32_t ch) {
-    std::string result;
-
-    // Handle null or invalid characters
+std::string encode(char32_t ch) {
     if (ch == 0 || ch > 0x10FFFF) {
-        return " ";  // Return space for invalid characters
+        return " ";
     }
 
-    if (ch < 0x80) {
-        result += static_cast<char>(ch);
-    } else if (ch < 0x800) {
-        result += static_cast<char>(0xC0 | (ch >> 6));
-        result += static_cast<char>(0x80 | (ch & 0x3F));
-    } else if (ch < 0x10000) {
-        result += static_cast<char>(0xE0 | (ch >> 12));
-        result += static_cast<char>(0x80 | ((ch >> 6) & 0x3F));
-        result += static_cast<char>(0x80 | (ch & 0x3F));
-    } else {
-        result += static_cast<char>(0xF0 | (ch >> 18));
-        result += static_cast<char>(0x80 | ((ch >> 12) & 0x3F));
-        result += static_cast<char>(0x80 | ((ch >> 6) & 0x3F));
-        result += static_cast<char>(0x80 | (ch & 0x3F));
+    uint8_t buffer[4];
+    utf8proc_ssize_t len = utf8proc_encode_char(static_cast<int32_t>(ch), buffer);
+
+    if (len <= 0) {
+        return " ";
     }
 
-    return result;
+    return std::string(reinterpret_cast<char*>(buffer), len);
 }
 
-int utf8::width(char32_t ch) {
-    // CJK Unified Ideographs
-    if (ch >= 0x4E00 && ch <= 0x9FFF) return 2;
-    // CJK Extensions
-    if (ch >= 0x3400 && ch <= 0x4DBF) return 2;
-    if (ch >= 0x20000 && ch <= 0x2A6DF) return 2;
-    // Fullwidth forms
-    if (ch >= 0xFF00 && ch <= 0xFFEF) return 2;
-    // Hangul
-    if (ch >= 0xAC00 && ch <= 0xD7AF) return 2;
-    // Hiragana and Katakana
-    if (ch >= 0x3040 && ch <= 0x30FF) return 2;
+int width(char32_t ch) {
+    // Use utf8proc for proper character width
+    // utf8proc_charwidth returns 0, 1, or 2 based on Unicode properties
+    return utf8proc_charwidth(static_cast<int32_t>(ch));
+}
 
-    return 1;
+int string_width(const std::string& str) {
+    int total_width = 0;
+    size_t pos = 0;
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
+
+    while (pos < str.size()) {
+        int32_t codepoint = 0;
+        utf8proc_ssize_t bytes_read = utf8proc_iterate(data + pos, str.size() - pos, &codepoint);
+
+        if (bytes_read < 0) {
+            pos++;
+            continue;
+        }
+
+        total_width += utf8proc_charwidth(codepoint);
+        pos += bytes_read;
+    }
+
+    return total_width;
+}
+
 }

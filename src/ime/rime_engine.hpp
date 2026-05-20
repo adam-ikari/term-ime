@@ -9,7 +9,10 @@
 // Rime-based input method engine wrapper
 class RimeIme : public ImeEngine {
 public:
-    explicit RimeIme(const std::string& shared_data_dir = "/usr/share/rime-data",
+    // Initialize with optional data directories
+    // shared_data_dir: system rime data directory (default: /usr/share/rime-data)
+    // user_data_dir: user config directory (default: ~/.config/term-ime)
+    explicit RimeIme(const std::string& shared_data_dir = "",
                      const std::string& user_data_dir = "");
     ~RimeIme();
 

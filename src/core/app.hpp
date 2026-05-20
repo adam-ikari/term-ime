@@ -4,7 +4,10 @@
 #include "terminal/screen.hpp"
 #include "terminal/parser.hpp"
 #include "ime/rime_engine.hpp"
+#include "ime/language.hpp"
 #include "ui/renderer.hpp"
+#include "input_processor.hpp"
+#include "config.hpp"
 #include "util/utf8.hpp"
 
 #include <memory>
@@ -16,8 +19,8 @@ public:
     App();
     ~App();
 
-    // Initialize application
-    bool init(const std::string& shell);
+    // Initialize application with config
+    bool init(const AppConfig& config);
 
     // Handle PTY data
     void on_pty_data(const char* data, size_t len);
@@ -40,15 +43,23 @@ public:
     // Get TTY fd for event loop
     int tty_fd() const;
 
+    // Get current language
+    const LanguageConfig& current_language() const;
+
+    // Switch language
+    bool switch_language(const std::string& lang_id);
+
 private:
     Renderer renderer_;
     Pty pty_;
-    Screen* screen_ = nullptr;
-    Parser* parser_ = nullptr;
-    RimeIme ime_;
+    std::unique_ptr<Screen> screen_;
+    std::unique_ptr<Parser> parser_;
+    std::unique_ptr<RimeIme> ime_;
+    LanguageManager language_manager_;
+    InputProcessor input_processor_;
+    AppConfig config_;
     size_t selected_candidate_ = 0;
     bool initialized_ = false;
 
-    // Prefix key state (tmux-style: Ctrl+A then command key)
-    bool prefix_pending_ = false;  // True after Ctrl+A, waiting for command key
+    void on_language_change(const LanguageConfig& lang);
 };

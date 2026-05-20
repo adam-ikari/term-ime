@@ -17,36 +17,26 @@ struct LanguageConfig {
     static LanguageConfig from_json(const json& j);
 };
 
-// Neural ranker configuration (optional smart candidate ranking)
-struct NeuralRankerConfig {
-    bool enabled = false;
-    std::string model_path;   // Path to ONNX model
-    int max_candidates = 10;  // Max candidates to rank
-    float threshold = 0.5f;   // Confidence threshold
-
-    json to_json() const;
-    static NeuralRankerConfig from_json(const json& j);
-};
-
 struct AppConfig {
     // Shell settings
     std::string shell = "/bin/bash";
 
     // Language settings (replaces hardcoded chinese/english mode)
     std::vector<LanguageConfig> languages;
-    std::string active_language = "zh-CN";  // Current active language
+    std::string active_language = "zh-Hans";  // Current active language
 
     // IME settings
     std::string dict_path = "data/pinyin.dict";
     std::vector<std::string> extra_dicts;
     int page_size = 5;
 
+    // Rime data directories (optional)
+    std::string rime_shared_data_dir;  // System rime-data directory
+    std::string rime_user_data_dir;    // User config directory
+
     // Display settings
     bool show_mode_indicator = true;
     std::string candidate_bar_position = "bottom";  // "bottom" or "top"
-
-    // Neural ranker settings (optional)
-    NeuralRankerConfig neural_ranker;
 
     // Logging
     std::string log_level = "warn";  // "debug", "info", "warn", "error"

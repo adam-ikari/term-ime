@@ -28,7 +28,7 @@ public:
 class RankerFactory {
 public:
     // Create a ranker by type
-    // Types: "none", "neural", "statistical"
+    // Currently only "none" is available
     static std::unique_ptr<CandidateRanker> create(const std::string& type);
 
     // Get list of available ranker types

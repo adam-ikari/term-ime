@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(term-ime VERSION 1.0.0 LANGUAGES CXX)
+project(term-ime VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,16 +16,28 @@ add_subdirectory(deps/spdlog)
 add_subdirectory(deps/json)
 add_subdirectory(deps/googletest)
 
-# Use system librime
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(RIME REQUIRED rime)
+# Build librime from source (minimal configuration)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(BUILD_DATA OFF CACHE BOOL "" FORCE)
+set(BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
+set(ENABLE_LOGGING OFF CACHE BOOL "" FORCE)
+set(ENABLE_THREADING ON CACHE BOOL "" FORCE)
+add_subdirectory(deps/librime EXCLUDE_FROM_ALL)
 
 # Use system libuv
 find_library(LIBUV_LIBRARY uv REQUIRED)
 find_path(LIBUV_INCLUDE_DIR uv.h REQUIRED)
 
-# RxCpp is header-only
-# set(RXCPP_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/rxcpp/Rx/v2/src)
+# SML (State Machine Library) - header-only
+set(SML_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/sml/include)
+
+# utf8proc - UTF-8 processing library
+add_library(utf8proc STATIC
+    deps/utf8proc/utf8proc.c
+)
+target_include_directories(utf8proc PUBLIC ${CMAKE_SOURCE_DIR}/deps/utf8proc)
+target_compile_definitions(utf8proc PRIVATE UTF8PROC_STATIC)
 
 # ============================================================
 # IME Library (independent, reusable)
@@ -35,7 +47,6 @@ add_library(term-ime-lib STATIC
     src/ime/rime_engine.cpp
     src/ime/language.cpp
     src/ime/ranker.cpp
-    src/ime/neural_ranker.cpp
     src/util/utf8.cpp
     src/util/logger.cpp
 )
@@ -44,13 +55,14 @@ target_include_directories(term-ime-lib
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
         $<INSTALL_INTERFACE:include>
-        ${RIME_INCLUDE_DIRS}
+        ${CMAKE_SOURCE_DIR}/deps/librime/include
 )
 
 target_link_libraries(term-ime-lib
-    PUBLIC ${RIME_LIBRARIES}
+    PUBLIC rime
     PUBLIC nlohmann_json::nlohmann_json
     PUBLIC spdlog::spdlog
+    PUBLIC utf8proc
 )
 
 set_target_properties(term-ime-lib PROPERTIES
@@ -89,11 +101,13 @@ add_library(term-core STATIC
     src/core/event_loop.cpp
     src/core/app.cpp
     src/core/config.cpp
+    src/core/input_processor.cpp
 )
 
 target_include_directories(term-core
     PUBLIC ${CMAKE_SOURCE_DIR}/src
     PUBLIC ${LIBUV_INCLUDE_DIR}
+    PUBLIC ${SML_INCLUDE_DIR}
 )
 
 target_link_libraries(term-core
@@ -131,7 +145,6 @@ install(FILES
     src/ime/rime_engine.hpp
     src/ime/language.hpp
     src/ime/ranker.hpp
-    src/ime/neural_ranker.hpp
     DESTINATION include/term-ime
 )
 

@@ -24,25 +24,6 @@ LanguageConfig LanguageConfig::from_json(const json& j) {
     return cfg;
 }
 
-// NeuralRankerConfig implementation
-json NeuralRankerConfig::to_json() const {
-    return json{
-        {"enabled", enabled},
-        {"model_path", model_path},
-        {"max_candidates", max_candidates},
-        {"threshold", threshold}
-    };
-}
-
-NeuralRankerConfig NeuralRankerConfig::from_json(const json& j) {
-    NeuralRankerConfig cfg;
-    cfg.enabled = j.value("enabled", false);
-    cfg.model_path = j.value("model_path", "");
-    cfg.max_candidates = j.value("max_candidates", 10);
-    cfg.threshold = j.value("threshold", 0.5f);
-    return cfg;
-}
-
 // AppConfig implementation
 std::vector<LanguageConfig> AppConfig::default_languages() {
     return {
@@ -67,10 +48,11 @@ json AppConfig::to_json() const {
     j["extra_dicts"] = extra_dicts;
     j["page_size"] = page_size;
 
+    j["rime_shared_data_dir"] = rime_shared_data_dir;
+    j["rime_user_data_dir"] = rime_user_data_dir;
+
     j["show_mode_indicator"] = show_mode_indicator;
     j["candidate_bar_position"] = candidate_bar_position;
-
-    j["neural_ranker"] = neural_ranker.to_json();
 
     j["log_level"] = log_level;
     j["log_file"] = log_file;
@@ -97,12 +79,11 @@ AppConfig AppConfig::from_json(const json& j) {
     cfg.extra_dicts = j.value("extra_dicts", std::vector<std::string>{});
     cfg.page_size = j.value("page_size", 5);
 
+    cfg.rime_shared_data_dir = j.value("rime_shared_data_dir", "");
+    cfg.rime_user_data_dir = j.value("rime_user_data_dir", "");
+
     cfg.show_mode_indicator = j.value("show_mode_indicator", true);
     cfg.candidate_bar_position = j.value("candidate_bar_position", "bottom");
-
-    if (j.contains("neural_ranker")) {
-        cfg.neural_ranker = NeuralRankerConfig::from_json(j["neural_ranker"]);
-    }
 
     cfg.log_level = j.value("log_level", "warn");
     cfg.log_file = j.value("log_file", "");

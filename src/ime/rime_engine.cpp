@@ -22,12 +22,39 @@ bool RimeIme::initialize() {
 
     // Setup traits
     RIME_STRUCT(RimeTraits, traits);
-    traits.shared_data_dir = shared_data_dir_.c_str();
+
+    // Determine shared data directory
+    std::string shared_dir = shared_data_dir_;
+    if (shared_dir.empty()) {
+        // Try common locations
+        std::vector<std::string> search_paths = {
+            "/usr/share/rime-data",
+            "/usr/local/share/rime-data",
+            "/opt/rime-data"
+        };
+
+        for (const auto& path : search_paths) {
+            if (std::filesystem::exists(path)) {
+                shared_dir = path;
+                break;
+            }
+        }
+
+        if (shared_dir.empty()) {
+            shared_dir = "/usr/share/rime-data";  // fallback
+        }
+    }
+    traits.shared_data_dir = shared_dir.c_str();
 
     // Use default user data dir if not specified
     std::string user_dir = user_data_dir_;
     if (user_dir.empty()) {
-        user_dir = std::filesystem::path(getenv("HOME")) / ".config" / "term-ime";
+        const char* home = getenv("HOME");
+        if (home) {
+            user_dir = std::filesystem::path(home) / ".config" / "term-ime";
+        } else {
+            user_dir = "/tmp/term-ime";
+        }
     }
     traits.user_data_dir = user_dir.c_str();
 

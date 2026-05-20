@@ -21,7 +21,11 @@ char32_t decode(const uint8_t* data, size_t len, size_t& pos);
 // Encode UTF-32 to UTF-8
 std::string encode(char32_t ch);
 
-// Get display width (1 for ASCII, 2 for CJK)
+// Get display width (1 for ASCII, 2 for CJK, etc.)
+// Uses utf8proc for proper Unicode width calculation
 int width(char32_t ch);
+
+// Get display width of a UTF-8 string
+int string_width(const std::string& str);
 
 }

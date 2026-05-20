@@ -1,5 +1,6 @@
 #include "core/event_loop.hpp"
 #include "core/app.hpp"
+#include "core/config.hpp"
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <unistd.h>
@@ -26,8 +27,21 @@ int main(int argc, char* argv[]) {
 
     spdlog::info("term-ime starting");
 
-    const char* shell = getenv("SHELL");
-    if (!shell) shell = "/bin/bash";
+    // Load configuration
+    std::string config_path = AppConfig::default_path();
+    if (argc > 1) {
+        config_path = argv[1];
+    }
+    AppConfig config = AppConfig::load(config_path);
+    spdlog::info("Loaded config from: {}", config_path);
+
+    // Override shell from environment if not set in config
+    if (config.shell.empty() || config.shell == "/bin/bash") {
+        const char* shell_env = getenv("SHELL");
+        if (shell_env) {
+            config.shell = shell_env;
+        }
+    }
 
     // Create event loop
     spdlog::info("Creating event loop");
@@ -36,7 +50,7 @@ int main(int argc, char* argv[]) {
     // Create application
     spdlog::info("Creating app");
     App app;
-    if (!app.init(shell)) {
+    if (!app.init(config)) {
         spdlog::error("App init failed");
         return 1;
     }
