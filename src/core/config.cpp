@@ -31,7 +31,9 @@ json LlamaRankerConfig::to_json() const {
         {"model_path", model_path},
         {"n_threads", n_threads},
         {"max_tokens", max_tokens},
-        {"timeout_ms", timeout_ms}
+        {"timeout_ms", timeout_ms},
+        {"backend", backend},
+        {"n_gpu_layers", n_gpu_layers}
     };
 }
 
@@ -42,6 +44,8 @@ LlamaRankerConfig LlamaRankerConfig::from_json(const json& j) {
     cfg.n_threads = j.value("n_threads", 2);
     cfg.max_tokens = j.value("max_tokens", 10);
     cfg.timeout_ms = j.value("timeout_ms", 100);
+    cfg.backend = j.value("backend", "cpu");
+    cfg.n_gpu_layers = j.value("n_gpu_layers", 0);
     return cfg;
 }
 

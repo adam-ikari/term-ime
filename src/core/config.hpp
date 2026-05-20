@@ -24,6 +24,8 @@ struct LlamaRankerConfig {
     int n_threads = 2;        // Number of threads for inference
     int max_tokens = 10;      // Max tokens to generate
     int timeout_ms = 100;     // Timeout for inference
+    std::string backend = "cpu";  // "cpu", "cuda", "metal", "vulkan"
+    int n_gpu_layers = 0;     // Number of layers to offload to GPU
 
     json to_json() const;
     static LlamaRankerConfig from_json(const json& j);

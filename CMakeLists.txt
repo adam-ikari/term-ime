@@ -9,6 +9,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 # ============================================================
+# Hardware acceleration options (configurable)
+# ============================================================
+option(LLAMA_USE_CUDA "Enable CUDA acceleration" OFF)
+option(LLAMA_USE_METAL "Enable Metal/MPS acceleration (Mac)" OFF)
+option(LLAMA_USE_VULKAN "Enable Vulkan acceleration" OFF)
+option(LLAMA_USE_NPU "Enable NPU acceleration" OFF)
+
+# ============================================================
 # Dependencies
 # ============================================================
 add_subdirectory(deps/ftxui)
@@ -25,13 +33,36 @@ set(ENABLE_LOGGING OFF CACHE BOOL "" FORCE)
 set(ENABLE_THREADING ON CACHE BOOL "" FORCE)
 add_subdirectory(deps/librime EXCLUDE_FROM_ALL)
 
-# llama.cpp - minimal build for LLM ranking
+# llama.cpp - minimal build for LLM ranking with optional acceleration
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_COMMON OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
+# Configure acceleration backends
+if(LLAMA_USE_CUDA)
+    message(STATUS "Enabling CUDA acceleration for llama.cpp")
+    set(LLAMA_CUDA ON CACHE BOOL "" FORCE)
+endif()
+
+if(LLAMA_USE_METAL)
+    message(STATUS "Enabling Metal/MPS acceleration for llama.cpp")
+    set(LLAMA_METAL ON CACHE BOOL "" FORCE)
+endif()
+
+if(LLAMA_USE_VULKAN)
+    message(STATUS "Enabling Vulkan acceleration for llama.cpp")
+    set(LLAMA_VULKAN ON CACHE BOOL "" FORCE)
+endif()
+
+# NPU support via Vulkan or custom backend
+if(LLAMA_USE_NPU)
+    message(STATUS "Enabling NPU acceleration (via Vulkan)")
+    set(LLAMA_VULKAN ON CACHE BOOL "" FORCE)
+endif()
+
 add_subdirectory(deps/llama.cpp EXCLUDE_FROM_ALL)
 
 # Use system libuv
@@ -57,6 +88,7 @@ add_library(term-ime-lib STATIC
     src/ime/language.cpp
     src/ime/ranker.cpp
     src/ime/llama_ranker.cpp
+    src/ime/kaomoji.cpp
     src/util/utf8.cpp
     src/util/logger.cpp
 )

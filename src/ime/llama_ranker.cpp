@@ -99,14 +99,21 @@ bool LlamaRanker::is_available() const {
 bool LlamaRanker::load_model() {
     if (model_loaded_) return true;
 
-    spdlog::info("Loading llama model: {}", config_.model_path);
+    spdlog::info("Loading llama model: {} (backend: {})", config_.model_path, config_.backend);
 
     // Initialize llama backend
     llama_backend_init();
 
-    // Load model
+    // Load model with appropriate GPU layers based on backend
     llama_model_params model_params = llama_model_default_params();
-    model_params.n_gpu_layers = 0;  // CPU only
+
+    if (config_.backend == "cuda" || config_.backend == "vulkan" || config_.backend == "metal") {
+        model_params.n_gpu_layers = config_.n_gpu_layers > 0 ? config_.n_gpu_layers : 35;
+        spdlog::info("Using {} backend with {} GPU layers", config_.backend, model_params.n_gpu_layers);
+    } else {
+        model_params.n_gpu_layers = 0;  // CPU only
+        spdlog::info("Using CPU backend with {} threads", config_.n_threads);
+    }
 
     model_ = llama_load_model_from_file(config_.model_path.c_str(), model_params);
     if (!model_) {
