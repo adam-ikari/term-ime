@@ -83,7 +83,7 @@ Element CandidateBar(const CandidateBarProps& props) {
     }
 
     // Cancel hint
-    items.push_back(Text("  Esc" + I18n::t("hint.cancel") + " ") | Dim() | TextColor(FtxuiColor::GrayDark));
+    items.push_back(Text("  Esc " + I18n::t("hint.cancel") + " ") | Dim() | TextColor(FtxuiColor::GrayDark));
 
     return HBox(std::move(items)) | Inverted() | Height(1);
 }
@@ -220,7 +220,7 @@ Element MainBar(const MainBarProps& props) {
     items.push_back(Filler());
 
     // Cancel hint
-    items.push_back(Text(" Esc" + I18n::t("hint.cancel") + " ") | Dim() | TextColor(FtxuiColor::GrayDark));
+    items.push_back(Text(" Esc " + I18n::t("hint.cancel") + " ") | Dim() | TextColor(FtxuiColor::GrayDark));
 
     return HBox(std::move(items)) | Inverted() | Height(1);
 }
