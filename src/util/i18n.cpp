@@ -80,17 +80,37 @@ I18n::Lang I18n::parse_lang(const std::string& code) {
 }
 
 std::filesystem::path I18n::get_default_translations_path() {
-    // Try XDG_CONFIG_HOME first
+    // Try multiple paths in order
+    std::vector<std::filesystem::path> search_paths;
+
+    // 1. XDG_CONFIG_HOME
     const char* xdg_config = getenv("XDG_CONFIG_HOME");
     if (xdg_config) {
-        return std::filesystem::path(xdg_config) / "term-ime" / "translations";
+        search_paths.push_back(std::filesystem::path(xdg_config) / "term-ime" / "translations");
     }
-    // Fallback to HOME/.config
+
+    // 2. HOME/.config
     const char* home = getenv("HOME");
     if (home) {
-        return std::filesystem::path(home) / ".config" / "term-ime" / "translations";
+        search_paths.push_back(std::filesystem::path(home) / ".config" / "term-ime" / "translations");
     }
-    return std::filesystem::path("translations");
+
+    // 3. Build directory (relative to executable)
+    search_paths.push_back(std::filesystem::current_path() / "data" / "translations");
+
+    // 4. Install prefix
+    search_paths.push_back(std::filesystem::path("/usr/share/term-ime/translations"));
+    search_paths.push_back(std::filesystem::path("/usr/local/share/term-ime/translations"));
+
+    // Find first existing path
+    for (const auto& path : search_paths) {
+        if (std::filesystem::exists(path)) {
+            return path;
+        }
+    }
+
+    // Return default (may not exist, will use fallback)
+    return std::filesystem::current_path() / "data" / "translations";
 }
 
 bool I18n::load_translations(Lang lang) {
