@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <stdexcept>
+#include <filesystem>
 
 App::App() = default;
 
@@ -150,7 +151,10 @@ void App::render_candidates_bar() {
 
     // Build status string with AI indicator
     std::string status = lang_name + " " + mode;
-    if (ai_ranking_enabled_) {
+
+    if (model_downloading_.load()) {
+        status += " [下载模型 " + std::to_string(model_download_progress_) + "%]";
+    } else if (ai_ranking_enabled_) {
         status += ai_ranking_in_progress_ ? " [AI...]" : " [AI]";
     }
 
@@ -311,8 +315,37 @@ bool App::switch_language(const std::string& lang_id) {
 }
 
 void App::toggle_ai_ranking() {
+    if (model_downloading_.load()) {
+        spdlog::info("Model download in progress, ignoring toggle");
+        return;
+    }
+
     if (!llama_ranker_) {
-        // Initialize ranker on first toggle
+        // Check if model exists
+        std::string model_path = config_.llama_ranker.model_path;
+        if (model_path.empty()) {
+            model_path = ModelDownloader::get_default_save_path("qwen-0.5b-q4");
+        }
+
+        // Expand ~ in path
+        if (!model_path.empty() && model_path[0] == '~') {
+            const char* home = std::getenv("HOME");
+            if (home) {
+                model_path = std::string(home) + model_path.substr(1);
+            }
+        }
+
+        // Check if model file exists
+        bool model_exists = std::filesystem::exists(model_path);
+        spdlog::info("Model path: {}, exists: {}", model_path, model_exists);
+
+        if (!model_exists) {
+            // Start model download
+            start_model_download();
+            return;
+        }
+
+        // Initialize ranker with existing model
         spdlog::info("Initializing LLM ranker on demand");
         llama_ranker_ = std::make_unique<LlamaRanker>();
         if (llama_ranker_->initialize(config_.llama_ranker)) {
@@ -326,6 +359,62 @@ void App::toggle_ai_ranking() {
         ai_ranking_enabled_ = !ai_ranking_enabled_;
         spdlog::info("AI ranking {}", ai_ranking_enabled_ ? "enabled" : "disabled");
     }
+    render();
+}
+
+void App::start_model_download() {
+    spdlog::info("Starting model download");
+    model_downloading_ = true;
+    model_download_progress_ = 0;
+
+    if (!model_downloader_) {
+        model_downloader_ = std::make_unique<ModelDownloader>();
+    }
+
+    std::string model_name = "qwen-0.5b-q4";  // Default model
+    std::string save_path = config_.llama_ranker.model_path;
+    if (save_path.empty()) {
+        save_path = ModelDownloader::get_default_save_path(model_name);
+    }
+
+    model_downloader_->download_async(
+        model_name,
+        save_path,
+        [this](int progress, const std::string& status) {
+            model_download_progress_ = progress;
+            spdlog::info("Download progress: {}% - {}", progress, status);
+            render();
+        },
+        [this](bool success, const std::string& path) {
+            on_model_downloaded(success, path);
+        }
+    );
+
+    render();
+}
+
+void App::on_model_downloaded(bool success, const std::string& path) {
+    model_downloading_ = false;
+
+    if (success) {
+        spdlog::info("Model downloaded successfully: {}", path);
+
+        // Update config with downloaded model path
+        config_.llama_ranker.model_path = path;
+
+        // Initialize ranker
+        llama_ranker_ = std::make_unique<LlamaRanker>();
+        if (llama_ranker_->initialize(config_.llama_ranker)) {
+            ai_ranking_enabled_ = true;
+            spdlog::info("LLM ranker initialized with downloaded model");
+        } else {
+            spdlog::warn("Failed to initialize LLM ranker with downloaded model");
+            llama_ranker_.reset();
+        }
+    } else {
+        spdlog::error("Model download failed");
+    }
+
     render();
 }
 

@@ -69,6 +69,9 @@ add_subdirectory(deps/llama.cpp EXCLUDE_FROM_ALL)
 find_library(LIBUV_LIBRARY uv REQUIRED)
 find_path(LIBUV_INCLUDE_DIR uv.h REQUIRED)
 
+# Use system curl for model downloads
+find_package(CURL REQUIRED)
+
 # SML (State Machine Library) - header-only
 set(SML_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/sml/include)
 
@@ -92,6 +95,7 @@ add_library(term-ime-lib STATIC
     src/util/utf8.cpp
     src/util/logger.cpp
     src/util/i18n.cpp
+    src/util/model_downloader.cpp
 )
 
 target_include_directories(term-ime-lib
@@ -108,6 +112,7 @@ target_link_libraries(term-ime-lib
     PUBLIC spdlog::spdlog
     PUBLIC utf8proc
     PUBLIC llama
+    PUBLIC CURL::libcurl
 )
 
 set_target_properties(term-ime-lib PROPERTIES

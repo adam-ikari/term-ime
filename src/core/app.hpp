@@ -10,6 +10,7 @@
 #include "input_processor.hpp"
 #include "config.hpp"
 #include "util/utf8.hpp"
+#include "util/model_downloader.hpp"
 
 #include <memory>
 #include <string>
@@ -64,6 +65,7 @@ private:
     std::unique_ptr<Parser> parser_;
     std::unique_ptr<RimeIme> ime_;
     std::unique_ptr<LlamaRanker> llama_ranker_;
+    std::unique_ptr<ModelDownloader> model_downloader_;
     LanguageManager language_manager_;
     InputProcessor input_processor_;
     AppConfig config_;
@@ -71,9 +73,13 @@ private:
     bool initialized_ = false;
     std::atomic<bool> ai_ranking_enabled_{false};
     std::atomic<bool> ai_ranking_in_progress_{false};
+    std::atomic<bool> model_downloading_{false};
+    int model_download_progress_ = 0;
     std::vector<Candidate> last_candidates_;  // Cache for async ranking
 
     void on_language_change(const LanguageConfig& lang);
     void on_ranking_complete(std::vector<Candidate> ranked);
     void render_candidates_bar();
+    void start_model_download();
+    void on_model_downloaded(bool success, const std::string& path);
 };
