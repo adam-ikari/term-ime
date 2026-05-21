@@ -251,6 +251,20 @@ target_link_libraries(test-ui-jsx
     PRIVATE ftxui::screen
 )
 
+# Settings test
+add_executable(test-settings
+    tests/test_settings.cpp
+)
+
+target_link_libraries(test-settings
+    PRIVATE term-terminal
+    PRIVATE term-core
+    PRIVATE term-ime-lib
+    PRIVATE spdlog::spdlog
+    PRIVATE ftxui::dom
+    PRIVATE ftxui::screen
+)
+
 # Register tests with CTest
 include(GoogleTest)
 gtest_discover_tests(term-ime-tests)
