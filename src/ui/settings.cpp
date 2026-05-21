@@ -18,8 +18,8 @@ Element SettingsRow(const SettingsItem& item, bool focused) {
     auto label_style = focused ? Bold() : Dim();
     row.push_back(Text("  " + item.label + ": ") | label_style);
 
-    // Value with selection indicator
-    std::string value_display = item.value;
+    // Value with selection indicator (use display_value if available)
+    std::string value_display = item.display_value.empty() ? item.value : item.display_value;
     if (focused) {
         value_display = "[" + value_display + "]";
         row.push_back(Text(value_display) | Bold() | BgColor(FtxuiColor::Blue));
@@ -120,6 +120,9 @@ bool settings_handle_key(SettingsState& state, int key) {
                 if (item.selected_index > 0) {
                     item.selected_index--;
                     item.value = item.options[item.selected_index];
+                    if (!item.display_options.empty()) {
+                        item.display_value = item.display_options[item.selected_index];
+                    }
                     if (state.on_change) {
                         state.on_change(item.key, item.value);
                     }
@@ -134,6 +137,9 @@ bool settings_handle_key(SettingsState& state, int key) {
                 if (item.selected_index < static_cast<int>(item.options.size()) - 1) {
                     item.selected_index++;
                     item.value = item.options[item.selected_index];
+                    if (!item.display_options.empty()) {
+                        item.display_value = item.display_options[item.selected_index];
+                    }
                     if (state.on_change) {
                         state.on_change(item.key, item.value);
                     }
@@ -154,6 +160,9 @@ bool settings_handle_key(SettingsState& state, int key) {
                 if (!item.options.empty()) {
                     item.selected_index = (item.selected_index + 1) % item.options.size();
                     item.value = item.options[item.selected_index];
+                    if (!item.display_options.empty()) {
+                        item.display_value = item.display_options[item.selected_index];
+                    }
                     if (state.on_change) {
                         state.on_change(item.key, item.value);
                     }
@@ -185,10 +194,12 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     ui_lang.label = I18n::t("settings.ui_language");
     ui_lang.key = "ui_language";
     ui_lang.options = {"en", "zh-CN", "zh-TW", "ja"};
+    ui_lang.display_options = {"English", "简体中文", "繁體中文", "日本語"};
     ui_lang.value = config.ui_language;
     for (size_t i = 0; i < ui_lang.options.size(); ++i) {
         if (ui_lang.options[i] == config.ui_language) {
             ui_lang.selected_index = i;
+            ui_lang.display_value = ui_lang.display_options[i];
             break;
         }
     }
@@ -199,8 +210,10 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     ai_ranking.label = I18n::t("settings.ai_ranking");
     ai_ranking.key = "ai_ranking";
     ai_ranking.options = {"off", "on"};
+    ai_ranking.display_options = {"Off", "On"};
     ai_ranking.value = config.llama_ranker.enabled ? "on" : "off";
     ai_ranking.selected_index = config.llama_ranker.enabled ? 1 : 0;
+    ai_ranking.display_value = ai_ranking.display_options[ai_ranking.selected_index];
     state.items.push_back(ai_ranking);
 
     // Backend
@@ -208,10 +221,12 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     backend.label = I18n::t("settings.backend");
     backend.key = "backend";
     backend.options = {"cpu", "cuda", "metal", "vulkan"};
+    backend.display_options = {"CPU", "CUDA", "Metal", "Vulkan"};
     backend.value = config.llama_ranker.backend;
     for (size_t i = 0; i < backend.options.size(); ++i) {
         if (backend.options[i] == config.llama_ranker.backend) {
             backend.selected_index = i;
+            backend.display_value = backend.display_options[i];
             break;
         }
     }
@@ -222,10 +237,12 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     threads.label = I18n::t("settings.threads");
     threads.key = "threads";
     threads.options = {"1", "2", "4", "8"};
+    threads.display_options = {"1", "2", "4", "8"};
     threads.value = std::to_string(config.llama_ranker.n_threads);
     for (size_t i = 0; i < threads.options.size(); ++i) {
         if (threads.options[i] == threads.value) {
             threads.selected_index = i;
+            threads.display_value = threads.display_options[i];
             break;
         }
     }

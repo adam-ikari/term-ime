@@ -234,24 +234,6 @@ void App::on_keyboard_data(const char* data, size_t len) {
             }
         }
 
-        // Handle UI language switch (Ctrl+A + L)
-        if (input_result.forward && !input_result.data.empty()) {
-            if (input_result.data.size() == 2 && input_result.data[0] == 1 && input_result.data[1] == 'l') {
-                spdlog::info("Ctrl+A + L detected, cycling UI language");
-                // Cycle through available languages
-                auto langs = available_ui_languages();
-                auto current = I18n::lang_code(I18n::current_lang());
-                for (size_t i = 0; i < langs.size(); ++i) {
-                    if (langs[i].first == current) {
-                        std::string next = langs[(i + 1) % langs.size()].first;
-                        switch_ui_language(next);
-                        break;
-                    }
-                }
-                continue;
-            }
-        }
-
         // Handle settings panel (Ctrl+A + S)
         if (input_result.forward && !input_result.data.empty()) {
             if (input_result.data.size() == 2 && input_result.data[0] == 1 && input_result.data[1] == 's') {
@@ -260,6 +242,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 continue;
             }
         }
+
 
         // Check if this is an escape sequence
         bool is_escape_sequence = !input_result.data.empty() && input_result.data[0] == 0x1b;
