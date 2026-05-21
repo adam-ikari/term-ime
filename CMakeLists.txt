@@ -265,6 +265,16 @@ target_link_libraries(test-settings
     PRIVATE ftxui::screen
 )
 
+# Input processor end-to-end test
+add_executable(test-input-e2e
+    tests/test_input_e2e.cpp
+)
+
+target_link_libraries(test-input-e2e
+    PRIVATE term-core
+    PRIVATE spdlog::spdlog
+)
+
 # Register tests with CTest
 include(GoogleTest)
 gtest_discover_tests(term-ime-tests)
