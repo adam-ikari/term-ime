@@ -33,29 +33,38 @@ int main() {
     auto element = SettingsPanel(state);
 
     auto screen = ftxui::Screen::Create(
-        ftxui::Dimension::Fixed(50),
-        ftxui::Dimension::Fixed(15)
+        ftxui::Dimension::Fixed(60),
+        ftxui::Dimension::Fixed(20)
     );
     ftxui::Render(screen, element);
-    std::cout << "Panel rendered (50x15)\n\n";
+    std::cout << "Panel rendered (60x20)\n";
+    std::cout << "--- Render Output ---\n";
+    std::cout << screen.ToString() << "\n";
+    std::cout << "--- End ---\n\n";
 
-    // Test 3: Navigate settings
-    std::cout << "Test 3: Navigate settings (simulate 'j' key)\n";
-    settings_handle_key(state, 'j');  // Move down
-    std::cout << "  Focus index: " << state.focus_index << "\n";
-    settings_handle_key(state, 'j');  // Move down again
-    std::cout << "  Focus index: " << state.focus_index << "\n";
-    settings_handle_key(state, 'k');  // Move up
-    std::cout << "  Focus index: " << state.focus_index << "\n\n";
+    // Test 3: Navigate settings with arrow keys
+    std::cout << "Test 3: Navigate settings (arrow keys and vim keys)\n";
+    settings_handle_key(state, 'j');  // Move down (vim)
+    std::cout << "  After 'j': focus_index = " << state.focus_index << "\n";
+    settings_handle_key(state, 'B');  // Move down (arrow down)
+    std::cout << "  After 'B' (down arrow): focus_index = " << state.focus_index << "\n";
+    settings_handle_key(state, 'k');  // Move up (vim)
+    std::cout << "  After 'k': focus_index = " << state.focus_index << "\n";
+    settings_handle_key(state, 'A');  // Move up (arrow up)
+    std::cout << "  After 'A' (up arrow): focus_index = " << state.focus_index << "\n\n";
 
-    // Test 4: Change setting value
+    // Test 4: Change setting value with arrow keys
     std::cout << "Test 4: Change setting value\n";
     state.focus_index = 0;  // Focus on UI language
     std::cout << "  Current UI language: " << state.items[0].value << "\n";
-    settings_handle_key(state, 'l');  // Move right (next option)
+    settings_handle_key(state, 'l');  // Move right (vim)
     std::cout << "  After 'l': " << state.items[0].value << "\n";
-    settings_handle_key(state, 'h');  // Move left (previous option)
-    std::cout << "  After 'h': " << state.items[0].value << "\n\n";
+    settings_handle_key(state, 'C');  // Move right (arrow right)
+    std::cout << "  After 'C' (right arrow): " << state.items[0].value << "\n";
+    settings_handle_key(state, 'h');  // Move left (vim)
+    std::cout << "  After 'h': " << state.items[0].value << "\n";
+    settings_handle_key(state, 'D');  // Move left (arrow left)
+    std::cout << "  After 'D' (left arrow): " << state.items[0].value << "\n\n";
 
     // Test 5: Apply settings
     std::cout << "Test 5: Apply settings to config\n";

@@ -76,9 +76,11 @@ int main(int argc, char* argv[]) {
             spdlog::info("PTY closed, exiting");
             app.on_quit(0);
             loop.stop();
-        } else {
+        } else if (!app.is_settings_visible()) {
+            // Only process PTY data when settings panel is not visible
             app.on_pty_data(data, len);
         }
+        // When settings visible, ignore PTY data (shell continues running but output is not shown)
     });
 
     // Register keyboard reader

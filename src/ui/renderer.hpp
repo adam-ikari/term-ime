@@ -3,6 +3,7 @@
 #include "../terminal/screen.hpp"
 #include "../ime/engine.hpp"
 #include "components.hpp"
+#include "settings.hpp"
 #include <string>
 
 class Renderer {
@@ -28,6 +29,9 @@ public:
                               const std::string& mode,
                               bool ai_enabled, bool ai_loading,
                               bool downloading, int download_progress);
+
+    // Render settings panel
+    void render_settings(ui::SettingsState& state);
 
     int read_key();
     int get_tty_fd() const;

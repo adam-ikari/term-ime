@@ -164,3 +164,27 @@ int Renderer::read_key() {
 int Renderer::get_tty_fd() const {
     return tty_fd_;
 }
+
+void Renderer::render_settings(ui::SettingsState& state) {
+    struct winsize ws;
+    if (ioctl(tty_fd_, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0) {
+        ws.ws_row = 24;
+        ws.ws_col = 80;
+    }
+
+    // Create FTXUI Screen for full screen
+    auto ftxui_screen = ftxui::Screen::Create(
+        ftxui::Dimension::Fixed(ws.ws_col),
+        ftxui::Dimension::Fixed(ws.ws_row)
+    );
+
+    // Render settings panel
+    auto element = ui::SettingsPanel(state);
+    ftxui::Render(ftxui_screen, element);
+
+    // Clear screen and render
+    printf("\x1b[2J\x1b[H");
+    std::string output = ftxui_screen.ToString();
+    fwrite(output.c_str(), 1, output.size(), stdout);
+    fflush(stdout);
+}

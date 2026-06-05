@@ -203,9 +203,27 @@ void App::on_keyboard_data(const char* data, size_t len) {
 
     // If settings panel is visible, handle keys for it
     if (settings_state_.visible) {
+        // Process through InputProcessor to handle escape sequences
         for (size_t i = 0; i < len; ++i) {
             uint8_t byte = static_cast<uint8_t>(data[i]);
-            ui::settings_handle_key(settings_state_, byte);
+            auto input_result = input_processor_.process(byte);
+
+            if (input_result.forward && !input_result.data.empty()) {
+                // Handle escape sequences (arrow keys)
+                // Both ESC [ A/B/C/D (ANSI mode) and ESC O A/B/C/D (application mode)
+                if (input_result.data.size() == 3 &&
+                    input_result.data[0] == 0x1b &&
+                    (input_result.data[1] == '[' || input_result.data[1] == 'O')) {
+                    // Arrow key: ESC [ A/B/C/D or ESC O A/B/C/D
+                    char arrow = static_cast<char>(input_result.data[2]);
+                    ui::settings_handle_key(settings_state_, arrow);
+                } else {
+                    // Forward other keys as individual bytes
+                    for (uint8_t b : input_result.data) {
+                        ui::settings_handle_key(settings_state_, b);
+                    }
+                }
+            }
         }
         render();
         return;
@@ -225,27 +243,33 @@ void App::on_keyboard_data(const char* data, size_t len) {
             continue;
         }
 
-        // Handle AI ranking toggle (Ctrl+A + A)
-        if (input_result.forward && !input_result.data.empty()) {
-            if (input_result.data.size() == 2 && input_result.data[0] == 1 && input_result.data[1] == 'a') {
-                spdlog::info("Ctrl+A + A detected, toggling AI ranking");
-                toggle_ai_ranking();
-                continue;
-            }
-        }
-
-        // Handle settings panel (Ctrl+A + S)
-        if (input_result.forward && !input_result.data.empty()) {
-            if (input_result.data.size() == 2 && input_result.data[0] == 1 && input_result.data[1] == 's') {
-                spdlog::info("Ctrl+A + S detected, toggling settings");
-                toggle_settings();
-                continue;
-            }
-        }
-
-
         // Check if this is an escape sequence
         bool is_escape_sequence = !input_result.data.empty() && input_result.data[0] == 0x1b;
+
+        // Check for Ctrl+A combinations first (even when composing)
+        if (input_result.forward && !input_result.data.empty()) {
+            if (input_result.data.size() == 2 && input_result.data[0] == 1) {
+                // Ctrl+A + key combinations
+                char second_key = static_cast<char>(input_result.data[1]);
+                if (second_key == 'a') {
+                    spdlog::info("Ctrl+A + A detected, toggling AI ranking");
+                    // Cancel IME input first
+                    if (ime_->state() != ImeState::Inactive) {
+                        ime_->cancel();
+                    }
+                    toggle_ai_ranking();
+                    continue;
+                } else if (second_key == 's') {
+                    spdlog::info("Ctrl+A + S detected, toggling settings");
+                    // Cancel IME input first
+                    if (ime_->state() != ImeState::Inactive) {
+                        ime_->cancel();
+                    }
+                    toggle_settings();
+                    continue;
+                }
+            }
+        }
 
         // If IME is composing, intercept all input except selection keys
         if (ime_->state() == ImeState::Composing || ime_->state() == ImeState::Selecting) {
@@ -337,8 +361,14 @@ void App::render() {
     renderer_.render(*screen_);
     spdlog::debug("render: screen done");
 
-    render_candidates_bar();
-    spdlog::debug("render: candidates done");
+    // Render settings panel if visible
+    if (settings_state_.visible) {
+        renderer_.render_settings(settings_state_);
+        spdlog::debug("render: settings panel done");
+    } else {
+        render_candidates_bar();
+        spdlog::debug("render: candidates done");
+    }
 }
 
 int App::pty_fd() const {
