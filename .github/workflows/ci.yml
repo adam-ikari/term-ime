@@ -12,6 +12,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Install dependencies
       run: |
@@ -21,6 +23,11 @@ jobs:
           cmake \
           pkg-config \
           libuv1-dev \
+          libboost-all-dev \
+          libgflags-dev \
+          libyaml-cpp-dev \
+          libprotobuf-dev \
+          protobuf-compiler \
           librime-dev
 
     - name: Configure CMake

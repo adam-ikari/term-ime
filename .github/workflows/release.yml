@@ -18,13 +18,17 @@ jobs:
           submodules: recursive
 
       - name: Install system deps
-        # Mirror ci.yml: use system librime-dev so we don't need the full
-        # Boost/gflags/protobuf toolchain required to build deps/librime.
+        # Build deps/librime from source (submodule) needs Boost + friends.
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential cmake pkg-config \
-            libuv1-dev librime-dev
+            libuv1-dev \
+            libboost-all-dev \
+            libgflags-dev \
+            libyaml-cpp-dev \
+            libprotobuf-dev \
+            protobuf-compiler
 
       - name: Configure & build (Release)
         run: |
