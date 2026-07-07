@@ -18,6 +18,7 @@ export default function Home() {
             <a href="#features">特性</a>
             <a href="#quickstart">快速开始</a>
             <a href="#shortcuts">快捷键</a>
+            <a href="/docs/">文档</a>
             <a
               href="https://github.com/adam-ikari/term-ime"
               target="_blank"
