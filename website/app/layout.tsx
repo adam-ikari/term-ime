@@ -10,8 +10,7 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'term-ime — TTY 中文输入虚拟终端',
-  description:
-    '在 Linux TTY 中运行的虚拟终端,内置多语言输入法 (librime) 与可选 LLM 候选词排序 (llama.cpp)。',
+  description: '在 Linux TTY 中运行的虚拟终端,内置多语言输入法与可选 AI 候选词排序。',
   metadataBase: new URL('https://adam.github.io'),
   openGraph: {
     title: 'term-ime',

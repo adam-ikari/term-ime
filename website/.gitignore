@@ -26,3 +26,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 check-xterm.mjs
+check2.mjs

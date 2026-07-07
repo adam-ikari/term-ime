@@ -19,7 +19,7 @@ export default function Footer() {
           <span className="sep">·</span>
           <span>MIT License</span>
           <span className="sep">·</span>
-          <span>C++17 / CMake / librime / llama.cpp / FTXUI</span>
+          <span>Linux TTY 虚拟终端</span>
         </div>
       </div>
     </footer>

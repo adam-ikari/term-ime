@@ -9,10 +9,8 @@ export default function Hero() {
             <h1>term-ime</h1>
             <p className="tagline">在 Linux TTY 中运行的虚拟终端,内置多语言输入法。</p>
             <p className="sub">
-              基于 <span className="hl">librime</span> 的中文/日文输入,
-              <span className="hl">libuv</span> 异步事件循环,可选{' '}
-              <span className="hl">llama.cpp</span> LLM 候选词排序,
-              <span className="hl">FTXUI</span> 渲染。
+              中文、日文等多种语言输入,<span className="hl">候选词智能排序</span>,
+              <span className="hl">终端 UI</span> 渲染,流畅的 TTY 打字体验。
             </p>
             <div className="cta">
               <a className="btn primary" href="#quickstart">快速开始</a>

@@ -10,13 +10,13 @@ import {
 } from './icons';
 
 const CARDS = [
-  { Icon: IconTerminal, title: 'PTY 虚拟终端', desc: 'forkpty 子进程管理,VT100/CSI 转义序列解析与屏幕缓冲。' },
-  { Icon: IconGlobe, title: '多语言输入法', desc: 'librime 封装:拼音、双拼、注音、假名,可按 schema 切换。' },
-  { Icon: IconPuzzle, title: '可扩展架构', desc: '语言配置化(LanguageManager),新增语言无需改代码。' },
-  { Icon: IconBolt, title: '异步事件驱动', desc: 'libuv 事件循环:fd 轮询、信号、定时器、线程池工作队列。' },
-  { Icon: IconBrain, title: '智能候选词', desc: '可选 llama.cpp 异步 LLM 排序,懒加载、过期结果丢弃。' },
-  { Icon: IconChar, title: 'UTF-8 + CJK', desc: '完整 UTF-8 编解码,正确处理 CJK 宽字符对齐。' },
-  { Icon: IconUi, title: 'FTXUI 渲染', desc: 'JSX 风格声明式组件,候选栏 / 状态栏 / 设置面板。' },
+  { Icon: IconTerminal, title: '终端模拟', desc: '在 TTY 里跑你的 shell,支持转义序列、光标、滚动与窗口缩放。' },
+  { Icon: IconGlobe, title: '多语言输入', desc: '中文拼音、双拼、注音,日文假名,一键切换,配置即可加新语言。' },
+  { Icon: IconPuzzle, title: '可扩展语言', desc: '语言全部配置驱动,增减语言或切换方案无需改动代码。' },
+  { Icon: IconBolt, title: '快速响应', desc: '异步事件驱动,输入即时反馈,长任务后台跑不阻塞打字。' },
+  { Icon: IconBrain, title: '智能候选词', desc: '可选 AI 排序,根据上下文把最可能的候选词排到最前。' },
+  { Icon: IconChar, title: '完整中文支持', desc: 'UTF-8 编解码,CJK 宽字符正确对齐,Emoji 也不乱码。' },
+  { Icon: IconUi, title: '终端 UI', desc: '候选栏、状态栏、设置面板,在终端里也有清爽的界面。' },
 ];
 
 export default function FeatureGrid() {
