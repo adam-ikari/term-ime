@@ -28,6 +28,7 @@ jobs:
             libgflags-dev \
             libyaml-cpp-dev \
             libmarisa-dev \
+            libopencc-dev \
             libleveldb-dev \
             libprotobuf-dev \
             protobuf-compiler
