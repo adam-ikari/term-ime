@@ -32,3 +32,10 @@ Thumbs.db
 
 # OMC
 .omc/
+
+# Website
+website/node_modules/
+website/.next/
+website/out/
+website/.env*.local
+
