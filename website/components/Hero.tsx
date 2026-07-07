@@ -1,35 +1,43 @@
-import Terminal from './Terminal';
+import TerminalDemo from './TerminalDemo';
 
 export default function Hero() {
   return (
     <section id="hero" className="hero">
       <div className="container">
-        <Terminal title="term-ime — zsh" className="hero-terminal">
-          <span className="logo">
-{`
-  ▄█████▄   ▄█    ▄ ▄      ▄█    ▀▀    ▄█
-  ██    ██  ██     ███    ██  ▄█▀    ██
-  ██    ██  ██  ▄  ███▄   ██▄█▀ ▄█▀ ██
-  ▀███████  ██  ▀ ████▀  ▀██ ▀▀ ▀▀▄▄██
-`}
-          </span>
-          <span className="prompt">$ </span>
-          <span className="cmd">term-ime</span>
-          <span className="cursor" />
-        </Terminal>
+        <div className="hero-grid">
+          <div className="lead">
+            <h1>term-ime</h1>
+            <p className="tagline">在 Linux TTY 中运行的虚拟终端,内置多语言输入法。</p>
+            <p className="sub">
+              基于 <span className="hl">librime</span> 的中文/日文输入,
+              <span className="hl">libuv</span> 异步事件循环,可选{' '}
+              <span className="hl">llama.cpp</span> LLM 候选词排序,
+              <span className="hl">FTXUI</span> 渲染。
+            </p>
+            <div className="cta">
+              <a className="btn primary" href="#quickstart">快速开始</a>
+              <a className="btn" href="#shortcuts">快捷键</a>
+              <a
+                className="btn"
+                href="https://github.com/adam-ikari/term-ime"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                GitHub
+              </a>
+            </div>
+          </div>
 
-        <div className="lead">
-          <h1>term-ime</h1>
-          <p className="tagline">在 Linux TTY 中运行的虚拟终端,内置多语言输入法。</p>
-          <p className="sub">
-            基于 <span className="hl">librime</span> 的中文/日文输入,
-            <span className="hl">libuv</span> 异步事件循环,
-            可选 <span className="hl">llama.cpp</span> LLM 候选词排序,
-            <span className="hl">FTXUI</span> 渲染。
-          </p>
-          <div className="cta">
-            <a className="btn primary" href="#quickstart">快速开始</a>
-            <a className="btn" href="#demo">交互演示</a>
+          <div className="hero-demo">
+            <div className="demo-chrome">
+              <span className="dots" aria-hidden="true">
+                <span className="dot dot-red" />
+                <span className="dot dot-yellow" />
+                <span className="dot dot-green" />
+              </span>
+              <span className="demo-title">term-ime — zsh</span>
+            </div>
+            <TerminalDemo className="demo-inner" />
           </div>
         </div>
       </div>

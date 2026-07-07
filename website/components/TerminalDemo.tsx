@@ -1,284 +1,178 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Terminal from './Terminal';
-import {
-  DEMO_SCRIPT,
-  INITIAL_SCENE,
-  lookupCandidates,
-  type Candidate,
-  type DemoScene,
-  type ScriptStep,
-} from '@/lib/demo-script';
+import { useEffect, useRef } from 'react';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import '@xterm/xterm/css/xterm.css';
+import { DEMO_SCRIPT, lookupCandidates, type Candidate } from '@/lib/demo-script';
 
-const TYPE_INTERVAL = 120; // ms per char
-const SELECT_HIGHLIGHT_MS = 250;
-const CYCLE_RESTART_MS = 1500;
+// ANSI color helpers (truecolor). term-ime's real palette:
+//   green #00ff9c (accent), amber #ffb000 (mode/AI), dim #888, cyan #56b6c2 (EN).
+const C = {
+  reset: '\x1b[0m',
+  text: '\x1b[38;2;229;229;229m',
+  dim: '\x1b[38;2;136;136;136m',
+  faint: '\x1b[38;2;85;85;85m',
+  green: '\x1b[38;2;0;255;156m',
+  amber: '\x1b[38;2;255;176;0m',
+  cyan: '\x1b[38;2;86;182;194m',
+  selBg: '\x1b[48;2;0;59;42m',
+  bold: '\x1b[1m',
+};
 
-export default function TerminalDemo() {
-  const [scene, setScene] = useState<DemoScene>(INITIAL_SCENE);
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-  const [playing, setPlaying] = useState(true);
-  const [reduced, setReduced] = useState(false);
+type Props = { className?: string };
 
-  // Script cursor. stepIdx = current step; charIdx = chars consumed in a 'type' step.
-  const stepIdx = useRef(0);
-  const charIdx = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+/**
+ * A looping, auto-playing term-ime demo rendered with xterm.js (a real
+ * terminal emulator). No controls — it cycles forever: toggle to 中文, type
+ * pinyin, show the candidate bar, commit a candidate, repeat. Pure client-side.
+ */
+export default function TerminalDemo({ className = '' }: Props) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
 
-  // Detect prefers-reduced-motion.
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReduced(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
+    if (!hostRef.current) return;
+    const term = new Terminal({
+      fontFamily: "'JetBrains Mono','Fira Code',ui-monospace,monospace",
+      fontSize: 14,
+      lineHeight: 1.4,
+      cols: 64,
+      rows: 8,
+      cursorBlink: true,
+      cursorStyle: 'block',
+      allowTransparency: true,
+      scrollback: 0,
+      convertEol: true,
+      theme: {
+        background: '#1a1a1a',
+        foreground: '#e5e5e5',
+        cursor: '#00ff9c',
+        selectionBackground: '#003b2a',
+      },
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(hostRef.current);
+    try {
+      fit.fit();
+    } catch {
+      /* host not laid out yet; ignore */
+    }
+    termRef.current = term;
 
-  /** Apply a single script step's *start* effect and return how long to wait
-   * before advancing to the next step (or null = schedule the next tick). */
-  const applyStep = useCallback(
-    (step: ScriptStep): number | null => {
-      if (step.kind === 'toggle') {
-        setScene((s) => {
-          const mode = s.mode === 'EN' ? 'CN' : 'EN';
-          // Toggling clears composition (mirrors the real F1 fix).
-          return { ...s, mode, composition: '', candidates: [] };
-        });
-        return 0;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const wait = (ms: number) => new Promise<void>((r) => (timer = setTimeout(r, ms)));
+
+    // Render one frame of the term-ime screen into the xterm.
+    function render(opts: {
+      mode: 'EN' | 'CN';
+      output: string;
+      composition: string;
+      candidates: Candidate[];
+      selectedIdx: number | null;
+      aiBadge: boolean;
+    }) {
+      const { mode, output, composition, candidates, selectedIdx, aiBadge } = opts;
+      term.reset();
+      // shell prompt line(s)
+      term.writeln(`${C.green}$ ${C.text}${output}${C.reset}`);
+      term.writeln('');
+      // candidate / status bar (last line)
+      const modeColor = mode === 'CN' ? C.amber : C.cyan;
+      const modeLabel = mode === 'CN' ? '中文' : 'EN';
+      let bar = `${C.bold}${modeColor}【${modeLabel}】${C.reset}${C.text}`;
+      if (mode === 'CN' && composition) {
+        bar += `  ${C.dim}拼音: ${C.text}${composition} ${C.reset}`;
+        bar += candidates
+          .map((c, i) => {
+            const sel = selectedIdx === i;
+            const body = `${c.key}.${c.text}`;
+            return sel
+              ? `${C.selBg}${C.green}${body}${C.reset}${C.text} `
+              : `${C.green}${body}${C.reset}${C.dim} `;
+          })
+          .join('');
+        bar += `${C.faint} Esc 取消${C.reset}`;
       }
-      if (step.kind === 'wait') {
-        return step.ms;
-      }
-      if (step.kind === 'select') {
-        setScene((s) => {
-          const c = s.candidates[step.index];
-          if (c) {
-            setSelectedIdx(step.index);
-            // schedule the actual commit + clear after highlight
-            if (timer.current) clearTimeout(timer.current);
-            timer.current = setTimeout(() => {
-              setScene((cur) => ({
-                ...cur,
-                output: cur.output + c.text,
-                composition: '',
-                candidates: [],
-              }));
-              setSelectedIdx(null);
-            }, SELECT_HIGHLIGHT_MS);
+      if (aiBadge) bar += `${C.amber} [AI]${C.reset}`;
+      term.writeln(bar);
+    }
+
+    async function run() {
+      while (!stopped) {
+        let mode: 'EN' | 'CN' = 'EN';
+        let output = '';
+        let composition = '';
+        let candidates: Candidate[] = [];
+        let selectedIdx: number | null = null;
+
+        const setComp = (c: string) => {
+          composition = c;
+          candidates = lookupCandidates(c);
+        };
+
+        for (const step of DEMO_SCRIPT) {
+          if (stopped) return;
+          if (step.kind === 'toggle') {
+            mode = mode === 'EN' ? 'CN' : 'EN';
+            composition = '';
+            candidates = [];
+            selectedIdx = null;
+            render({ mode, output, composition, candidates, selectedIdx, aiBadge: false });
+            await wait(500);
+          } else if (step.kind === 'wait') {
+            await wait(step.ms);
+          } else if (step.kind === 'select') {
+            selectedIdx = step.index;
+            render({ mode, output, composition, candidates, selectedIdx, aiBadge: false });
+            await wait(280);
+            const c = candidates[step.index];
+            if (c) output += c.text;
+            composition = '';
+            candidates = [];
+            selectedIdx = null;
+            render({ mode, output, composition, candidates, selectedIdx, aiBadge: false });
+            await wait(400);
+          } else if (step.kind === 'type') {
+            for (const ch of step.chars) {
+              if (stopped) return;
+              if (mode !== 'CN') {
+                output += ch;
+              } else {
+                setComp(composition + ch);
+              }
+              render({ mode, output, composition, candidates, selectedIdx, aiBadge: false });
+              await wait(130);
+            }
           }
-          return s; // unchanged now; commit happens in the timeout
-        });
-        return SELECT_HIGHLIGHT_MS + 50;
+        }
+        // pause, then loop
+        await wait(1800);
       }
-      // 'type' — handled by the typing ticker, not here.
-      return null;
-    },
-    []
-  );
-
-  /** Advance one step, setting up the next timer. */
-  const advance = useCallback(() => {
-    if (stepIdx.current >= DEMO_SCRIPT.length) {
-      // end of script: restart after a pause if still playing
-      if (playing) {
-        timer.current = setTimeout(() => {
-          stepIdx.current = 0;
-          charIdx.current = 0;
-          setScene(INITIAL_SCENE);
-          setSelectedIdx(null);
-          advance();
-        }, CYCLE_RESTART_MS);
-      }
-      return;
-    }
-    const step = DEMO_SCRIPT[stepIdx.current];
-
-    if (step.kind === 'type') {
-      // type one char now; if more chars remain in this step, schedule next tick
-      const chars = step.chars;
-      if (charIdx.current < chars.length) {
-        const ch = chars[charIdx.current++];
-        setScene((s) => {
-          if (s.mode !== 'CN') {
-            // EN mode: pass through to output (shell echo)
-            return { ...s, output: s.output + ch };
-          }
-          const composition = s.composition + ch;
-          return {
-            ...s,
-            composition,
-            candidates: lookupCandidates(composition),
-          };
-        });
-        timer.current = setTimeout(advance, reduced ? 0 : TYPE_INTERVAL);
-      } else {
-        // this step done
-        stepIdx.current += 1;
-        charIdx.current = 0;
-        timer.current = setTimeout(advance, reduced ? 0 : 60);
-      }
-      return;
     }
 
-    // non-type step
-    const wait = applyStep(step);
-    stepIdx.current += 1;
-    charIdx.current = 0;
-    if (wait !== null) {
-      timer.current = setTimeout(advance, wait);
-    } else {
-      timer.current = setTimeout(advance, 0);
-    }
-  }, [applyStep, playing, reduced]);
+    run();
 
-  // Drive auto-play.
-  useEffect(() => {
-    if (!playing) return;
-    advance();
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
+    const onResize = () => {
+      try {
+        fit.fit();
+      } catch {
+        /* ignore */
+      }
     };
-  }, [playing, advance]);
+    window.addEventListener('resize', onResize);
 
-  /** User actions: pause auto-play, then mutate scene. */
-  const userToggle = useCallback(() => {
-    setPlaying(false);
-    setScene((s) => {
-      const mode = s.mode === 'EN' ? 'CN' : 'EN';
-      return { ...s, mode, composition: '', candidates: [] };
-    });
-    setSelectedIdx(null);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      window.removeEventListener('resize', onResize);
+      term.dispose();
+      termRef.current = null;
+    };
   }, []);
 
-  const userSelect = useCallback((index: number) => {
-    setPlaying(false);
-    setScene((s) => {
-      const c = s.candidates[index];
-      if (!c) return s;
-      return {
-        ...s,
-        output: s.output + c.text,
-        composition: '',
-        candidates: [],
-      };
-    });
-    setSelectedIdx(null);
-  }, []);
-
-  const userClear = useCallback(() => {
-    setPlaying(false);
-    setScene((s) => ({ ...s, composition: '', candidates: [] }));
-    setSelectedIdx(null);
-  }, []);
-
-  const userReplay = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    stepIdx.current = 0;
-    charIdx.current = 0;
-    setScene(INITIAL_SCENE);
-    setSelectedIdx(null);
-    setPlaying(true);
-  }, []);
-
-  // Keyboard when focused.
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      const k = e.key;
-      if (k === 'Escape') {
-        e.preventDefault();
-        userClear();
-      } else if (k === ' ') {
-        e.preventDefault();
-        userSelect(0);
-      } else if (k >= '1' && k <= '9') {
-        e.preventDefault();
-        userSelect(parseInt(k, 10) - 1);
-      }
-    },
-    [userClear, userSelect]
-  );
-
-  // Render only the last ~3 "lines" of output (split by space for simplicity).
-  const outWords = scene.output.split(' ');
-  const tailOut = outWords.slice(-3).join(' ');
-
-  const modeLabel = scene.mode === 'CN' ? '中文' : 'EN';
-  const modeColor = scene.mode === 'CN' ? 'cn' : 'en';
-
-  return (
-    <section id="demo" className="section demo">
-      <div className="container">
-        <h2>交互演示</h2>
-        <p className="hint">
-          点击下方终端区域聚焦后可用键盘(1-9 选词、Space 选首个、Esc 取消)。
-          或用按钮操作。自动播放可暂停。
-        </p>
-
-        <div
-          className="demo-wrap"
-          ref={containerRef}
-          tabIndex={0}
-          onKeyDown={onKeyDown}
-          aria-label="term-ime 输入法交互演示"
-        >
-          <Terminal title="term-ime — demo" className="demo-terminal">
-            <div className="screen">
-              <div className="shell-line">
-                <span className="prompt">$ </span>
-                <span className="out">{tailOut}</span>
-                {scene.composition && scene.mode === 'CN' && (
-                  <span className="comp">{scene.composition}</span>
-                )}
-                <span className="cursor" />
-              </div>
-              <div className="cand-bar">
-                <span className={`mode ${modeColor}`}>【{modeLabel}】</span>{' '}
-                {scene.mode === 'CN' && scene.composition && (
-                  <>
-                    <span className="pinyin"> 拼音: {scene.composition} </span>
-                    <span className="cands">
-                      {scene.candidates.map((c: Candidate, i: number) => (
-                        <span
-                          key={c.key}
-                          className={`cand ${selectedIdx === i ? 'sel' : ''}`}
-                        >
-                          {c.key}.{c.text}{' '}
-                        </span>
-                      ))}
-                    </span>
-                    <span className="esc"> Esc 取消</span>
-                  </>
-                )}
-                {scene.aiBadge && (
-                  <span className="ai"> [AI]</span>
-                )}
-              </div>
-            </div>
-          </Terminal>
-
-          <div className="controls" role="group" aria-label="演示控制">
-            <button className="btn kbd-btn" onClick={userToggle}>
-              <kbd className="kbd">Ctrl+A</kbd> <kbd className="kbd">Space</kbd>{' '}
-              切换中英文
-            </button>
-            <button
-              className="btn kbd-btn"
-              onClick={() => userSelect(0)}
-              disabled={scene.candidates.length === 0}
-            >
-              <kbd className="kbd">Space</kbd> 选首个
-            </button>
-            <button className="btn kbd-btn" onClick={userClear}>
-              <kbd className="kbd">Esc</kbd> 取消
-            </button>
-            <button className="btn kbd-btn" onClick={userReplay}>
-              {playing ? '⏸ 暂停重播' : '▶ 重播'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+  return <div className={`xterm-host ${className}`} ref={hostRef} />;
 }
