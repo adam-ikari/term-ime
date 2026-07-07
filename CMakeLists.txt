@@ -125,7 +125,7 @@ target_include_directories(term-ime-lib
 )
 
 target_link_libraries(term-ime-lib
-    PUBLIC rime
+    PUBLIC rime-static
     PUBLIC nlohmann_json::nlohmann_json
     PUBLIC spdlog::spdlog
     PUBLIC utf8proc
