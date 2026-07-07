@@ -23,6 +23,7 @@ jobs:
           cmake \
           pkg-config \
           libuv1-dev \
+          libcurl4-openssl-dev \
           libboost-all-dev \
           libgflags-dev \
           libyaml-cpp-dev \
@@ -30,8 +31,7 @@ jobs:
           libopencc-dev \
           libleveldb-dev \
           libprotobuf-dev \
-          protobuf-compiler \
-          librime-dev
+          protobuf-compiler
 
     - name: Configure CMake
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
