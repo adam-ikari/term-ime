@@ -1,11 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <optional>
 
 class Pty {
-public:
+   public:
     Pty();
     ~Pty();
 
@@ -18,7 +19,11 @@ public:
     int fd() const;
     void resize(int rows, int cols);
 
-private:
+   private:
     int master_fd_ = -1;
     int pid_ = -1;
+
+    // Poll waitpid(WNOHANG) until the child exits or timeout_ms elapses.
+    // Returns true if the child was reaped within the timeout.
+    bool wait_for_exit(int timeout_ms);
 };
