@@ -51,13 +51,11 @@ bool LlamaRanker::initialize(const LlamaRankerConfig& config) {
     worker_thread_ = std::thread(&LlamaRanker::worker_loop, this);
 
     available_ = true;
-    spdlog::info("Llama ranker initialized (model: {}, threads: {})",
-                 config_.model_path, config_.n_threads);
+    spdlog::info("Llama ranker initialized (model: {}, threads: {})", config_.model_path, config_.n_threads);
     return true;
 }
 
-void LlamaRanker::rank(std::vector<Candidate>& candidates,
-                       const std::string& context) {
+void LlamaRanker::rank(std::vector<Candidate>& candidates, const std::string& context) {
     if (!is_available() || candidates.empty()) {
         return;
     }
@@ -75,12 +73,11 @@ void LlamaRanker::rank(std::vector<Candidate>& candidates,
     candidates = std::move(ranked);
 }
 
-void LlamaRanker::rank_async(std::vector<Candidate> candidates,
-                              const std::string& context,
-                              const std::string& pinyin,
-                              std::function<void(std::vector<Candidate>)> callback) {
+void LlamaRanker::rank_async(std::vector<Candidate> candidates, const std::string& context, const std::string& pinyin,
+                             std::function<void(std::vector<Candidate>)> callback) {
     if (!is_available() || candidates.empty()) {
-        if (callback) callback(candidates);
+        if (callback)
+            callback(candidates);
         return;
     }
 
@@ -97,9 +94,36 @@ bool LlamaRanker::is_available() const {
 }
 
 bool LlamaRanker::load_model() {
-    if (model_loaded_) return true;
+    if (model_loaded_)
+        return true;
 
     spdlog::info("Loading llama model: {} (backend: {})", config_.model_path, config_.backend);
+
+    // Redirect llama.cpp's own logging away from stderr (it prints reams of
+    // `repack:`/`llama_model_loader:`/`load_tensors:` lines that overwrite the
+    // TTY screen when AI ranking is enabled). Route through spdlog instead so
+    // it lands in the file log, and drop the chatty INFO-level model-load spam.
+    static bool log_redirected = false;
+    if (!log_redirected) {
+        llama_log_set(
+            [](ggml_log_level level, const char* text, void*) {
+                if (!text)
+                    return;
+                std::string msg(text);
+                while (!msg.empty() && (msg.back() == '\n' || msg.back() == '\r'))
+                    msg.pop_back();
+                if (msg.empty())
+                    return;
+                if (level >= GGML_LOG_LEVEL_ERROR) {
+                    spdlog::error("llama: {}", msg);
+                } else if (level >= GGML_LOG_LEVEL_WARN) {
+                    spdlog::warn("llama: {}", msg);
+                }
+                // INFO/DEBUG silently dropped — keep the TTY clean.
+            },
+            nullptr);
+        log_redirected = true;
+    }
 
     // Initialize llama backend
     llama_backend_init();
@@ -141,7 +165,8 @@ bool LlamaRanker::load_model() {
 }
 
 void LlamaRanker::unload_model() {
-    if (!model_loaded_) return;
+    if (!model_loaded_)
+        return;
 
     if (ctx_) {
         llama_free(ctx_);
@@ -163,23 +188,30 @@ bool LlamaRanker::is_model_loaded() const {
 }
 
 void LlamaRanker::worker_loop() {
+    // Preload the model as soon as the worker starts (at App::init time, when
+    // enabled), rather than lazily on the first ranking task. Otherwise the
+    // first candidate after enabling AI ranking stalls for several seconds
+    // while 330MB of model is loaded + repacked (monkey finding F6).
+    load_model();
+
     while (running_) {
         RankTask task;
         {
             std::unique_lock<std::mutex> lock(queue_mutex_);
-            queue_cv_.wait(lock, [this] {
-                return !task_queue_.empty() || !running_;
-            });
+            queue_cv_.wait(lock, [this] { return !task_queue_.empty() || !running_; });
 
-            if (!running_) break;
+            if (!running_)
+                break;
 
-            if (task_queue_.empty()) continue;
+            if (task_queue_.empty())
+                continue;
 
             task = std::move(task_queue_.front());
             task_queue_.pop();
         }
 
-        // Lazy load model
+        // Process task (model already preloaded above; re-load only if it was
+        // unloaded between tasks, e.g. by unload_model()).
         if (!is_model_loaded()) {
             load_model();
         }
@@ -192,9 +224,8 @@ void LlamaRanker::worker_loop() {
     }
 }
 
-std::string LlamaRanker::build_prompt(const std::vector<Candidate>& candidates,
-                                       const std::string& context,
-                                       const std::string& pinyin) const {
+std::string LlamaRanker::build_prompt(const std::vector<Candidate>& candidates, const std::string& context,
+                                      const std::string& pinyin) const {
     // Build candidate list string
     std::string cand_list;
     for (size_t i = 0; i < candidates.size() && i < 9; ++i) {
@@ -208,18 +239,21 @@ std::string LlamaRanker::build_prompt(const std::vector<Candidate>& candidates,
     // Build prompt for ranking
     std::string prompt;
     if (!context.empty()) {
-        prompt = "根据上下文\"" + context + "\"和拼音\"" + pinyin + "\"，"
-                 "从以下候选词中选择最合适的（只输出序号）：\n" + cand_list;
+        prompt = "根据上下文\"" + context + "\"和拼音\"" + pinyin +
+                 "\"，"
+                 "从以下候选词中选择最合适的（只输出序号）：\n" +
+                 cand_list;
     } else {
-        prompt = "根据拼音\"" + pinyin + "\"，"
-                 "从以下候选词中选择最合适的（只输出序号）：\n" + cand_list;
+        prompt = "根据拼音\"" + pinyin +
+                 "\"，"
+                 "从以下候选词中选择最合适的（只输出序号）：\n" +
+                 cand_list;
     }
 
     return prompt;
 }
 
-std::vector<int> LlamaRanker::parse_ranking(const std::string& output,
-                                            int num_candidates) const {
+std::vector<int> LlamaRanker::parse_ranking(const std::string& output, int num_candidates) const {
     std::vector<int> ranking;
 
     // Find numbers in output
@@ -242,10 +276,10 @@ std::vector<int> LlamaRanker::parse_ranking(const std::string& output,
     return ranking;
 }
 
-std::vector<Candidate> LlamaRanker::do_rank(const std::vector<Candidate>& candidates,
-                                            const std::string& context,
+std::vector<Candidate> LlamaRanker::do_rank(const std::vector<Candidate>& candidates, const std::string& context,
                                             const std::string& pinyin) {
-    if (candidates.empty() || !ctx_) return candidates;
+    if (candidates.empty() || !ctx_)
+        return candidates;
 
     // Build prompt
     std::string prompt = build_prompt(candidates, context, pinyin);
@@ -254,9 +288,7 @@ std::vector<Candidate> LlamaRanker::do_rank(const std::vector<Candidate>& candid
     const llama_vocab* vocab = llama_model_get_vocab(model_);
     std::vector<llama_token> tokens;
     tokens.resize(prompt.size() + 1);
-    int n_tokens = llama_tokenize(vocab, prompt.c_str(), prompt.size(),
-                                  tokens.data(), tokens.size(),
-                                  true, true);
+    int n_tokens = llama_tokenize(vocab, prompt.c_str(), prompt.size(), tokens.data(), tokens.size(), true, true);
     if (n_tokens < 0) {
         spdlog::error("Failed to tokenize prompt");
         return candidates;
@@ -279,24 +311,29 @@ std::vector<Candidate> LlamaRanker::do_rank(const std::vector<Candidate>& candid
     for (int i = 0; i < config_.max_tokens; ++i) {
         // Sample next token
         auto* logits = llama_get_logits_ith(ctx_, batch.n_tokens - 1);
-        if (!logits) break;
+        if (!logits)
+            break;
 
-        llama_token_data_array candidates_data;
-        candidates_data.data = new llama_token_data[llama_vocab_n_tokens(vocab)];
-        candidates_data.size = llama_vocab_n_tokens(vocab);
-        candidates_data.sorted = false;
+        // RAII buffer for candidate token data. Previously this was a raw
+        // new[]/delete[] pair, but several early `break` paths below skipped
+        // the delete[], leaking on every ranking iteration (monkey finding F8).
+        // The buffer is now stack-managed via std::vector and released at end
+        // of the iteration regardless of which break fires.
+        const size_t n_vocab = llama_vocab_n_tokens(vocab);
+        std::vector<llama_token_data> cand_buf(n_vocab);
 
         // Simple greedy sampling
         float max_logit = -INFINITY;
         llama_token best_token = last_token;
-        for (int j = 0; j < llama_vocab_n_tokens(vocab); ++j) {
+        for (size_t j = 0; j < n_vocab; ++j) {
             if (logits[j] > max_logit) {
                 max_logit = logits[j];
-                best_token = j;
+                best_token = static_cast<llama_token>(j);
             }
         }
 
-        if (best_token == last_token) break;
+        if (best_token == last_token)
+            break;
 
         // Decode token to text
         char buf[16];
@@ -306,14 +343,15 @@ std::vector<Candidate> LlamaRanker::do_rank(const std::vector<Candidate>& candid
         }
 
         // Check for EOS
-        if (llama_vocab_is_eog(vocab, best_token)) break;
+        if (llama_vocab_is_eog(vocab, best_token))
+            break;
 
         // Continue with this token
         batch = llama_batch_get_one(&best_token, 1);
         decode_result = llama_decode(ctx_, batch);
-        if (decode_result != 0) break;
-
-        delete[] candidates_data.data;
+        if (decode_result != 0)
+            break;
+        // cand_buf freed automatically at end of iteration — no leak.
     }
 
     // Parse ranking from output

@@ -9,6 +9,22 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 # ============================================================
+# Sanitizers (product-grade hardening / leak detection)
+# ============================================================
+option(ENABLE_ASAN "Enable AddressSanitizer + LeakSanitizer" OFF)
+option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
+if(ENABLE_ASAN)
+    message(STATUS "Enabling AddressSanitizer + LeakSanitizer")
+    add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=address)
+endif()
+if(ENABLE_UBSAN)
+    message(STATUS "Enabling UndefinedBehaviorSanitizer")
+    add_compile_options(-fsanitize=undefined -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=undefined)
+endif()
+
+# ============================================================
 # Hardware acceleration options (configurable)
 # ============================================================
 option(LLAMA_USE_CUDA "Enable CUDA acceleration" OFF)
