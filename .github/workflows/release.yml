@@ -27,6 +27,7 @@ jobs:
             libboost-all-dev \
             libgflags-dev \
             libyaml-cpp-dev \
+            libleveldb-dev \
             libprotobuf-dev \
             protobuf-compiler
 
