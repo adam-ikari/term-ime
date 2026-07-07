@@ -120,6 +120,7 @@ target_include_directories(term-ime-lib
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
         $<INSTALL_INTERFACE:include>
         ${CMAKE_SOURCE_DIR}/deps/librime/include
+        ${CMAKE_SOURCE_DIR}/deps/librime/src
         ${CMAKE_SOURCE_DIR}/deps/llama.cpp/include
 )
 
