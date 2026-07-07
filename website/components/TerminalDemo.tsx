@@ -6,18 +6,27 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { DEMO_SCRIPT, lookupCandidates, type Candidate } from '@/lib/demo-script';
 
-// ANSI color helpers (truecolor). term-ime's real palette:
-//   green #00ff9c (accent), amber #ffb000 (mode/AI), dim #888, cyan #56b6c2 (EN).
+// ANSI color helpers — match term-ime's real palette (256-color, observed
+// via term-debug-mcp on the live app):
+//   【中文】 = bright green (1;32), 【EN】 = bright cyan (1;36)
+//   拼音: <buf>  = bold (1)
+//   selected candidate [N.x] = yellow on blue (1;33;44)
+//   other candidates       = dim yellow (22;33)
+//   Esc 取消 / hints       = dim bright-black (2;90)
+//   status bar background  = reverse video (7m), like the real app.
 const C = {
   reset: '\x1b[0m',
-  text: '\x1b[38;2;229;229;229m',
-  dim: '\x1b[38;2;136;136;136m',
-  faint: '\x1b[38;2;85;85;85m',
-  green: '\x1b[38;2;0;255;156m',
-  amber: '\x1b[38;2;255;176;0m',
-  cyan: '\x1b[38;2;86;182;194m',
-  selBg: '\x1b[48;2;0;59;42m',
-  bold: '\x1b[1m',
+  text: '\x1b[1m',                       // bold white (拼音 + committed output)
+  plain: '\x1b[0m',
+  modeCN: '\x1b[1;32m',                  // 【中文】 bright green
+  modeEN: '\x1b[1;36m',                  // 【EN】 bright cyan
+  sel: '\x1b[1;33;44m',                  // selected candidate: bold yellow on blue
+  cand: '\x1b[22;33m',                   // other candidates: dim yellow
+  hint: '\x1b[2;90m',                    // Esc 取消 / hints
+  prompt: '\x1b[1;32m',                  // $ prompt
+  rev: '\x1b[7m',                        // reverse video (status bar bg)
+  ai: '\x1b[1;33m',                      // [AI] badge
+  shellOut: '\x1b[0m',                   // committed shell text
 };
 
 type Props = { className?: string };
@@ -37,7 +46,7 @@ export default function TerminalDemo({ className = '' }: Props) {
       fontFamily: "'JetBrains Mono','Fira Code',ui-monospace,monospace",
       fontSize: 14,
       lineHeight: 1.4,
-      cols: 64,
+      cols: 80,
       rows: 8,
       cursorBlink: true,
       cursorStyle: 'block',
@@ -66,7 +75,9 @@ export default function TerminalDemo({ className = '' }: Props) {
 
     const wait = (ms: number) => new Promise<void>((r) => (timer = setTimeout(r, ms)));
 
-    // Render one frame of the term-ime screen into the xterm.
+    // Render one frame of the term-ime screen into the xterm. Mirrors the real
+    // app's layout: a shell prompt line, blank line, then the single status /
+    // candidate bar on the last line with reverse-video background.
     function render(opts: {
       mode: 'EN' | 'CN';
       output: string;
@@ -77,27 +88,32 @@ export default function TerminalDemo({ className = '' }: Props) {
     }) {
       const { mode, output, composition, candidates, selectedIdx, aiBadge } = opts;
       term.reset();
-      // shell prompt line(s)
-      term.writeln(`${C.green}$ ${C.text}${output}${C.reset}`);
+      // shell line: `$ ` + committed output + cursor
+      term.writeln(`${C.prompt}$ ${C.shellOut}${output}${C.reset}`);
       term.writeln('');
-      // candidate / status bar (last line)
-      const modeColor = mode === 'CN' ? C.amber : C.cyan;
+
+      // status / candidate bar (reverse video, single line)
+      const modeColor = mode === 'CN' ? C.modeCN : C.modeEN;
       const modeLabel = mode === 'CN' ? '中文' : 'EN';
-      let bar = `${C.bold}${modeColor}【${modeLabel}】${C.reset}${C.text}`;
+      let bar = `${C.rev}${C.hint} ${C.reset}${modeColor}【${modeLabel}】${C.reset}`;
       if (mode === 'CN' && composition) {
-        bar += `  ${C.dim}拼音: ${C.text}${composition} ${C.reset}`;
+        bar += ` ${C.text}拼音: ${composition} ${C.reset}`;
         bar += candidates
           .map((c, i) => {
             const sel = selectedIdx === i;
             const body = `${c.key}.${c.text}`;
             return sel
-              ? `${C.selBg}${C.green}${body}${C.reset}${C.text} `
-              : `${C.green}${body}${C.reset}${C.dim} `;
+              ? `${C.sel} [${body}]${C.reset} `
+              : `${C.cand} ${body} ${C.reset}`;
           })
           .join('');
-        bar += `${C.faint} Esc 取消${C.reset}`;
+        bar += `${C.hint} Esc 取消${C.reset}`;
+      } else {
+        // EN / idle: the real status bar shows the hint line.
+        bar += ` ${C.hint} Ctrl+A,Space 切换 | 1-9 选择 | Esc 取消 | Ctrl+A,A AI排序 | Ctrl+A,S 设置${C.reset}`;
       }
-      if (aiBadge) bar += `${C.amber} [AI]${C.reset}`;
+      if (aiBadge) bar += `${C.ai} [AI]${C.reset}`;
+      bar += `${C.rev}${C.reset}`;  // end reverse-video span
       term.writeln(bar);
     }
 

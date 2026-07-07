@@ -18,9 +18,13 @@ jobs:
           submodules: recursive
 
       - name: Install system deps
+        # Mirror ci.yml: use system librime-dev so we don't need the full
+        # Boost/gflags/protobuf toolchain required to build deps/librime.
         run: |
           sudo apt-get update
-          sudo apt-get install -y libuv1-dev pkg-config
+          sudo apt-get install -y \
+            build-essential cmake pkg-config \
+            libuv1-dev librime-dev
 
       - name: Configure & build (Release)
         run: |
