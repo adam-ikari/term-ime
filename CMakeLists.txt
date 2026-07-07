@@ -40,7 +40,8 @@ add_subdirectory(deps/spdlog)
 add_subdirectory(deps/json)
 add_subdirectory(deps/googletest)
 
-# Build librime from source (minimal configuration)
+# Build librime from source (minimal configuration). Self-contained build
+# (no system librime-dev dependency) for reproducibility across distros.
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_TEST OFF CACHE BOOL "" FORCE)
 set(BUILD_DATA OFF CACHE BOOL "" FORCE)
