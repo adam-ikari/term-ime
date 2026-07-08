@@ -26,7 +26,15 @@ export default function QuickStart() {
           sudo apt-get install libuv1-dev libcurl4-openssl-dev rime-data-luna-pinyin
         </Terminal>
 
-        <h3>2. 克隆并构建</h3>
+        <h3>2a. 预编译安装(推荐)</h3>
+        <Terminal title="bash">
+          <span className="comment"># 一键安装预编译二进制(自动选择架构)</span>
+          {'\n'}
+          <span className="prompt">$ </span>
+          curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash
+        </Terminal>
+
+        <h3>2b. 从源码构建</h3>
         <Terminal title="bash">
           <span className="prompt">$ </span>
           git clone --recursive https://github.com/adam-ikari/term-ime.git

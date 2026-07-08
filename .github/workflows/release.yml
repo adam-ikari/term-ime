@@ -12,13 +12,17 @@ permissions:
 jobs:
   build-linux:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - { arch: x86_64, target: linux-x86_64 }
+          - { arch: aarch64, target: linux-arm64 }
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Install system deps
-        # term-ime needs libuv + curl; deps/librime submodule needs the rest.
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -34,15 +38,30 @@ jobs:
             libprotobuf-dev \
             protobuf-compiler
 
+      # Cross-compile aarch64 on x86 runner via gcc-aarch64-linux-gnu.
+      - name: Install aarch64 cross toolchain
+        if: matrix.arch == 'aarch64'
+        run: |
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
       - name: Configure & build (Release)
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
+            cmake -B build -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+              -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER \
+              -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY \
+              -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY
+          else
+            cmake -B build -DCMAKE_BUILD_TYPE=Release
+          fi
           cmake --build build -j$(nproc)
 
       - name: Sanity-check the binary
+        if: matrix.arch == 'x86_64'
         run: |
           file build/term-ime
-          # Must exit cleanly when stdin is not a TTY (graceful non-TTY exit).
           ./build/term-ime < /dev/null || true
 
       - name: Pack artifact
@@ -50,24 +69,27 @@ jobs:
           mkdir -p dist/term-ime
           cp build/term-ime dist/term-ime/
           cp README.md CLAUDE.md dist/term-ime/ 2>/dev/null || true
-          tar -czf term-ime-linux-x86_64.tar.gz -C dist term-ime
-          sha256sum term-ime-linux-x86_64.tar.gz > term-ime-linux-x86_64.tar.gz.sha256
+          tar -czf term-ime-${{ matrix.target }}.tar.gz -C dist term-ime
+          sha256sum term-ime-${{ matrix.target }}.tar.gz > term-ime-${{ matrix.target }}.tar.gz.sha256
 
       - uses: actions/upload-artifact@v4
         with:
-          name: term-ime-linux-x86_64
+          name: term-ime-${{ matrix.target }}
           path: |
-            term-ime-linux-x86_64.tar.gz
-            term-ime-linux-x86_64.tar.gz.sha256
+            term-ime-${{ matrix.target }}.tar.gz
+            term-ime-${{ matrix.target }}.tar.gz.sha256
 
   release:
     needs: build-linux
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: term-ime-linux-x86_64
           path: dist
+
+      - name: Flatten artifacts
+        run: find dist -mindepth 2 -type f -exec mv {} dist/ \; ; rm -rf dist/*/ || true
 
       - name: Create / update release
         uses: softprops/action-gh-release@v2
@@ -75,5 +97,8 @@ jobs:
           files: |
             dist/term-ime-linux-x86_64.tar.gz
             dist/term-ime-linux-x86_64.tar.gz.sha256
+            dist/term-ime-linux-arm64.tar.gz
+            dist/term-ime-linux-arm64.tar.gz.sha256
+            website/public/install.sh
           generate_release_notes: true
           draft: true
