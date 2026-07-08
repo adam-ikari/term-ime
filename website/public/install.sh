@@ -9,7 +9,7 @@
 set -euo pipefail
 
 REPO="adam-ikari/term-ime"
-PREFIX="/usr/local"
+PREFIX="${HOME}/.local"
 VERSION=""
 
 print_usage() {
@@ -18,7 +18,7 @@ term-ime installer
 
 Options:
   --version <tag>   Release tag to install (default: latest)
-  --prefix <dir>    Install prefix (default: /usr/local)
+  --prefix <dir>    Install prefix (default: ~/.local — no sudo needed)
   -h, --help        Show this help
 EOF
 }
@@ -88,5 +88,30 @@ else
     sudo install -m 0755 "$BIN" "${PREFIX}/bin/term-ime"
 fi
 
-echo ">> Installed: $(command -v term-ime || echo "${PREFIX}/bin/term-ime")"
+# Ensure the install prefix is on PATH; if not, append to the user's shell rc.
+BIN_DIR="${PREFIX}/bin"
+case ":${PATH}:" in
+    *":${BIN_DIR}:"*) ;;
+    *)
+        RC=""
+        if [[ -n "${ZSH_VERSION:-}" ]] || [[ "$SHELL" == */zsh ]]; then
+            RC="${HOME}/.zshrc"
+        elif [[ -n "${BASH_VERSION:-}" ]] || [[ "$SHELL" == */bash ]]; then
+            RC="${HOME}/.bashrc"
+        fi
+        if [[ -n "$RC" ]]; then
+            echo "" >> "$RC"
+            echo "# term-ime" >> "$RC"
+            echo "export PATH=\"${BIN_DIR}:\$PATH\"" >> "$RC"
+            echo ">> Added ${BIN_DIR} to PATH in ${RC}"
+            echo ">> Start a new shell or run: source ${RC}"
+        else
+            echo ">> Add to PATH manually: export PATH=\"${BIN_DIR}:\$PATH\""
+        fi
+        ;;
+esac
+
+INSTALLED="${BIN_DIR}/term-ime"
+if [[ ":${PATH}:" == *":${BIN_DIR}:"* ]]; then INSTALLED="term-ime"; fi
+echo ">> Installed: ${INSTALLED}"
 echo ">> Run: term-ime"
