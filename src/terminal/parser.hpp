@@ -5,12 +5,12 @@
 #include <string>
 
 class Parser {
-public:
+   public:
     Parser(Screen& screen);
 
     void feed(const uint8_t* data, size_t len);
 
-private:
+   private:
     Screen& screen_;
     enum class State { Normal, Escape, CSI };
     State state_ = State::Normal;

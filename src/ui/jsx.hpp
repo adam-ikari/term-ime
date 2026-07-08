@@ -95,7 +95,7 @@ Decorator If(bool condition, Decorator then_dec, Decorator else_dec = nullptr);
 struct Props {};
 
 // Component function type
-template<typename P>
+template <typename P>
 using ComponentFunc = std::function<Element(const P&)>;
 
 // ============================================================================

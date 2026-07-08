@@ -2,7 +2,7 @@
 #include "core/config.hpp"
 
 class ConfigTest : public ::testing::Test {
-protected:
+   protected:
     void SetUp() override {}
 };
 
@@ -45,12 +45,7 @@ TEST_F(ConfigTest, LanguageConfigToJson) {
 }
 
 TEST_F(ConfigTest, LanguageConfigFromJson) {
-    json j = {
-        {"id", "ja"},
-        {"name", "日本語"},
-        {"schema", "kana"},
-        {"enabled", false}
-    };
+    json j = {{"id", "ja"}, {"name", "日本語"}, {"schema", "kana"}, {"enabled", false}};
 
     LanguageConfig lang = LanguageConfig::from_json(j);
     EXPECT_EQ(lang.id, "ja");

@@ -9,6 +9,36 @@
 #include <sys/ioctl.h>
 #include <cstdio>
 #include <iostream>
+#include <chrono>
+
+// Scroll state for candidate overflow
+namespace {
+struct ScrollState {
+    bool active = false;
+    size_t last_candidate_count = 0;
+    int max_offset = 0;      // Maximum scroll offset (total chars to scroll)
+    int current_offset = 0;  // Current display offset
+    int direction = 1;       // 1 = scrolling left, -1 = scrolling back, 0 = paused
+    std::chrono::steady_clock::time_point last_tick;
+    int pause_counter = 0;
+
+    void reset() {
+        active = false;
+        last_candidate_count = 0;
+        max_offset = 0;
+        current_offset = 0;
+        direction = 1;
+        pause_counter = 0;
+    }
+};
+ScrollState g_scroll;
+
+// Tick interval: 3 render calls per scroll step (renders ~60fps → ~20 steps/sec)
+const int TICKS_PER_STEP = 3;
+const int PAUSE_AT_END_STEPS = 30;    // Pause ~1.5s at full scroll
+const int PAUSE_AT_START_STEPS = 30;  // Pause ~1.5s at start before re-scrolling
+int g_tick_counter = 0;
+}  // namespace
 
 Renderer::Renderer() = default;
 
@@ -58,14 +88,42 @@ void Renderer::init() {
     raw.c_cc[VTIME] = 1;
     tcsetattr(tty_fd_, TCSAFLUSH, &raw);
 
+    // Set a scroll region that excludes the last row (status bar): DECSTBM
+    // ESC[1;<row-1>r. Shell output then scrolls only within rows 1..row-1 and
+    // never overwrites the status bar, so we don't have to repaint it on every
+    // PTY byte (monkey finding F4). Resize handlers must re-issue this.
+    {
+        struct winsize ws;
+        if (ioctl(tty_fd_, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
+            printf("\x1b[1;%dr", ws.ws_row - 1);
+            printf("\x1b[H");
+            fflush(stdout);
+        }
+    }
+
     initialized_ = true;
 }
 
+void Renderer::update_scroll_region() {
+    if (!initialized_)
+        return;
+    struct winsize ws;
+    if (ioctl(tty_fd_, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
+        printf("\x1b[1;%dr", ws.ws_row - 1);
+        fflush(stdout);
+    }
+}
+
 void Renderer::restore() {
-    if (!initialized_) return;
+    if (!initialized_)
+        return;
 
     // Clear screen
     printf("\033[2J\033[H");
+    fflush(stdout);
+
+    // Reset scroll region to full screen (undo DECSTBM from init)
+    printf("\x1b[r");
     fflush(stdout);
 
     // Switch back to main screen buffer
@@ -101,10 +159,7 @@ void Renderer::render_element(const ui::Element& element) {
     }
 
     // 创建 FTXUI Screen 并渲染
-    auto ftxui_screen = ftxui::Screen::Create(
-        ftxui::Dimension::Fixed(ws.ws_col),
-        ftxui::Dimension::Fixed(1)
-    );
+    auto ftxui_screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(ws.ws_col), ftxui::Dimension::Fixed(1));
     ftxui::Render(ftxui_screen, element);
 
     // 保存当前光标位置
@@ -125,29 +180,160 @@ void Renderer::render_element(const ui::Element& element) {
     fflush(stdout);
 }
 
-void Renderer::render_candidates(const std::vector<Candidate>& candidates,
-                                  size_t selected, const std::string& buffer,
-                                  const std::string& mode) {
+void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_t selected, const std::string& buffer,
+                                 const std::string& mode) {
     render_candidates_ex(candidates, selected, buffer, mode, false, false, false, 0);
 }
 
-void Renderer::render_candidates_ex(const std::vector<Candidate>& candidates,
-                                     size_t selected, const std::string& buffer,
-                                     const std::string& mode,
-                                     bool ai_enabled, bool ai_loading,
-                                     bool downloading, int download_progress) {
+void Renderer::render_candidates_ex(const std::vector<Candidate>& candidates, size_t selected,
+                                    const std::string& buffer, const std::string& mode, bool ai_enabled,
+                                    bool ai_loading, bool downloading, int download_progress) {
+    // Get terminal width
+    struct winsize ws;
+    if (ioctl(tty_fd_, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0) {
+        ws.ws_row = 24;
+        ws.ws_col = 80;
+    }
+
+    // Dedup: when the IME is inactive (no candidates, empty buffer) the status
+    // bar content is fully determined by mode + ai flags + progress, which rarely
+    // change. Shell output drives render_candidates_bar() on every PTY byte, so
+    // without dedup a high-frequency shell echo (e.g. zle per-char echo, or a
+    // forwarded escape sequence) repaints the whole bar N times (monkey finding
+    // F4). Skip identical repaints, but force one every BAR_FORCE_REDRAW_EVERY
+    // calls so a shell `clear` (which wipes the bar) is recovered shortly.
+    bool ime_active = !candidates.empty() || !buffer.empty();
+    if (!ime_active) {
+        std::string sig = mode + "|" + (ai_enabled ? "1" : "0") + (ai_loading ? "1" : "0") + (downloading ? "1" : "0") +
+                          "|" + std::to_string(download_progress);
+        if (sig == last_bar_sig_ && bar_skip_count_ < BAR_FORCE_REDRAW_EVERY) {
+            ++bar_skip_count_;
+            return;
+        }
+        last_bar_sig_ = sig;
+        bar_skip_count_ = 0;
+    } else {
+        // IME active: always repaint (candidate bar changes), and invalidate the
+        // inactive signature so the next inactive state forces a fresh draw.
+        last_bar_sig_.clear();
+        bar_skip_count_ = 0;
+    }
+
+    // ---- Scroll state management ----
+    // Reset scroll if candidates changed
+    if (candidates.size() != g_scroll.last_candidate_count) {
+        g_scroll.reset();
+        g_scroll.last_candidate_count = candidates.size();
+    }
+
+    int scroll_off = 0;
+
+    if (!candidates.empty() && selected < candidates.size()) {
+        // Calculate if even a single candidate overflows
+        auto u32_to_utf8_str = [](const std::u32string& s) -> std::string {
+            std::string result;
+            for (char32_t c : s) {
+                if (c != 0)
+                    result += utf8::encode(c);
+            }
+            return result;
+        };
+
+        std::string sel_text = u32_to_utf8_str(candidates[selected].text);
+        int sel_text_width = utf8::string_width(sel_text);
+        // Candidate item format: " [N.XXXX] "
+        // Prefix: " [N." = 4 cols
+        // Suffix: "] " = 2 cols
+        int cand_item_overhead = 6;  // " [N." + "] "
+
+        // Fixed parts: mode + pinyin + AI + cancel
+        std::string mode_text = mode;
+        int mode_w = 2 + utf8::string_width(mode_text) + 2;
+        std::string pinyin_prefix = " " + I18n::t("status.pinyin") + ": ";
+        int pinyin_w = utf8::string_width(pinyin_prefix) + utf8::string_width(buffer) + 1;
+        int ai_w = downloading ? 10 : (ai_loading ? 10 : (ai_enabled ? 5 : 0));
+        std::string cancel_text = "  Esc " + I18n::t("hint.cancel") + " ";
+        int cancel_w = utf8::string_width(cancel_text);
+        int fixed_w = mode_w + pinyin_w + ai_w + cancel_w;
+
+        int available_for_text = ws.ws_col - fixed_w - cand_item_overhead;
+
+        if (available_for_text < sel_text_width) {
+            // Need scrolling
+            g_scroll.active = true;
+            // Count total characters in the selected text
+            {
+                size_t total_chars = 0;
+                {
+                    size_t bp = 0;
+                    while (bp < sel_text.size()) {
+                        int clen = utf8::char_len(static_cast<uint8_t>(sel_text[bp]));
+                        if (clen < 1)
+                            clen = 1;
+                        bp += clen;
+                        total_chars++;
+                    }
+                }
+                g_scroll.max_offset = static_cast<int>(total_chars);
+                if (g_scroll.max_offset < 1)
+                    g_scroll.max_offset = 1;
+            }
+
+            // Advance scroll position
+            g_tick_counter++;
+            if (g_tick_counter >= TICKS_PER_STEP) {
+                g_tick_counter = 0;
+
+                if (g_scroll.direction == 1) {
+                    // Scrolling left (showing later characters)
+                    g_scroll.current_offset++;
+                    if (g_scroll.current_offset >= g_scroll.max_offset) {
+                        g_scroll.current_offset = g_scroll.max_offset;
+                        g_scroll.direction = 0;  // pause at end
+                        g_scroll.pause_counter = PAUSE_AT_END_STEPS;
+                    }
+                } else if (g_scroll.direction == -1) {
+                    // Scrolling back to start
+                    g_scroll.current_offset--;
+                    if (g_scroll.current_offset <= 0) {
+                        g_scroll.current_offset = 0;
+                        g_scroll.direction = 0;  // pause at start
+                        g_scroll.pause_counter = PAUSE_AT_START_STEPS;
+                    }
+                } else if (g_scroll.direction == 0) {
+                    // Paused
+                    g_scroll.pause_counter--;
+                    if (g_scroll.pause_counter <= 0) {
+                        if (g_scroll.current_offset >= g_scroll.max_offset) {
+                            // Was at end, now scroll back
+                            g_scroll.direction = -1;
+                        } else {
+                            // Was at start, now scroll forward
+                            g_scroll.direction = 1;
+                        }
+                    }
+                }
+            }
+
+            scroll_off = g_scroll.current_offset;
+        } else {
+            g_scroll.reset();
+            g_scroll.last_candidate_count = candidates.size();
+        }
+    }
+
     // 使用 JSX 风格组件构建 UI
-    auto element = ui::MainBar({
-        .mode = mode,
-        .lang_name = "",  // Not used in current design
-        .candidates = candidates,
-        .selected = selected,
-        .buffer = buffer,
-        .ai_enabled = ai_enabled,
-        .ai_loading = ai_loading,
-        .downloading = downloading,
-        .download_progress = download_progress
-    });
+    auto element = ui::MainBar({.mode = mode,
+                                .lang_name = "",  // Not used in current design
+                                .candidates = candidates,
+                                .selected = selected,
+                                .buffer = buffer,
+                                .ai_enabled = ai_enabled,
+                                .ai_loading = ai_loading,
+                                .downloading = downloading,
+                                .download_progress = download_progress,
+                                .term_width = static_cast<int>(ws.ws_col),
+                                .scroll_offset = scroll_off});
 
     render_element(element);
 }
@@ -173,10 +359,7 @@ void Renderer::render_settings(ui::SettingsState& state) {
     }
 
     // Create FTXUI Screen for full screen
-    auto ftxui_screen = ftxui::Screen::Create(
-        ftxui::Dimension::Fixed(ws.ws_col),
-        ftxui::Dimension::Fixed(ws.ws_row)
-    );
+    auto ftxui_screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(ws.ws_col), ftxui::Dimension::Fixed(ws.ws_row));
 
     // Render settings panel
     auto element = ui::SettingsPanel(state);

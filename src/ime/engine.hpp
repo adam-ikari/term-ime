@@ -3,15 +3,11 @@
 #include <string>
 #include <vector>
 
-enum class ImeState {
-    Inactive,
-    Composing,
-    Selecting
-};
+enum class ImeState { Inactive, Composing, Selecting };
 
 enum class ImeMode {
-    Chinese,    // 中文模式 - 小写字母触发 IME
-    English     // 英文模式 - 所有输入直接传递
+    Chinese,  // 中文模式 - 小写字母触发 IME
+    English   // 英文模式 - 所有输入直接传递
 };
 
 struct Candidate {
@@ -20,7 +16,7 @@ struct Candidate {
 };
 
 class ImeEngine {
-public:
+   public:
     virtual ~ImeEngine() = default;
 
     virtual bool input(char ch) = 0;

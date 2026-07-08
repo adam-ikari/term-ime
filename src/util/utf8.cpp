@@ -4,7 +4,8 @@
 namespace utf8 {
 
 char32_t decode(const uint8_t* data, size_t len, size_t& pos) {
-    if (pos >= len) return U'\0';
+    if (pos >= len)
+        return U'\0';
 
     // Use utf8proc for proper decoding
     int32_t codepoint = 0;
@@ -13,7 +14,7 @@ char32_t decode(const uint8_t* data, size_t len, size_t& pos) {
     if (bytes_read < 0) {
         // Invalid UTF-8, skip one byte
         pos++;
-        return U'�'; // Replacement character
+        return U'�';  // Replacement character
     }
 
     pos += bytes_read;
@@ -62,4 +63,4 @@ int string_width(const std::string& str) {
     return total_width;
 }
 
-}
+}  // namespace utf8

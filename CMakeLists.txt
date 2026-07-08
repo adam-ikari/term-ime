@@ -132,6 +132,11 @@ target_link_libraries(term-ime-lib
     PUBLIC llama
     PUBLIC CURL::libcurl
 )
+# librime (static) pulls in Boost.regex and friends; its own target_link
+# dependencies don't always propagate through the static chain, so link them
+# explicitly here. Required at final link on systems without a system librime.
+find_package(Boost REQUIRED COMPONENTS regex filesystem system)
+target_link_libraries(term-ime-lib PUBLIC Boost::regex Boost::filesystem Boost::system)
 
 set_target_properties(term-ime-lib PROPERTIES
     OUTPUT_NAME "termime"

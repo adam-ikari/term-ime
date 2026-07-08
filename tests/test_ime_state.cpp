@@ -2,7 +2,7 @@
 #include "ime/engine.hpp"
 
 class ImeStateTest : public ::testing::Test {
-protected:
+   protected:
     void SetUp() override {}
 };
 

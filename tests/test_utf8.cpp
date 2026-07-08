@@ -2,7 +2,7 @@
 #include "util/utf8.hpp"
 
 class Utf8Test : public ::testing::Test {
-protected:
+   protected:
     void SetUp() override {}
 };
 

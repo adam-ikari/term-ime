@@ -7,7 +7,7 @@
 
 // Manages language switching and configuration
 class LanguageManager {
-public:
+   public:
     using LanguageChangeCallback = std::function<void(const LanguageConfig&)>;
 
     LanguageManager() = default;
@@ -39,7 +39,7 @@ public:
     // Set callback for language change
     void on_language_change(LanguageChangeCallback callback);
 
-private:
+   private:
     std::vector<LanguageConfig> languages_;
     size_t current_index_ = 0;
     LanguageChangeCallback on_change_;

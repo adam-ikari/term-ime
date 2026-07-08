@@ -8,10 +8,10 @@ using json = nlohmann::json;
 
 // Language configuration for multi-language support
 struct LanguageConfig {
-    std::string id;           // Language identifier (zh-CN, ja, ko, etc.)
-    std::string name;         // Display name
-    std::string schema;       // librime schema id
-    bool enabled = true;      // Whether this language is enabled
+    std::string id;       // Language identifier (zh-CN, ja, ko, etc.)
+    std::string name;     // Display name
+    std::string schema;   // librime schema id
+    bool enabled = true;  // Whether this language is enabled
 
     json to_json() const;
     static LanguageConfig from_json(const json& j);
@@ -20,12 +20,12 @@ struct LanguageConfig {
 // LLM ranker configuration (optional smart candidate ranking)
 struct LlamaRankerConfig {
     bool enabled = false;
-    std::string model_path;   // Path to GGUF model
-    int n_threads = 2;        // Number of threads for inference
-    int max_tokens = 10;      // Max tokens to generate
-    int timeout_ms = 100;     // Timeout for inference
+    std::string model_path;       // Path to GGUF model
+    int n_threads = 2;            // Number of threads for inference
+    int max_tokens = 10;          // Max tokens to generate
+    int timeout_ms = 100;         // Timeout for inference
     std::string backend = "cpu";  // "cpu", "cuda", "metal", "vulkan"
-    int n_gpu_layers = 0;     // Number of layers to offload to GPU
+    int n_gpu_layers = 0;         // Number of layers to offload to GPU
 
     json to_json() const;
     static LlamaRankerConfig from_json(const json& j);
@@ -60,7 +60,7 @@ struct AppConfig {
 
     // Logging
     std::string log_level = "warn";  // "debug", "info", "warn", "error"
-    std::string log_file = "";  // empty = no file logging
+    std::string log_file = "";       // empty = no file logging
 
     // Load from file
     static AppConfig load(const std::string& path);

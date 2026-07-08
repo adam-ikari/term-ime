@@ -38,7 +38,8 @@ void EventLoop::run() {
 }
 
 void EventLoop::stop() {
-    if (!running_) return;
+    if (!running_)
+        return;
     running_ = false;
     uv_stop(&loop_);
 }
@@ -133,7 +134,8 @@ void EventLoop::timer_callback(uv_timer_t* handle) {
 
 void EventLoop::io_callback(uv_poll_t* handle, int status, int events) {
     auto* io = static_cast<IoHandle*>(handle->data);
-    if (!io || !io->callback) return;
+    if (!io || !io->callback)
+        return;
 
     // Read available data
     char buf[4096];
@@ -180,7 +182,8 @@ void EventLoop::after_work_callback(uv_work_t* req, int status) {
 
 void EventLoop::async_callback(uv_async_t* handle) {
     auto* loop = static_cast<EventLoop*>(handle->data);
-    if (!loop) return;
+    if (!loop)
+        return;
 
     std::vector<std::function<void()>> callbacks;
     {

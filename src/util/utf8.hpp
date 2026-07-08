@@ -8,10 +8,14 @@ namespace utf8 {
 
 // Get number of bytes in a UTF-8 character from first byte
 inline int char_len(uint8_t first_byte) {
-    if ((first_byte & 0x80) == 0x00) return 1;
-    if ((first_byte & 0xE0) == 0xC0) return 2;
-    if ((first_byte & 0xF0) == 0xE0) return 3;
-    if ((first_byte & 0xF8) == 0xF0) return 4;
+    if ((first_byte & 0x80) == 0x00)
+        return 1;
+    if ((first_byte & 0xE0) == 0xC0)
+        return 2;
+    if ((first_byte & 0xF0) == 0xE0)
+        return 3;
+    if ((first_byte & 0xF8) == 0xF0)
+        return 4;
     return 1;
 }
 
@@ -28,4 +32,4 @@ int width(char32_t ch);
 // Get display width of a UTF-8 string
 int string_width(const std::string& str);
 
-}
+}  // namespace utf8

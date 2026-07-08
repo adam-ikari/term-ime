@@ -8,14 +8,13 @@
 // Abstract interface for candidate ranking
 // Implementations can use different strategies (statistical, neural, etc.)
 class CandidateRanker {
-public:
+   public:
     virtual ~CandidateRanker() = default;
 
     // Rank/reorder candidates based on context
     // context: preceding text for context-aware ranking
     // This modifies the candidates vector in place
-    virtual void rank(std::vector<Candidate>& candidates,
-                      const std::string& context) = 0;
+    virtual void rank(std::vector<Candidate>& candidates, const std::string& context) = 0;
 
     // Check if ranker is available and initialized
     virtual bool is_available() const = 0;
@@ -26,7 +25,7 @@ public:
 
 // Factory for creating rankers
 class RankerFactory {
-public:
+   public:
     // Create a ranker by type
     // Currently only "none" is available
     static std::unique_ptr<CandidateRanker> create(const std::string& type);
@@ -37,9 +36,8 @@ public:
 
 // No-op ranker (pass through)
 class NullRanker : public CandidateRanker {
-public:
-    void rank(std::vector<Candidate>& candidates,
-              const std::string& context) override {
+   public:
+    void rank(std::vector<Candidate>& candidates, const std::string& context) override {
         // No-op: candidates unchanged
     }
 

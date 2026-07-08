@@ -96,17 +96,15 @@ int main() {
     c3.code = "nihaoa";
     candidates.push_back(c3);
 
-    auto main_bar = MainBar({
-        .mode = "中文",
-        .lang_name = "简体中文",
-        .candidates = candidates,
-        .selected = 0,
-        .buffer = "nihao",
-        .ai_enabled = true,
-        .ai_loading = false,
-        .downloading = false,
-        .download_progress = 0
-    });
+    auto main_bar = MainBar({.mode = "中文",
+                             .lang_name = "简体中文",
+                             .candidates = candidates,
+                             .selected = 0,
+                             .buffer = "nihao",
+                             .ai_enabled = true,
+                             .ai_loading = false,
+                             .downloading = false,
+                             .download_progress = 0});
 
     auto screen6 = ftxui::Screen::Create(ftxui::Dimension::Fixed(80), ftxui::Dimension::Fixed(1));
     ftxui::Render(screen6, main_bar);

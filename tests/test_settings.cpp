@@ -32,10 +32,7 @@ int main() {
     state.visible = true;
     auto element = SettingsPanel(state);
 
-    auto screen = ftxui::Screen::Create(
-        ftxui::Dimension::Fixed(60),
-        ftxui::Dimension::Fixed(20)
-    );
+    auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(60), ftxui::Dimension::Fixed(20));
     ftxui::Render(screen, element);
     std::cout << "Panel rendered (60x20)\n";
     std::cout << "--- Render Output ---\n";

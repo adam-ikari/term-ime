@@ -8,12 +8,11 @@
 
 // Rime-based input method engine wrapper
 class RimeIme : public ImeEngine {
-public:
+   public:
     // Initialize with optional data directories
     // shared_data_dir: system rime data directory (default: /usr/share/rime-data)
     // user_data_dir: user config directory (default: ~/.config/term-ime)
-    explicit RimeIme(const std::string& shared_data_dir = "",
-                     const std::string& user_data_dir = "");
+    explicit RimeIme(const std::string& shared_data_dir = "", const std::string& user_data_dir = "");
     ~RimeIme();
 
     bool input(char ch) override;
@@ -36,7 +35,7 @@ public:
     // Initialize rime engine
     bool initialize();
 
-private:
+   private:
     RimeApi* rime_ = nullptr;
     RimeSessionId session_ = 0;
     ImeMode mode_ = ImeMode::English;  // 默认英文模式，不影响终端正常使用

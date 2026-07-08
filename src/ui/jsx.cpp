@@ -144,9 +144,7 @@ Element DimText(const std::string& content) {
 // ============================================================================
 
 Decorator Chain(Decorator a, Decorator b) {
-    return [a, b](Element e) {
-        return b(a(e));
-    };
+    return [a, b](Element e) { return b(a(e)); };
 }
 
 Decorator If(bool condition, Decorator then_dec, Decorator else_dec) {

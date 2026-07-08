@@ -9,10 +9,14 @@ namespace logger {
 
 static spdlog::level::level_enum to_spdlog_level(Level level) {
     switch (level) {
-        case Level::Debug: return spdlog::level::debug;
-        case Level::Info:  return spdlog::level::info;
-        case Level::Warn:  return spdlog::level::warn;
-        case Level::Error: return spdlog::level::err;
+    case Level::Debug:
+        return spdlog::level::debug;
+    case Level::Info:
+        return spdlog::level::info;
+    case Level::Warn:
+        return spdlog::level::warn;
+    case Level::Error:
+        return spdlog::level::err;
     }
     return spdlog::level::info;
 }

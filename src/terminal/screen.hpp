@@ -11,7 +11,7 @@ struct Cell {
 };
 
 class Screen {
-public:
+   public:
     Screen(int rows, int cols);
 
     void put(char32_t ch, int row, int col);
@@ -29,7 +29,7 @@ public:
     int cols() const;
     void resize(int rows, int cols);
 
-private:
+   private:
     std::vector<std::vector<Cell>> grid_;
     int cursor_row_ = 0;
     int cursor_col_ = 0;

@@ -1,7 +1,6 @@
 #include "input_processor.hpp"
 
-InputProcessor::InputProcessor()
-    : sm_() {}
+InputProcessor::InputProcessor() : sm_() {}
 
 input_sm::Result InputProcessor::process(uint8_t byte) {
     input_sm::Result result;

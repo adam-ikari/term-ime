@@ -7,7 +7,7 @@
 
 // Internationalization support
 class I18n {
-public:
+   public:
     // Supported languages
     enum class Lang {
         EN,     // English
@@ -43,7 +43,7 @@ public:
     // Parse language from string
     static Lang parse_lang(const std::string& code);
 
-private:
+   private:
     static Lang current_lang_;
     static std::unordered_map<std::string, std::string> translations_;
     static std::filesystem::path translations_path_;

@@ -5,16 +5,38 @@
 #include <sys/wait.h>
 #include <sys/ioctl.h>
 #include <cstring>
+#include <chrono>
+#include <thread>
 
 Pty::Pty() = default;
+
+bool Pty::wait_for_exit(int timeout_ms) {
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    while (std::chrono::steady_clock::now() < deadline) {
+        int status = 0;
+        pid_t r = waitpid(pid_, &status, WNOHANG);
+        if (r == pid_ || r < 0) {
+            return true;  // reaped, or no such child
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    return false;  // timed out still running
+}
 
 Pty::~Pty() {
     if (master_fd_ >= 0) {
         close(master_fd_);
     }
     if (pid_ > 0) {
+        // Reap the child, but never block forever: if the shell ignores
+        // SIGTERM (e.g. a trapped TERM), escalate to SIGKILL after a bounded
+        // wait. A bare blocking waitpid here hangs term-ime on exit (monkey
+        // finding F2).
         kill(pid_, SIGTERM);
-        waitpid(pid_, nullptr, 0);
+        if (!wait_for_exit(2000)) {  // 2s grace period
+            kill(pid_, SIGKILL);
+            wait_for_exit(1000);  // reap the kill
+        }
     }
 }
 

@@ -34,11 +34,7 @@ FtxuiColor GetModeColor(const std::string& mode) {
 Element ModeIndicator(const ModeIndicatorProps& props) {
     FtxuiColor mode_color = props.is_chinese ? FtxuiColor::Green : FtxuiColor::Cyan;
 
-    return HBox({
-        Text(" 【") | Dim(),
-        Text(props.mode) | Bold() | TextColor(mode_color),
-        Text("】 ") | Dim()
-    });
+    return HBox({Text(" 【") | Dim(), Text(props.mode) | Bold() | TextColor(mode_color), Text("】 ") | Dim()});
 }
 
 // ============================================================================
@@ -47,7 +43,30 @@ Element ModeIndicator(const ModeIndicatorProps& props) {
 
 Element CandidateItem(const CandidateItemProps& props) {
     std::string text_str = u32_to_utf8(props.text);
-    std::string label = std::to_string(props.index) + "." + text_str;
+    // Apply scrolling for selected candidate: show a substring window
+    std::string display_text;
+    int offset = props.scroll_offset;
+    if (props.scroll_offset > 0) {
+        // Scroll the text: skip N characters (not bytes) from the beginning
+        size_t char_count = 0;
+        size_t byte_pos = 0;
+        while (byte_pos < text_str.size() && char_count < static_cast<size_t>(offset)) {
+            int clen = utf8::char_len(static_cast<uint8_t>(text_str[byte_pos]));
+            if (clen < 1)
+                clen = 1;
+            byte_pos += clen;
+            char_count++;
+        }
+        display_text = text_str.substr(byte_pos);
+        // Prepend ellipsis to indicate scrolling
+        if (byte_pos > 0) {
+            display_text = "…" + display_text;
+        }
+    } else {
+        display_text = text_str;
+    }
+
+    std::string label = std::to_string(props.index) + "." + display_text;
 
     if (props.selected) {
         return Text(" [" + label + "] ") | Bold() | BgColor(FtxuiColor::Blue);
@@ -65,21 +84,15 @@ Element CandidateBar(const CandidateBarProps& props) {
 
     // Mode indicator
     bool is_chinese = props.mode.find("中文") != std::string::npos;
-    items.push_back(ModeIndicator({
-        .mode = props.mode,
-        .is_chinese = is_chinese
-    }));
+    items.push_back(ModeIndicator({.mode = props.mode, .is_chinese = is_chinese}));
 
     // Pinyin buffer
     items.push_back(Text(" " + I18n::t("status.pinyin") + ": " + props.buffer + " ") | Bold());
 
     // Candidates
     for (size_t i = 0; i < props.candidates.size() && i < 9; ++i) {
-        items.push_back(CandidateItem({
-            .index = static_cast<int>(i + 1),
-            .text = props.candidates[i].text,
-            .selected = (i == props.selected)
-        }));
+        items.push_back(CandidateItem(
+            {.index = static_cast<int>(i + 1), .text = props.candidates[i].text, .selected = (i == props.selected)}));
     }
 
     // Cancel hint
@@ -98,10 +111,7 @@ Element EmptyBar(const EmptyBarProps& props) {
     Elements items;
 
     // Mode indicator
-    items.push_back(ModeIndicator({
-        .mode = props.mode,
-        .is_chinese = is_chinese
-    }));
+    items.push_back(ModeIndicator({.mode = props.mode, .is_chinese = is_chinese}));
 
     // Filler
     items.push_back(Filler());
@@ -147,12 +157,10 @@ Element StatusBar(const StatusBarProps& props) {
     items.push_back(Text(" 【" + props.lang_name + " " + props.mode + "】") | Bold());
 
     // AI indicator
-    items.push_back(AIIndicator({
-        .enabled = props.ai_enabled,
-        .loading = props.ai_loading,
-        .downloading = props.downloading,
-        .download_progress = props.download_progress
-    }));
+    items.push_back(AIIndicator({.enabled = props.ai_enabled,
+                                 .loading = props.ai_loading,
+                                 .downloading = props.downloading,
+                                 .download_progress = props.download_progress}));
 
     return HBox(std::move(items)) | TextColor(GetModeColor(props.mode));
 }
@@ -166,17 +174,14 @@ Element HintItem(const HintItemProps& props) {
 }
 
 Element HintsBar() {
-    return HBox({
-        HintItem({.key = "Ctrl+A,Space", .action = I18n::t("hint.toggle_mode")}),
-        Text("|") | TextColor(FtxuiColor::GrayDark),
-        HintItem({.key = "1-9", .action = I18n::t("hint.select")}),
-        Text("|") | TextColor(FtxuiColor::GrayDark),
-        HintItem({.key = "Esc", .action = I18n::t("hint.cancel")}),
-        Text("|") | TextColor(FtxuiColor::GrayDark),
-        HintItem({.key = "Ctrl+A,A", .action = I18n::t("hint.ai_toggle")}),
-        Text("|") | TextColor(FtxuiColor::GrayDark),
-        HintItem({.key = "Ctrl+A,S", .action = I18n::t("settings.title")})
-    });
+    return HBox(
+        {HintItem({.key = "Ctrl+A,Space", .action = I18n::t("hint.toggle_mode")}),
+         Text("|") | TextColor(FtxuiColor::GrayDark), HintItem({.key = "1-9", .action = I18n::t("hint.select")}),
+         Text("|") | TextColor(FtxuiColor::GrayDark), HintItem({.key = "Esc", .action = I18n::t("hint.cancel")}),
+         Text("|") | TextColor(FtxuiColor::GrayDark),
+         HintItem({.key = "Ctrl+A,A", .action = I18n::t("hint.ai_toggle")}),
+         Text("|") | TextColor(FtxuiColor::GrayDark),
+         HintItem({.key = "Ctrl+A,S", .action = I18n::t("settings.title")})});
 }
 
 // ============================================================================
@@ -188,35 +193,118 @@ Element MainBar(const MainBarProps& props) {
         return EmptyBar({.mode = props.mode});
     }
 
-    // Build main bar with candidates
+    int term_w = props.term_width;
+    if (term_w <= 0)
+        term_w = 80;
+
+    // ---- Width calculation helpers ----
+
+    // Fixed elements widths (don't shrink)
+    // ModeIndicator: " 【中文】 " → estimate from mode text
+    // Actually we reuse the same structure; approximate by rendering
+    // For now calculate: " 【" + mode + "】 "
+    std::string mode_text = props.mode;
+    int mode_w = 2 /*空格+【*/ + utf8::string_width(mode_text) + 2 /*】+空格*/;  // ≈ " 【XX】 "
+
+    // Pinyin: " pinyin: " + buffer + " "
+    std::string pinyin_prefix = " " + I18n::t("status.pinyin") + ": ";
+    int pinyin_w = utf8::string_width(pinyin_prefix) + utf8::string_width(props.buffer) + 1 /*结尾空格*/;
+
+    // AI indicator: estimate max width
+    int ai_w = props.downloading ? (1 + 2 + 2 + 2 + 2 + 2 + 2) :  // " [下载模型 XX%]"
+                   props.ai_loading ? 10
+                                    :  // " [⠙ AI...]
+                   props.ai_enabled ? 5
+                                    : 0;  // " [AI]"
+
+    // Cancel hint: " Esc 取消 "
+    std::string cancel_text = "  Esc " + I18n::t("hint.cancel") + " ";
+    int cancel_w = utf8::string_width(cancel_text);
+
+    // Total fixed width (filler takes remaining, so we don't add filler width)
+    int fixed_w = mode_w + pinyin_w + ai_w + cancel_w;
+
+    // Candidate item width: " N.text " or " [N.text] "
+    auto candidate_width = [](const std::u32string& text, bool selected) -> int {
+        // " N." = 1+1+1 = 3 (space + digit + dot)
+        // text width = utf8 width of the string
+        // " " (normal) = 1,  " [] " (selected) = 1+1+1 = 3
+        std::string text_utf8;
+        for (char32_t c : text) {
+            if (c != 0)
+                text_utf8 += utf8::encode(c);
+        }
+        int text_w = utf8::string_width(text_utf8);
+        return 3 + text_w + (selected ? 3 : 1);
+    };
+
+    int scroll_off = props.scroll_offset;
+
+    // ---- Determine how many candidates fit ----
+    size_t max_display = std::min(props.candidates.size(), size_t(9));
+    size_t display_count = max_display;
+    bool need_scroll = false;
+
+    while (display_count > 0) {
+        int total_w = fixed_w;
+        for (size_t i = 0; i < display_count; ++i) {
+            bool sel = (i == props.selected);
+            // For the selected candidate, if scroll_off > 0, the display width changes
+            // But for width estimation, use the full text width (scroll doesn't help fit)
+            total_w += candidate_width(props.candidates[i].text, sel);
+        }
+
+        if (total_w <= term_w) {
+            break;  // Fits!
+        }
+        display_count--;
+    }
+
+    // If 0 candidates fit, always show at least the selected one with scrolling
+    if (display_count == 0 && !props.candidates.empty()) {
+        display_count = 1;
+        need_scroll = true;
+    }
+
+    // If even 1 candidate with full text doesn't fit, enable scrolling
+    if (display_count == 1 && !need_scroll) {
+        int single_w = fixed_w + candidate_width(props.candidates[props.selected].text, true);
+        if (single_w > term_w) {
+            need_scroll = true;
+        }
+    }
+
+    // ---- Build items ----
     Elements items;
 
     // Mode indicator
     bool is_chinese = props.mode.find("中文") != std::string::npos;
-    items.push_back(ModeIndicator({
-        .mode = props.mode,
-        .is_chinese = is_chinese
-    }));
+    items.push_back(ModeIndicator({.mode = props.mode, .is_chinese = is_chinese}));
 
     // Pinyin buffer
     items.push_back(Text(" " + I18n::t("status.pinyin") + ": " + props.buffer + " ") | Bold());
 
     // Candidates
-    for (size_t i = 0; i < props.candidates.size() && i < 9; ++i) {
-        items.push_back(CandidateItem({
-            .index = static_cast<int>(i + 1),
-            .text = props.candidates[i].text,
-            .selected = (i == props.selected)
-        }));
+    if (display_count == 1 && need_scroll) {
+        // Only show the selected candidate with scrolling
+        items.push_back(CandidateItem({.index = static_cast<int>(props.selected + 1),
+                                       .text = props.candidates[props.selected].text,
+                                       .selected = true,
+                                       .scroll_offset = scroll_off}));
+    } else {
+        for (size_t i = 0; i < display_count; ++i) {
+            items.push_back(CandidateItem({.index = static_cast<int>(i + 1),
+                                           .text = props.candidates[i].text,
+                                           .selected = (i == props.selected),
+                                           .scroll_offset = (need_scroll && i == props.selected) ? scroll_off : 0}));
+        }
     }
 
     // AI indicator
-    items.push_back(AIIndicator({
-        .enabled = props.ai_enabled,
-        .loading = props.ai_loading,
-        .downloading = props.downloading,
-        .download_progress = props.download_progress
-    }));
+    items.push_back(AIIndicator({.enabled = props.ai_enabled,
+                                 .loading = props.ai_loading,
+                                 .downloading = props.downloading,
+                                 .download_progress = props.download_progress}));
 
     // Filler
     items.push_back(Filler());

@@ -20,10 +20,7 @@ int main() {
     // Render settings panel
     auto element = SettingsPanel(state);
 
-    auto screen = ftxui::Screen::Create(
-        ftxui::Dimension::Fixed(60),
-        ftxui::Dimension::Fixed(20)
-    );
+    auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(60), ftxui::Dimension::Fixed(20));
     ftxui::Render(screen, element);
 
     std::cout << "=== Settings Panel Render Output ===\n";

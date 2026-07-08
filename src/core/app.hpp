@@ -19,7 +19,7 @@
 
 // Application state
 class App {
-public:
+   public:
     App();
     ~App();
 
@@ -71,7 +71,7 @@ public:
     // Check if settings panel is visible
     bool is_settings_visible() const;
 
-private:
+   private:
     Renderer renderer_;
     Pty pty_;
     std::unique_ptr<Screen> screen_;
@@ -89,10 +89,16 @@ private:
     std::atomic<bool> model_downloading_{false};
     int model_download_progress_ = 0;
     std::vector<Candidate> last_candidates_;  // Cache for async ranking
+    // Monotonic version of the current candidate set. Bumped whenever a new
+    // candidate batch is produced; captured by each ranking task so its
+    // callback can discard stale results (monkey finding F5). Atomic because
+    // on_ranking_complete reads it on the ranker worker thread while the main
+    // thread bumps it.
+    std::atomic<uint64_t> candidate_version_{0};
     ui::SettingsState settings_state_;  // Settings panel state
 
     void on_language_change(const LanguageConfig& lang);
-    void on_ranking_complete(std::vector<Candidate> ranked);
+    void on_ranking_complete(std::vector<Candidate> ranked, uint64_t version);
     void render_candidates_bar();
     void start_model_download();
     void on_model_downloaded(bool success, const std::string& path);

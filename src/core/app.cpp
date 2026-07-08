@@ -50,8 +50,7 @@ bool App::init(const AppConfig& config) {
 
         // Get terminal size
         struct winsize ws;
-        if (ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws) < 0 ||
-            ws.ws_row == 0 || ws.ws_row > 1000 ||
+        if (ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0 || ws.ws_row > 1000 ||
             ws.ws_col == 0 || ws.ws_col > 1000) {
             spdlog::warn("Failed to get terminal size, using defaults");
             ws.ws_row = 24;
@@ -78,8 +77,7 @@ bool App::init(const AppConfig& config) {
         // Initialize language manager
         spdlog::info("Loading language configuration");
         language_manager_.load(config_);
-        language_manager_.on_language_change(
-            [this](const LanguageConfig& lang) { on_language_change(lang); });
+        language_manager_.on_language_change([this](const LanguageConfig& lang) { on_language_change(lang); });
 
         // Initialize Rime IME with current language's schema
         const auto& current_lang = language_manager_.current();
@@ -111,11 +109,13 @@ bool App::init(const AppConfig& config) {
         settings_state_.on_change = [this](const std::string& key, const std::string& value) {
             on_settings_change(key, value);
         };
-        settings_state_.on_close = [this]() {
-            on_settings_close();
-        };
+        settings_state_.on_close = [this]() { on_settings_close(); };
 
         initialized_ = true;
+        // Paint the initial status bar once; on_pty_data skips repainting while
+        // the IME is inactive (F4), so without this the bar wouldn't appear
+        // until the user starts composing.
+        render_candidates_bar();
         spdlog::info("App::init complete");
         return true;
 
@@ -135,7 +135,11 @@ void App::on_pty_data(const char* data, size_t len) {
         parser_->feed(reinterpret_cast<const uint8_t*>(data), len);
     }
 
-    // 显示候选词栏
+    // 重绘候选/状态栏。render_candidates_ex 内部对 IME inactive 时的状态栏
+    // 做签名去重:shell 高频逐字节回显(如 zle 逐字符回显、注入转义序列被
+    // forward)触发的重复重绘会被跳过,而状态栏真正被 shell 清屏擦除时仍会
+    // 重绘恢复(monkey 发现 F4)。scroll region(init 的 DECSTBM)进一步保证
+    // shell 输出不落 到状态栏行。
     render_candidates_bar();
 }
 
@@ -146,6 +150,13 @@ void App::render_candidates_bar() {
     auto candidates = ime_ ? ime_->candidates() : std::vector<Candidate>();
     std::string buffer = ime_ ? ime_->buffer() : "";
 
+    // Every new candidate batch gets a fresh version, regardless of whether a
+    // new ranking is kicked off. If a ranking is already in flight, the in-
+    // progress one keeps its old captured version, so its callback will be
+    // discarded by on_ranking_complete when it arrives after newer input
+    // (monkey finding F5).
+    uint64_t version = ++candidate_version_;
+
     // Apply AI ranking if enabled and candidates available
     if (ai_ranking_enabled_ && llama_ranker_ && !candidates.empty() && !ai_ranking_in_progress_) {
         // Store candidates for async ranking
@@ -153,31 +164,29 @@ void App::render_candidates_bar() {
 
         // Start async ranking (delayed execution)
         ai_ranking_in_progress_ = true;
-        llama_ranker_->rank_async(
-            candidates,
-            "",  // context (could be from screen)
-            buffer,
-            [this](std::vector<Candidate> ranked) {
-                on_ranking_complete(std::move(ranked));
-            }
-        );
+        llama_ranker_->rank_async(candidates,
+                                  "",  // context (could be from screen)
+                                  buffer, [this, version](std::vector<Candidate> ranked) {
+                                      on_ranking_complete(std::move(ranked), version);
+                                  });
     }
 
     // Use extended render with AI status
-    renderer_.render_candidates_ex(
-        candidates,
-        selected_candidate_,
-        buffer,
-        mode,
-        ai_ranking_enabled_,
-        ai_ranking_in_progress_,
-        model_downloading_.load(),
-        model_download_progress_
-    );
+    renderer_.render_candidates_ex(candidates, selected_candidate_, buffer, mode, ai_ranking_enabled_,
+                                   ai_ranking_in_progress_, model_downloading_.load(), model_download_progress_);
 }
 
-void App::on_ranking_complete(std::vector<Candidate> ranked) {
+void App::on_ranking_complete(std::vector<Candidate> ranked, uint64_t version) {
     ai_ranking_in_progress_ = false;
+
+    // Discard stale results: if a newer candidate batch has been produced
+    // since this ranking was kicked off, applying the old ranking would
+    // regress the candidate bar to an earlier input (monkey finding F5).
+    if (version != candidate_version_.load()) {
+        spdlog::debug("Discarding stale ranking result (version {} != {})", version, candidate_version_.load());
+        return;
+    }
+
     last_candidates_ = ranked;
 
     // Re-render with ranked candidates
@@ -185,21 +194,17 @@ void App::on_ranking_complete(std::vector<Candidate> ranked) {
         std::string mode = ime_->mode() == ImeMode::Chinese ? "中文" : "EN";
         std::string buffer = ime_->buffer();
 
-        renderer_.render_candidates_ex(
-            ranked,
-            selected_candidate_,
-            buffer,
-            mode,
-            true,  // ai_enabled
-            false, // ai_loading (ranking complete)
-            false, // downloading
-            0
-        );
+        renderer_.render_candidates_ex(ranked, selected_candidate_, buffer, mode,
+                                       true,   // ai_enabled
+                                       false,  // ai_loading (ranking complete)
+                                       false,  // downloading
+                                       0);
     }
 }
 
 void App::on_keyboard_data(const char* data, size_t len) {
-    if (len == 0 || !ime_) return;
+    if (len == 0 || !ime_)
+        return;
 
     // If settings panel is visible, handle keys for it
     if (settings_state_.visible) {
@@ -211,8 +216,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
             if (input_result.forward && !input_result.data.empty()) {
                 // Handle escape sequences (arrow keys)
                 // Both ESC [ A/B/C/D (ANSI mode) and ESC O A/B/C/D (application mode)
-                if (input_result.data.size() == 3 &&
-                    input_result.data[0] == 0x1b &&
+                if (input_result.data.size() == 3 && input_result.data[0] == 0x1b &&
                     (input_result.data[1] == '[' || input_result.data[1] == 'O')) {
                     // Arrow key: ESC [ A/B/C/D or ESC O A/B/C/D
                     char arrow = static_cast<char>(input_result.data[2]);
@@ -224,6 +228,15 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     }
                 }
             }
+        }
+        // A lone ESC is swallowed by the SML into the Escape state (forward is
+        // never set), so settings_handle_key never receives 0x1b and the panel
+        // can't be closed with a single ESC despite the UI hint "取消: Esc/Tab".
+        // Arrow keys (ESC[A etc.) complete and forward, leaving the SM back in
+        // Normal — so if we're still mid-escape after processing this batch, it
+        // is a genuine lone ESC: close the panel (monkey finding F3).
+        if (settings_state_.visible && input_processor_.in_escape()) {
+            ui::settings_handle_key(settings_state_, 0x1b);
         }
         render();
         return;
@@ -238,6 +251,12 @@ void App::on_keyboard_data(const char* data, size_t len) {
         // Handle toggle mode command (Ctrl+A + Space)
         if (input_result.toggle_mode) {
             spdlog::info("Ctrl+A + Space detected, toggling mode");
+            // Cancel any in-progress composition first, so the mode switch is
+            // clean — otherwise the composing-intercept below keeps swallowing
+            // input even after switching to English (monkey finding F1).
+            if (ime_->state() != ImeState::Inactive) {
+                ime_->cancel();
+            }
             ime_->toggle_mode();
             render();
             continue;
@@ -340,6 +359,10 @@ void App::on_resize(int signum) {
     struct winsize ws;
     ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws);
 
+    // Re-establish the scroll region for the new size so shell output stays out
+    // of the status-bar row (monkey finding F4).
+    renderer_.update_scroll_region();
+
     if (screen_) {
         screen_->resize(ws.ws_row - 1, ws.ws_col);
     }
@@ -355,7 +378,8 @@ void App::on_quit(int signum) {
 }
 
 void App::render() {
-    if (!screen_) return;
+    if (!screen_)
+        return;
 
     spdlog::debug("render: starting");
     renderer_.render(*screen_);
@@ -451,17 +475,13 @@ void App::start_model_download() {
     }
 
     model_downloader_->download_async(
-        model_name,
-        save_path,
+        model_name, save_path,
         [this](int progress, const std::string& status) {
             model_download_progress_ = progress;
             spdlog::info("Download progress: {}% - {}", progress, status);
             render();
         },
-        [this](bool success, const std::string& path) {
-            on_model_downloaded(success, path);
-        }
-    );
+        [this](bool success, const std::string& path) { on_model_downloaded(success, path); });
 
     render();
 }
@@ -474,6 +494,10 @@ void App::on_model_downloaded(bool success, const std::string& path) {
 
         // Update config with downloaded model path
         config_.llama_ranker.model_path = path;
+        // The user explicitly requested AI ranking (Ctrl+A+A) and just waited
+        // for a download; flip enabled on so initialize() doesn't reject the
+        // very model we just fetched (monkey finding F7).
+        config_.llama_ranker.enabled = true;
 
         // Initialize ranker
         llama_ranker_ = std::make_unique<LlamaRanker>();
@@ -504,12 +528,7 @@ void App::switch_ui_language(const std::string& lang_code) {
 }
 
 std::vector<std::pair<std::string, std::string>> App::available_ui_languages() {
-    return {
-        {"en", "English"},
-        {"zh-CN", "简体中文"},
-        {"zh-TW", "繁體中文"},
-        {"ja", "日本語"}
-    };
+    return {{"en", "English"}, {"zh-CN", "简体中文"}, {"zh-TW", "繁體中文"}, {"ja", "日本語"}};
 }
 
 void App::toggle_settings() {

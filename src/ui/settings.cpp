@@ -30,8 +30,8 @@ Element SettingsRow(const SettingsItem& item, bool focused) {
     // Options hint (if multiple options)
     if (item.options.size() > 1 && focused) {
         row.push_back(Text(" < ") | Dim());
-        row.push_back(Text(std::to_string(item.selected_index + 1) + "/" +
-                          std::to_string(item.options.size())) | Dim());
+        row.push_back(Text(std::to_string(item.selected_index + 1) + "/" + std::to_string(item.options.size())) |
+                      Dim());
     }
 
     return HBox(row);
@@ -84,15 +84,7 @@ Element SettingsPanel(SettingsState& state) {
     auto bordered = ftxui::border(inner);
     auto colored = bordered | bgcolor(FtxuiColor::Black);
 
-    return VBox({
-        Filler(),
-        HBox({
-            Filler(),
-            colored,
-            Filler()
-        }),
-        Filler()
-    });
+    return VBox({Filler(), HBox({Filler(), colored, Filler()}), Filler()});
 }
 
 // ============================================================================
@@ -103,82 +95,82 @@ bool settings_handle_key(SettingsState& state, int key) {
     const int item_count = static_cast<int>(state.items.size()) + 1;  // +1 for close button
 
     switch (key) {
-        case 'k':
-        case 'A':  // Up arrow (CSI A)
-            state.focus_index = (state.focus_index - 1 + item_count) % item_count;
-            return true;
+    case 'k':
+    case 'A':  // Up arrow (CSI A)
+        state.focus_index = (state.focus_index - 1 + item_count) % item_count;
+        return true;
 
-        case 'j':
-        case 'B':  // Down arrow (CSI B)
-            state.focus_index = (state.focus_index + 1) % item_count;
-            return true;
+    case 'j':
+    case 'B':  // Down arrow (CSI B)
+        state.focus_index = (state.focus_index + 1) % item_count;
+        return true;
 
-        case 'h':
-        case 'D':  // Left arrow (CSI D)
-            if (state.focus_index < static_cast<int>(state.items.size())) {
-                auto& item = state.items[state.focus_index];
-                if (item.selected_index > 0) {
-                    item.selected_index--;
-                    item.value = item.options[item.selected_index];
-                    if (!item.display_options.empty()) {
-                        item.display_value = item.display_options[item.selected_index];
-                    }
-                    if (state.on_change) {
-                        state.on_change(item.key, item.value);
-                    }
+    case 'h':
+    case 'D':  // Left arrow (CSI D)
+        if (state.focus_index < static_cast<int>(state.items.size())) {
+            auto& item = state.items[state.focus_index];
+            if (item.selected_index > 0) {
+                item.selected_index--;
+                item.value = item.options[item.selected_index];
+                if (!item.display_options.empty()) {
+                    item.display_value = item.display_options[item.selected_index];
+                }
+                if (state.on_change) {
+                    state.on_change(item.key, item.value);
                 }
             }
-            return true;
+        }
+        return true;
 
-        case 'l':
-        case 'C':  // Right arrow (CSI C)
-            if (state.focus_index < static_cast<int>(state.items.size())) {
-                auto& item = state.items[state.focus_index];
-                if (item.selected_index < static_cast<int>(item.options.size()) - 1) {
-                    item.selected_index++;
-                    item.value = item.options[item.selected_index];
-                    if (!item.display_options.empty()) {
-                        item.display_value = item.display_options[item.selected_index];
-                    }
-                    if (state.on_change) {
-                        state.on_change(item.key, item.value);
-                    }
+    case 'l':
+    case 'C':  // Right arrow (CSI C)
+        if (state.focus_index < static_cast<int>(state.items.size())) {
+            auto& item = state.items[state.focus_index];
+            if (item.selected_index < static_cast<int>(item.options.size()) - 1) {
+                item.selected_index++;
+                item.value = item.options[item.selected_index];
+                if (!item.display_options.empty()) {
+                    item.display_value = item.display_options[item.selected_index];
+                }
+                if (state.on_change) {
+                    state.on_change(item.key, item.value);
                 }
             }
-            return true;
+        }
+        return true;
 
-        case '\r':
-        case '\n':
-            if (state.focus_index >= static_cast<int>(state.items.size())) {
-                // Close button
-                if (state.on_close) {
-                    state.on_close();
-                }
-            } else {
-                // Toggle or cycle value
-                auto& item = state.items[state.focus_index];
-                if (!item.options.empty()) {
-                    item.selected_index = (item.selected_index + 1) % item.options.size();
-                    item.value = item.options[item.selected_index];
-                    if (!item.display_options.empty()) {
-                        item.display_value = item.display_options[item.selected_index];
-                    }
-                    if (state.on_change) {
-                        state.on_change(item.key, item.value);
-                    }
-                }
-            }
-            return true;
-
-        case 0x1b:  // Escape
-        case '\t':  // Tab
+    case '\r':
+    case '\n':
+        if (state.focus_index >= static_cast<int>(state.items.size())) {
+            // Close button
             if (state.on_close) {
                 state.on_close();
             }
-            return true;
+        } else {
+            // Toggle or cycle value
+            auto& item = state.items[state.focus_index];
+            if (!item.options.empty()) {
+                item.selected_index = (item.selected_index + 1) % item.options.size();
+                item.value = item.options[item.selected_index];
+                if (!item.display_options.empty()) {
+                    item.display_value = item.display_options[item.selected_index];
+                }
+                if (state.on_change) {
+                    state.on_change(item.key, item.value);
+                }
+            }
+        }
+        return true;
 
-        default:
-            return false;
+    case 0x1b:  // Escape
+    case '\t':  // Tab
+        if (state.on_close) {
+            state.on_close();
+        }
+        return true;
+
+    default:
+        return false;
     }
 }
 

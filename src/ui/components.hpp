@@ -27,6 +27,7 @@ struct CandidateItemProps {
     int index;
     std::u32string text;
     bool selected = false;
+    int scroll_offset = 0;  // Scroll offset in characters for overflow display
 };
 
 Element CandidateItem(const CandidateItemProps& props);
@@ -102,6 +103,8 @@ struct MainBarProps {
     bool ai_loading = false;
     bool downloading = false;
     int download_progress = 0;
+    int term_width = 80;    // Terminal width in columns
+    int scroll_offset = 0;  // Scroll offset in characters for overflow
 };
 
 Element MainBar(const MainBarProps& props);

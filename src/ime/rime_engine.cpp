@@ -4,8 +4,7 @@
 #include <filesystem>
 
 RimeIme::RimeIme(const std::string& shared_data_dir, const std::string& user_data_dir)
-    : shared_data_dir_(shared_data_dir), user_data_dir_(user_data_dir) {
-}
+    : shared_data_dir_(shared_data_dir), user_data_dir_(user_data_dir) {}
 
 RimeIme::~RimeIme() {
     if (rime_ && session_) {
@@ -27,11 +26,8 @@ bool RimeIme::initialize() {
     std::string shared_dir = shared_data_dir_;
     if (shared_dir.empty()) {
         // Try common locations
-        std::vector<std::string> search_paths = {
-            "/usr/share/rime-data",
-            "/usr/local/share/rime-data",
-            "/opt/rime-data"
-        };
+        std::vector<std::string> search_paths = {"/usr/share/rime-data", "/usr/local/share/rime-data",
+                                                 "/opt/rime-data"};
 
         for (const auto& path : search_paths) {
             if (std::filesystem::exists(path)) {
@@ -81,7 +77,8 @@ bool RimeIme::input(char ch) {
         return false;
     }
 
-    if (!rime_ || !session_) return false;
+    if (!rime_ || !session_)
+        return false;
 
     // Process key
     if (rime_->process_key(session_, ch, 0)) {
@@ -92,7 +89,8 @@ bool RimeIme::input(char ch) {
 }
 
 ImeState RimeIme::state() const {
-    if (!rime_ || !session_) return ImeState::Inactive;
+    if (!rime_ || !session_)
+        return ImeState::Inactive;
 
     RIME_STRUCT(RimeContext, context);
     if (rime_->get_context(session_, &context)) {
@@ -123,7 +121,8 @@ void RimeIme::toggle_mode() {
 }
 
 std::string RimeIme::buffer() const {
-    if (!rime_ || !session_) return "";
+    if (!rime_ || !session_)
+        return "";
 
     RIME_STRUCT(RimeContext, context);
     if (rime_->get_context(session_, &context)) {
@@ -137,7 +136,8 @@ std::string RimeIme::buffer() const {
 
 std::vector<Candidate> RimeIme::candidates() const {
     std::vector<Candidate> result;
-    if (!rime_ || !session_) return result;
+    if (!rime_ || !session_)
+        return result;
 
     RIME_STRUCT(RimeContext, context);
     if (rime_->get_context(session_, &context)) {
@@ -159,7 +159,8 @@ std::vector<Candidate> RimeIme::candidates() const {
 }
 
 std::u32string RimeIme::select(int index) {
-    if (!rime_ || !session_) return U"";
+    if (!rime_ || !session_)
+        return U"";
 
     // Select candidate by number
     char key = '1' + index;
@@ -177,7 +178,8 @@ std::u32string RimeIme::select(int index) {
 }
 
 void RimeIme::cancel() {
-    if (!rime_ || !session_) return;
+    if (!rime_ || !session_)
+        return;
 
     // Send Escape to cancel
     rime_->process_key(session_, 0xFF1B, 0);  // XK_Escape
@@ -185,23 +187,27 @@ void RimeIme::cancel() {
 }
 
 void RimeIme::page_up() {
-    if (!rime_ || !session_) return;
+    if (!rime_ || !session_)
+        return;
     rime_->process_key(session_, 0xFF55, 0);  // XK_Page_Up
 }
 
 void RimeIme::page_down() {
-    if (!rime_ || !session_) return;
+    if (!rime_ || !session_)
+        return;
     rime_->process_key(session_, 0xFF56, 0);  // XK_Page_Down
 }
 
 bool RimeIme::select_schema(const std::string& schema_id) {
-    if (!rime_ || !session_) return false;
+    if (!rime_ || !session_)
+        return false;
     return rime_->select_schema(session_, schema_id.c_str());
 }
 
 std::vector<std::string> RimeIme::get_schema_list() {
     std::vector<std::string> result;
-    if (!rime_) return result;
+    if (!rime_)
+        return result;
 
     RimeSchemaList list;
     if (rime_->get_schema_list(&list)) {
@@ -214,7 +220,8 @@ std::vector<std::string> RimeIme::get_schema_list() {
 }
 
 std::string RimeIme::get_current_schema() {
-    if (!rime_ || !session_) return "";
+    if (!rime_ || !session_)
+        return "";
 
     char schema[64];
     if (rime_->get_current_schema(session_, schema, sizeof(schema))) {
@@ -229,7 +236,8 @@ void RimeIme::update_state() {
 
 std::u32string RimeIme::utf8_to_utf32(const std::string& utf8) const {
     std::u32string result;
-    if (utf8.empty()) return result;
+    if (utf8.empty())
+        return result;
 
     const uint8_t* data = reinterpret_cast<const uint8_t*>(utf8.data());
     size_t pos = 0;

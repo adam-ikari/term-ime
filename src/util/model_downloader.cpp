@@ -17,10 +17,8 @@ ModelDownloader::~ModelDownloader() {
     }
 }
 
-void ModelDownloader::download_async(const std::string& model_name,
-                                     const std::string& save_path,
-                                     ProgressCallback on_progress,
-                                     CompleteCallback on_complete) {
+void ModelDownloader::download_async(const std::string& model_name, const std::string& save_path,
+                                     ProgressCallback on_progress, CompleteCallback on_complete) {
     if (downloading_.load()) {
         on_complete(false, "Already downloading");
         return;
@@ -29,8 +27,7 @@ void ModelDownloader::download_async(const std::string& model_name,
     cancelled_.store(false);
     downloading_.store(true);
 
-    download_thread_ = std::thread([this, model_name, save_path,
-                                    on_progress, on_complete]() {
+    download_thread_ = std::thread([this, model_name, save_path, on_progress, on_complete]() {
         std::string url = get_model_url(model_name);
         std::string path = save_path.empty() ? get_default_save_path(model_name) : save_path;
 
@@ -71,10 +68,15 @@ bool ModelDownloader::is_downloading() const {
 std::string ModelDownloader::get_model_url(const std::string& model_name) {
     // HuggingFace model URLs
     static const std::unordered_map<std::string, std::string> model_urls = {
-        {"qwen-0.5b-q4", "https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf"},
-        {"qwen-0.5b-q8", "https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q8_0.gguf"},
-        {"qwen-1.5b-q4", "https://huggingface.co/Qwen/Qwen2-1.5B-Instruct-GGUF/resolve/main/qwen2-1_5b-instruct-q4_0.gguf"},
-        {"tinyllama-1.1b-q4", "https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_0.gguf"},
+        {"qwen-0.5b-q4",
+         "https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q4_0.gguf"},
+        {"qwen-0.5b-q8",
+         "https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0_5b-instruct-q8_0.gguf"},
+        {"qwen-1.5b-q4",
+         "https://huggingface.co/Qwen/Qwen2-1.5B-Instruct-GGUF/resolve/main/qwen2-1_5b-instruct-q4_0.gguf"},
+        {"tinyllama-1.1b-q4",
+         "https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/"
+         "tinyllama-1.1b-chat-v1.0.Q4_0.gguf"},
         {"phi-2-q4", "https://huggingface.co/microsoft/Phi-2-GGUF/resolve/main/phi-2.Q4_0.gguf"},
     };
 
@@ -120,9 +122,7 @@ std::vector<std::pair<std::string, std::string>> ModelDownloader::available_mode
     };
 }
 
-bool ModelDownloader::download_file(const std::string& url,
-                                    const std::string& path,
-                                    ProgressCallback on_progress) {
+bool ModelDownloader::download_file(const std::string& url, const std::string& path, ProgressCallback on_progress) {
     // Use curl for downloading
     std::string temp_path = path + ".tmp";
 
@@ -173,7 +173,8 @@ bool ModelDownloader::download_file(const std::string& url,
                                 on_progress(progress, "Downloading...");
                             }
                         }
-                    } catch (...) {}
+                    } catch (...) {
+                    }
                 }
             }
         }

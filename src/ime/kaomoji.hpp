@@ -6,14 +6,14 @@
 
 // Kaomoji (emoticon) entry
 struct Kaomoji {
-    std::string text;           // The kaomoji itself
-    std::string name;           // Name/description
+    std::string text;               // The kaomoji itself
+    std::string name;               // Name/description
     std::vector<std::string> tags;  // Search tags
 };
 
 // Kaomoji library manager
 class KaomojiLib {
-public:
+   public:
     KaomojiLib();
 
     // Initialize with default kaomoji
@@ -40,7 +40,7 @@ public:
     // Save to file
     bool save(const std::string& path) const;
 
-private:
+   private:
     std::vector<Kaomoji> kaomojis_;
     std::unordered_map<std::string, std::vector<size_t>> tag_index_;
     std::unordered_map<std::string, std::vector<size_t>> category_index_;

@@ -7,12 +7,7 @@ namespace fs = std::filesystem;
 
 // LanguageConfig implementation
 json LanguageConfig::to_json() const {
-    return json{
-        {"id", id},
-        {"name", name},
-        {"schema", schema},
-        {"enabled", enabled}
-    };
+    return json{{"id", id}, {"name", name}, {"schema", schema}, {"enabled", enabled}};
 }
 
 LanguageConfig LanguageConfig::from_json(const json& j) {
@@ -26,15 +21,9 @@ LanguageConfig LanguageConfig::from_json(const json& j) {
 
 // LlamaRankerConfig implementation
 json LlamaRankerConfig::to_json() const {
-    return json{
-        {"enabled", enabled},
-        {"model_path", model_path},
-        {"n_threads", n_threads},
-        {"max_tokens", max_tokens},
-        {"timeout_ms", timeout_ms},
-        {"backend", backend},
-        {"n_gpu_layers", n_gpu_layers}
-    };
+    return json{{"enabled", enabled},          {"model_path", model_path}, {"n_threads", n_threads},
+                {"max_tokens", max_tokens},    {"timeout_ms", timeout_ms}, {"backend", backend},
+                {"n_gpu_layers", n_gpu_layers}};
 }
 
 LlamaRankerConfig LlamaRankerConfig::from_json(const json& j) {
@@ -51,11 +40,9 @@ LlamaRankerConfig LlamaRankerConfig::from_json(const json& j) {
 
 // AppConfig implementation
 std::vector<LanguageConfig> AppConfig::default_languages() {
-    return {
-        {"zh-Hans", "简体中文", "luna_pinyin_simp", true},
-        {"zh-Hant", "繁體中文", "luna_pinyin", true},
-        {"zh-Hant-TW", "正體中文（台灣）", "terra_pinyin", false}
-    };
+    return {{"zh-Hans", "简体中文", "luna_pinyin_simp", true},
+            {"zh-Hant", "繁體中文", "luna_pinyin", true},
+            {"zh-Hant-TW", "正體中文（台灣）", "terra_pinyin", false}};
 }
 
 json AppConfig::to_json() const {

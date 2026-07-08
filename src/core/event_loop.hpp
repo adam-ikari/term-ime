@@ -10,7 +10,7 @@
 
 // Libuv-based event loop for async I/O
 class EventLoop {
-public:
+   public:
     using TimerCallback = std::function<void()>;
     using IoCallback = std::function<void(const char* data, size_t len)>;
     using SignalCallback = std::function<void(int signum)>;
@@ -52,7 +52,7 @@ public:
     // Async work (run in thread pool, then callback on main thread)
     void queue_work(std::function<void()> work, std::function<void()> after);
 
-private:
+   private:
     uv_loop_t loop_;
     bool running_ = false;
 

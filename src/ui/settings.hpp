@@ -15,9 +15,9 @@ namespace ui {
 struct SettingsItem {
     std::string label;
     std::string key;
-    std::string value;           // Internal value
-    std::string display_value;   // Display value (friendly name)
-    std::vector<std::string> options;  // Available options for selection (internal)
+    std::string value;                         // Internal value
+    std::string display_value;                 // Display value (friendly name)
+    std::vector<std::string> options;          // Available options for selection (internal)
     std::vector<std::string> display_options;  // Display names for options
     int selected_index = 0;
 };

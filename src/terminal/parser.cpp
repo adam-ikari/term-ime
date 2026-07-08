@@ -28,42 +28,39 @@ void Parser::feed(const uint8_t* data, size_t len) {
 
 void Parser::handle_char(char c) {
     switch (state_) {
-        case State::Normal:
-            if (c == '\x1b') {
-                state_ = State::Escape;
-            } else if (c == '\r') {
-                screen_.move_cursor(screen_.cursor_row(), 0);
-            } else if (c == '\n') {
-                if (screen_.cursor_row() + 1 >= screen_.rows()) {
-                    screen_.scroll_up();
-                } else {
-                    screen_.move_cursor(screen_.cursor_row() + 1, screen_.cursor_col());
-                }
-            } else if (c == '\b') {
-                if (screen_.cursor_col() > 0) {
-                    screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() - 1);
-                }
-            } else if (static_cast<unsigned char>(c) >= 0x20) {
-                screen_.put(static_cast<char32_t>(c),
-                           screen_.cursor_row(),
-                           screen_.cursor_col());
-                screen_.move_cursor(screen_.cursor_row(),
-                                   std::min(screen_.cursor_col() + 1, screen_.cols() - 1));
-            }
-            break;
-
-        case State::Escape:
-            if (c == '[') {
-                state_ = State::CSI;
-                csi_params_.clear();
+    case State::Normal:
+        if (c == '\x1b') {
+            state_ = State::Escape;
+        } else if (c == '\r') {
+            screen_.move_cursor(screen_.cursor_row(), 0);
+        } else if (c == '\n') {
+            if (screen_.cursor_row() + 1 >= screen_.rows()) {
+                screen_.scroll_up();
             } else {
-                state_ = State::Normal;
+                screen_.move_cursor(screen_.cursor_row() + 1, screen_.cursor_col());
             }
-            break;
+        } else if (c == '\b') {
+            if (screen_.cursor_col() > 0) {
+                screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() - 1);
+            }
+        } else if (static_cast<unsigned char>(c) >= 0x20) {
+            screen_.put(static_cast<char32_t>(c), screen_.cursor_row(), screen_.cursor_col());
+            screen_.move_cursor(screen_.cursor_row(), std::min(screen_.cursor_col() + 1, screen_.cols() - 1));
+        }
+        break;
 
-        case State::CSI:
-            handle_csi(c);
-            break;
+    case State::Escape:
+        if (c == '[') {
+            state_ = State::CSI;
+            csi_params_.clear();
+        } else {
+            state_ = State::Normal;
+        }
+        break;
+
+    case State::CSI:
+        handle_csi(c);
+        break;
     }
 }
 
@@ -73,39 +70,39 @@ void Parser::handle_csi(char c) {
     } else {
         // Final character
         switch (c) {
-            case 'H':  // Cursor position
-            case 'f': {
-                int row = 1, col = 1;
-                size_t pos = csi_params_.find(';');
-                if (pos != std::string::npos) {
-                    row = std::stoi(csi_params_.substr(0, pos));
-                    col = std::stoi(csi_params_.substr(pos + 1));
-                }
-                screen_.move_cursor(row - 1, col - 1);
-                break;
+        case 'H':  // Cursor position
+        case 'f': {
+            int row = 1, col = 1;
+            size_t pos = csi_params_.find(';');
+            if (pos != std::string::npos) {
+                row = std::stoi(csi_params_.substr(0, pos));
+                col = std::stoi(csi_params_.substr(pos + 1));
             }
-            case 'A':  // Cursor up
-                screen_.move_cursor(screen_.cursor_row() - 1, screen_.cursor_col());
-                break;
-            case 'B':  // Cursor down
-                screen_.move_cursor(screen_.cursor_row() + 1, screen_.cursor_col());
-                break;
-            case 'C':  // Cursor forward
-                screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() + 1);
-                break;
-            case 'D':  // Cursor back
-                screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() - 1);
-                break;
-            case 'J':  // Erase display
-                if (csi_params_ == "2") {
-                    screen_.clear();
-                }
-                break;
-            case 'K':  // Erase line
-                screen_.clear_line();
-                break;
-            case 'm':  // SGR (colors) - ignore for now
-                break;
+            screen_.move_cursor(row - 1, col - 1);
+            break;
+        }
+        case 'A':  // Cursor up
+            screen_.move_cursor(screen_.cursor_row() - 1, screen_.cursor_col());
+            break;
+        case 'B':  // Cursor down
+            screen_.move_cursor(screen_.cursor_row() + 1, screen_.cursor_col());
+            break;
+        case 'C':  // Cursor forward
+            screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() + 1);
+            break;
+        case 'D':  // Cursor back
+            screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() - 1);
+            break;
+        case 'J':  // Erase display
+            if (csi_params_ == "2") {
+                screen_.clear();
+            }
+            break;
+        case 'K':  // Erase line
+            screen_.clear_line();
+            break;
+        case 'm':  // SGR (colors) - ignore for now
+            break;
         }
         state_ = State::Normal;
     }

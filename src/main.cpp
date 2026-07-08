@@ -84,14 +84,10 @@ int main(int argc, char* argv[]) {
     });
 
     // Register keyboard reader
-    loop.watch_fd(STDIN_FILENO, [&app](const char* data, size_t len) {
-        app.on_keyboard_data(data, len);
-    });
+    loop.watch_fd(STDIN_FILENO, [&app](const char* data, size_t len) { app.on_keyboard_data(data, len); });
 
     // Register signal handlers
-    loop.watch_signal(SIGWINCH, [&app](int signum) {
-        app.on_resize(signum);
-    });
+    loop.watch_signal(SIGWINCH, [&app](int signum) { app.on_resize(signum); });
 
     loop.watch_signal(SIGINT, [&app, &loop](int signum) {
         app.on_quit(signum);

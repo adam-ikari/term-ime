@@ -22,7 +22,7 @@ struct llama_context;
 // - Lazy model loading to minimize memory usage
 // - Quantized model support for CPU efficiency
 class LlamaRanker : public CandidateRanker {
-public:
+   public:
     LlamaRanker();
     ~LlamaRanker();
 
@@ -30,14 +30,11 @@ public:
     bool initialize(const LlamaRankerConfig& config);
 
     // Synchronous rank (may block, use rank_async for better UX)
-    void rank(std::vector<Candidate>& candidates,
-              const std::string& context) override;
+    void rank(std::vector<Candidate>& candidates, const std::string& context) override;
 
     // Async ranking with result callback
     // The callback will be invoked when ranking is complete
-    void rank_async(std::vector<Candidate> candidates,
-                    const std::string& context,
-                    const std::string& pinyin,
+    void rank_async(std::vector<Candidate> candidates, const std::string& context, const std::string& pinyin,
                     std::function<void(std::vector<Candidate>)> callback);
 
     bool is_available() const override;
@@ -52,7 +49,7 @@ public:
     // Check if model is loaded
     bool is_model_loaded() const;
 
-private:
+   private:
     struct RankTask {
         std::vector<Candidate> candidates;
         std::string context;
@@ -76,16 +73,13 @@ private:
     llama_context* ctx_ = nullptr;
 
     void worker_loop();
-    std::vector<Candidate> do_rank(const std::vector<Candidate>& candidates,
-                                   const std::string& context,
+    std::vector<Candidate> do_rank(const std::vector<Candidate>& candidates, const std::string& context,
                                    const std::string& pinyin);
 
     // Build prompt for LLM
-    std::string build_prompt(const std::vector<Candidate>& candidates,
-                             const std::string& context,
+    std::string build_prompt(const std::vector<Candidate>& candidates, const std::string& context,
                              const std::string& pinyin) const;
 
     // Parse LLM output to get ranking
-    std::vector<int> parse_ranking(const std::string& output,
-                                   int num_candidates) const;
+    std::vector<int> parse_ranking(const std::string& output, int num_candidates) const;
 };

@@ -18,8 +18,7 @@ void LanguageManager::load(const AppConfig& config) {
         }
     }
 
-    spdlog::info("LanguageManager loaded {} languages, active: {}",
-                 languages_.size(), current().name);
+    spdlog::info("LanguageManager loaded {} languages, active: {}", languages_.size(), current().name);
 }
 
 bool LanguageManager::switch_language(const std::string& lang_id) {
@@ -54,7 +53,8 @@ void LanguageManager::next_language() {
         if (languages_[i].enabled) {
             current_index_ = i;
             spdlog::info("Switched to language: {}", current().name);
-            if (on_change_) on_change_(current());
+            if (on_change_)
+                on_change_(current());
             return;
         }
     }
@@ -63,7 +63,8 @@ void LanguageManager::next_language() {
         if (languages_[i].enabled) {
             current_index_ = i;
             spdlog::info("Switched to language: {}", current().name);
-            if (on_change_) on_change_(current());
+            if (on_change_)
+                on_change_(current());
             return;
         }
     }
@@ -75,7 +76,8 @@ void LanguageManager::prev_language() {
         if (languages_[i].enabled) {
             current_index_ = i;
             spdlog::info("Switched to language: {}", current().name);
-            if (on_change_) on_change_(current());
+            if (on_change_)
+                on_change_(current());
             return;
         }
     }
@@ -84,7 +86,8 @@ void LanguageManager::prev_language() {
         if (languages_[i].enabled) {
             current_index_ = i;
             spdlog::info("Switched to language: {}", current().name);
-            if (on_change_) on_change_(current());
+            if (on_change_)
+                on_change_(current());
             return;
         }
     }

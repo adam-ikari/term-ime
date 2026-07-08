@@ -39,9 +39,7 @@ struct Machine {
         const auto is_esc = [](const Byte& e) { return e.value == 0x1b; };
         const auto is_csi = [](const Byte& e) { return e.value == '[' || e.value == 'O'; };
         const auto is_terminator = [](const Byte& e) {
-            return (e.value >= 'A' && e.value <= 'Z') ||
-                   (e.value >= 'a' && e.value <= 'z') ||
-                   e.value == '~';
+            return (e.value >= 'A' && e.value <= 'Z') || (e.value >= 'a' && e.value <= 'z') || e.value == '~';
         };
         const auto is_space = [](const Byte& e) { return e.value == ' '; };
 
@@ -58,6 +56,16 @@ struct Machine {
         };
 
         const auto buffer_byte = [](const Byte& e) {
+            // Cap the escape-sequence buffer: a well-formed CSI is at most a
+            // few dozen bytes. A flood of non-terminator bytes (e.g. a monkey
+            // feeding ESC[ + thousands of digits) would otherwise grow this
+            // without bound (monkey finding F4). Drop the front when it gets
+            // oversized rather than letting memory balloon.
+            if (e.buffer->size() > 256) {
+                e.buffer->clear();
+                e.buffer->push_back(0x1b);
+                e.buffer->push_back('[');
+            }
             e.buffer->push_back(e.value);
         };
 
@@ -94,31 +102,30 @@ struct Machine {
 
         return make_transition_table(
             // Normal state
-            *state<Normal> + event<Byte> [is_ctrl_a] = state<Prefix>,
-            state<Normal> + event<Byte> [is_esc] / start_escape = state<Escape>,
+            *state<Normal> + event<Byte>[is_ctrl_a] = state<Prefix>,
+            state<Normal> + event<Byte>[is_esc] / start_escape = state<Escape>,
             state<Normal> + event<Byte> / forward_byte,
 
             // Escape state
-            state<Escape> + event<Byte> [is_csi] / buffer_byte = state<EscapeCSI>,
+            state<Escape> + event<Byte>[is_csi] / buffer_byte = state<EscapeCSI>,
             state<Escape> + event<Byte> / forward_escape = state<Normal>,
 
             // EscapeCSI state
-            state<EscapeCSI> + event<Byte> [is_terminator] / complete_escape = state<Normal>,
+            state<EscapeCSI> + event<Byte>[is_terminator] / complete_escape = state<Normal>,
             state<EscapeCSI> + event<Byte> / buffer_byte,
 
             // Prefix state
-            state<Prefix> + event<Byte> [is_space] / toggle_mode = state<Normal>,
-            state<Prefix> + event<Byte> [is_ctrl_a] / forward_literal_ctrl_a = state<Normal>,
-            state<Prefix> + event<Byte> / forward_prefix = state<Normal>
-        );
+            state<Prefix> + event<Byte>[is_space] / toggle_mode = state<Normal>,
+            state<Prefix> + event<Byte>[is_ctrl_a] / forward_literal_ctrl_a = state<Normal>,
+            state<Prefix> + event<Byte> / forward_prefix = state<Normal>);
     }
 };
 
-} // namespace input_sm
+}  // namespace input_sm
 
 // Input processor using Boost.SML state machine
 class InputProcessor {
-public:
+   public:
     InputProcessor();
 
     // Process a byte, return result
@@ -130,7 +137,7 @@ public:
     // Reset state
     void reset();
 
-private:
+   private:
     boost::sml::sm<input_sm::Machine> sm_;
     std::vector<uint8_t> buffer_;
 };

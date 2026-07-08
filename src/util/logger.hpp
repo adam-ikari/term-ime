@@ -7,12 +7,7 @@
 namespace logger {
 
 // 日志级别
-enum class Level {
-    Debug,
-    Info,
-    Warn,
-    Error
-};
+enum class Level { Debug, Info, Warn, Error };
 
 // 初始化日志系统
 void init(Level level = Level::Info, const std::string& file = "");
