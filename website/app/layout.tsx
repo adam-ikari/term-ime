@@ -1,10 +1,23 @@
 import type { Metadata } from 'next';
-import { JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 
-const mono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-jbmono',
+// Self-hosted Maple Mono CN (sub set to ASCII + CJK + punctuation, woff2).
+// Loaded via next/font/local so it works on GitHub Pages static export.
+const mono = localFont({
+  src: [
+    {
+      path: '../public/fonts/MapleMono-CN-Regular.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/MapleMono-CN-Bold.woff2',
+      weight: '700',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-mono',
   display: 'swap',
 });
 

@@ -10,8 +10,8 @@
   --border: #333333;
   --selection: #003b2a;
 
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code',
-    'Source Code Pro', Menlo, Consolas, monospace;
+  --font-mono: var(--font-mono), 'Maple Mono CN', 'Maple Mono',
+    'JetBrains Mono', 'Fira Code', ui-monospace, Menlo, Consolas, monospace;
   --radius: 6px;
   --mono-size: 14px;
   --line-height: 1.5;
