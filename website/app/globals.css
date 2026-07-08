@@ -37,6 +37,33 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  position: relative;
+}
+
+/* CRT scanline overlay — geek aesthetic. Fixed full-screen faint lines. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 255, 156, 0.025) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  mix-blend-mode: overlay;
+}
+/* Subtle vignette + phosphor glow tint. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
 }
 
 a {
@@ -63,10 +90,12 @@ a:hover {
   font-size: 20px;
   font-weight: 600;
   margin-bottom: 24px;
+  text-shadow: 0 0 8px rgba(0, 255, 156, 0.4);
 }
 .section h2::before {
-  content: '# ';
-  color: var(--text-faint);
+  content: '$ ';
+  color: var(--accent-2);
+  text-shadow: none;
 }
 .section h3 {
   color: var(--text);
@@ -110,6 +139,7 @@ a:hover {
 .nav .brand {
   color: var(--accent);
   font-weight: 600;
+  text-shadow: 0 0 8px rgba(0, 255, 156, 0.4);
 }
 .nav .brand::before { content: '▌ '; }
 .nav .links {
@@ -135,22 +165,32 @@ a:hover {
   font-size: 14px;
   background: var(--bg-panel);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.btn::before {
+  content: '▶ ';
+  color: var(--accent-2);
 }
 .btn:hover {
   border-color: var(--accent);
   color: var(--accent);
   text-decoration: none;
+  box-shadow: 0 0 12px rgba(0, 255, 156, 0.25);
 }
 .btn.primary {
   border-color: var(--accent);
   color: var(--bg);
   background: var(--accent);
+  text-shadow: none;
+}
+.btn.primary::before {
+  color: var(--bg);
 }
 .btn.primary:hover {
   background: var(--accent);
   color: var(--bg);
-  opacity: 0.9;
+  opacity: 0.92;
+  box-shadow: 0 0 16px rgba(0, 255, 156, 0.5);
 }
 
 /* kbd */
@@ -197,6 +237,7 @@ kbd, .kbd {
   font-weight: 700;
   letter-spacing: -1px;
   margin-bottom: 8px;
+  text-shadow: 0 0 16px rgba(0, 255, 156, 0.5), 0 0 32px rgba(0, 255, 156, 0.2);
 }
 .lead h1::before { content: ''; }
 .lead .tagline { color: var(--text); font-size: 18px; margin-bottom: 12px; }
