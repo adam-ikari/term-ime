@@ -3,8 +3,7 @@ import Terminal from './Terminal';
 const CONFIG_JSON = `{
   "languages": [
     {"id": "zh-Hans", "name": "简体中文", "enabled": true},
-    {"id": "zh-Hant", "name": "繁體中文", "enabled": true},
-    {"id": "ja", "name": "日本語", "enabled": false}
+    {"id": "zh-Hant", "name": "繁體中文", "enabled": true}
   ],
   "active_language": "zh-Hans",
   "ui_language": "zh-CN",

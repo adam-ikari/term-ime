@@ -8,7 +8,7 @@ import {
 } from './icons';
 
 const CARDS = [
-  { Icon: IconGlobe, title: '多语言输入', desc: '中文拼音、双拼、注音,日文假名,一键切换,配置即可加新语言。' },
+  { Icon: IconGlobe, title: '拼音输入', desc: '中文拼音输入法,逐字候选,数字键选词,流畅的 TTY 打字体验。' },
   { Icon: IconPuzzle, title: '可扩展语言', desc: '语言全部配置驱动,增减语言或切换方案无需改动代码。' },
   { Icon: IconBrain, title: '智能候选词', desc: '可选 AI 排序,根据上下文把最可能的候选词排到最前。' },
   { Icon: IconChar, title: '完整中文支持', desc: 'UTF-8 编解码,CJK 宽字符正确对齐,Emoji 也不乱码。' },

@@ -57,7 +57,6 @@ a:hover {
 /* Section heading styled like a shell comment */
 .section {
   padding: 64px 0;
-  border-top: 1px solid var(--border);
 }
 .section h2 {
   color: var(--accent);
@@ -100,7 +99,6 @@ a:hover {
   top: 0;
   z-index: 10;
   background: rgba(12, 12, 12, 0.92);
-  border-bottom: 1px solid var(--border);
   backdrop-filter: blur(6px);
 }
 .nav .container {
@@ -262,7 +260,7 @@ kbd, .kbd {
 .kbd-table .d { color: var(--text-dim); }
 
 /* Footer */
-.footer { border-top: 1px solid var(--border); padding: 32px 0 48px; color: var(--text-dim); font-size: 13px; }
+.footer { padding: 32px 0 48px; color: var(--text-dim); font-size: 13px; }
 .footer .line { margin-bottom: 12px; }
 .footer .prompt { color: var(--accent-2); }
 .footer .exit { color: var(--accent); }
