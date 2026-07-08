@@ -38,6 +38,8 @@ class RankerFactory {
 class NullRanker : public CandidateRanker {
    public:
     void rank(std::vector<Candidate>& candidates, const std::string& context) override {
+        (void)candidates;
+        (void)context;
         // No-op: candidates unchanged
     }
 

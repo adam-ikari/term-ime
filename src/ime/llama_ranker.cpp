@@ -139,7 +139,7 @@ bool LlamaRanker::load_model() {
         spdlog::info("Using CPU backend with {} threads", config_.n_threads);
     }
 
-    model_ = llama_load_model_from_file(config_.model_path.c_str(), model_params);
+    model_ = llama_model_load_from_file(config_.model_path.c_str(), model_params);
     if (!model_) {
         spdlog::error("Failed to load llama model: {}", config_.model_path);
         return false;
@@ -151,10 +151,10 @@ bool LlamaRanker::load_model() {
     ctx_params.n_threads_batch = config_.n_threads;
     ctx_params.n_ctx = 512;  // Small context for ranking
 
-    ctx_ = llama_new_context_with_model(model_, ctx_params);
+    ctx_ = llama_init_from_model(model_, ctx_params);
     if (!ctx_) {
         spdlog::error("Failed to create llama context");
-        llama_free_model(model_);
+        llama_model_free(model_);
         model_ = nullptr;
         return false;
     }
@@ -173,7 +173,7 @@ void LlamaRanker::unload_model() {
         ctx_ = nullptr;
     }
     if (model_) {
-        llama_free_model(model_);
+        llama_model_free(model_);
         model_ = nullptr;
     }
 
