@@ -82,12 +82,18 @@ endif()
 
 add_subdirectory(deps/llama.cpp EXCLUDE_FROM_ALL)
 
-# Use system libuv
-find_library(LIBUV_LIBRARY uv REQUIRED)
-find_path(LIBUV_INCLUDE_DIR uv.h REQUIRED)
+# ----------------------------------------------------------------
+# libuv (bundled submodule, no system package)
+# ----------------------------------------------------------------
+set(LIBUV_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
+# libuv defines `uv_a` (static) which propagates its own include dirs.
+set(LIBUV_TARGET uv_a)
+message(STATUS "Using bundled libuv (target: uv_a)")
 
-# Use system curl for model downloads
-find_package(CURL REQUIRED)
+# Note: model downloads use the system `curl` command via popen (see
+# src/util/model_downloader.cpp) — no libcurl link dependency, so no
+# curl/mbedTLS/OpenSSL submodule is needed. This keeps the build lean.
 
 # SML (State Machine Library) - header-only
 set(SML_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/sml/include)
@@ -130,7 +136,6 @@ target_link_libraries(term-ime-lib
     PUBLIC spdlog::spdlog
     PUBLIC utf8proc
     PUBLIC llama
-    PUBLIC CURL::libcurl
 )
 # librime (static) pulls in Boost.regex and friends; its own target_link
 # dependencies don't always propagate through the static chain, so link them
@@ -182,14 +187,13 @@ add_library(term-core STATIC
 
 target_include_directories(term-core
     PUBLIC ${CMAKE_SOURCE_DIR}/src
-    PUBLIC ${LIBUV_INCLUDE_DIR}
     PUBLIC ${SML_INCLUDE_DIR}
 )
 
 target_link_libraries(term-core
     PUBLIC term-terminal
     PUBLIC term-ime-lib
-    PUBLIC ${LIBUV_LIBRARY}
+    PUBLIC ${LIBUV_TARGET}
     PRIVATE ftxui::dom
     PRIVATE ftxui::screen
 )
@@ -240,6 +244,23 @@ foreach(TRANSLATION_FILE ${TRANSLATION_FILES})
     get_filename_component(FILENAME ${TRANSLATION_FILE} NAME)
     configure_file(${TRANSLATION_FILE} ${CMAKE_BINARY_DIR}/data/translations/${FILENAME} COPYONLY)
 endforeach()
+
+# ----------------------------------------------------------------
+# Bundled rime-data (luna_pinyin schemas + dict) — copied to build/share/rime-data
+# so the binary finds schemas with no system rime-data-luna-pinyin package.
+# ----------------------------------------------------------------
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/share/rime-data)
+file(GLOB RIME_DATA_FILES "${CMAKE_SOURCE_DIR}/data/rime-data/*.yaml")
+foreach(RIME_DATA_FILE ${RIME_DATA_FILES})
+    get_filename_component(NAME ${RIME_DATA_FILE} NAME)
+    configure_file(${RIME_DATA_FILE} ${CMAKE_BINARY_DIR}/share/rime-data/${NAME} COPYONLY)
+endforeach()
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/data/rime-data/
+        DESTINATION share/term-ime/rime-data
+        FILES_MATCHING PATTERN "*.yaml")
+# Expose the build-tree bundled data dir to C++.
+target_compile_definitions(term-ime-lib PUBLIC
+    RIME_BUNDLED_DATA_DIR="${CMAKE_BINARY_DIR}/share/rime-data")
 
 # ============================================================
 # Tests

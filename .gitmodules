@@ -28,3 +28,6 @@
 [submodule "deps/llama.cpp"]
 	path = deps/llama.cpp
 	url = https://github.com/ggerganov/llama.cpp
+[submodule "deps/libuv"]
+	path = deps/libuv
+	url = https://github.com/libuv/libuv.git

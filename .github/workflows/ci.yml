@@ -22,8 +22,6 @@ jobs:
           build-essential \
           cmake \
           pkg-config \
-          libuv1-dev \
-          libcurl4-openssl-dev \
           libboost-all-dev \
           libgflags-dev \
           libyaml-cpp-dev \

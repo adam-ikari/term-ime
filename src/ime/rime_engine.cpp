@@ -3,6 +3,12 @@
 #include <cstring>
 #include <filesystem>
 
+// Bundled rime-data dir (set by CMake when USE_BUNDLED_DEPS sources are
+// built). Empty string when building against system rime-data.
+#ifndef RIME_BUNDLED_DATA_DIR
+#define RIME_BUNDLED_DATA_DIR ""
+#endif
+
 RimeIme::RimeIme(const std::string& shared_data_dir, const std::string& user_data_dir)
     : shared_data_dir_(shared_data_dir), user_data_dir_(user_data_dir) {}
 
@@ -25,12 +31,19 @@ bool RimeIme::initialize() {
     // Determine shared data directory
     std::string shared_dir = shared_data_dir_;
     if (shared_dir.empty()) {
-        // Try common locations
-        std::vector<std::string> search_paths = {"/usr/share/rime-data", "/usr/local/share/rime-data",
-                                                 "/opt/rime-data"};
+        // Prefer the bundled rime-data (vendored luna_pinyin schemas), then
+        // fall back to common system locations.
+        std::vector<std::string> search_paths = {
+            RIME_BUNDLED_DATA_DIR,
+            "/usr/local/share/term-ime/rime-data",
+            "/usr/share/term-ime/rime-data",
+            "/usr/share/rime-data",
+            "/usr/local/share/rime-data",
+            "/opt/rime-data",
+        };
 
         for (const auto& path : search_paths) {
-            if (std::filesystem::exists(path)) {
+            if (!path.empty() && std::filesystem::exists(path)) {
                 shared_dir = path;
                 break;
             }

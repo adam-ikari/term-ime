@@ -20,10 +20,12 @@ export default function QuickStart() {
 
         <h3>1. 安装系统依赖</h3>
         <Terminal title="bash">
-          <span className="comment"># Debian / Ubuntu</span>
+          <span className="comment"># Debian / Ubuntu(构建依赖,libuv/curl/rime-data 已内置)</span>
           {'\n'}
           <span className="prompt">$ </span>
-          sudo apt-get install libuv1-dev libcurl4-openssl-dev rime-data-luna-pinyin
+          sudo apt-get install build-essential cmake pkg-config \
+            libboost-all-dev libgflags-dev libyaml-cpp-dev libmarisa-dev \
+            libopencc-dev libleveldb-dev libprotobuf-dev protobuf-compiler
         </Terminal>
 
         <h3>2a. 预编译安装(推荐)</h3>
