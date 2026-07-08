@@ -76,7 +76,6 @@ export const DEMO_SCRIPT: ScriptStep[] = [
   { kind: 'type', chars: 'hao' },
   { kind: 'wait', ms: 600 },
   { kind: 'select', index: 0 }, // 你好
-  { kind: 'type', chars: ' ' },
   { kind: 'type', chars: 'shi' },
   { kind: 'wait', ms: 300 },
   { kind: 'type', chars: 'jie' },

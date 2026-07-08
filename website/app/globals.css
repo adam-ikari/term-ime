@@ -10,8 +10,8 @@
   --border: #333333;
   --selection: #003b2a;
 
-  --font-mono: var(--font-mono), 'Maple Mono CN', 'Maple Mono',
-    'JetBrains Mono', 'Fira Code', ui-monospace, Menlo, Consolas, monospace;
+  --font-mono: var(--font-mono), 'Maple Mono NF CN', 'Maple Mono NF',
+    'Maple Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
   --radius: 6px;
   --mono-size: 14px;
   --line-height: 1.5;
@@ -249,6 +249,9 @@ kbd, .kbd {
 .quickstart details { margin: 8px 0 16px; }
 .quickstart details summary { color: var(--text-dim); cursor: pointer; font-size: 13px; }
 .quickstart details summary:hover { color: var(--accent); }
+.quickstart .font-tip { display: flex; gap: 8px; align-items: flex-start; color: var(--text); background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; }
+.quickstart .font-tip .tip-icon { color: var(--accent); flex-shrink: 0; }
+.quickstart .font-tip a { color: var(--accent); }
 .json { color: var(--text); white-space: pre; }
 
 /* Shortcuts */

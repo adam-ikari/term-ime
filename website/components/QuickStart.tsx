@@ -42,6 +42,14 @@ export default function QuickStart() {
           ./build/term-ime
         </Terminal>
 
+        <p className="note font-tip">
+          <span className="tip-icon">▶</span> 推荐在终端使用等宽字体(如{' '}
+          <a href="https://github.com/subframe7536/maple-font" target="_blank" rel="noopener noreferrer">
+            Maple Mono
+          </a>
+          、Sarasa Mono、JetBrains Mono),以获得最佳的中文与候选词对齐效果。
+        </p>
+
         <h3>3. 配置(可选)</h3>
         <p className="note">
           配置文件位于 <code>~/.config/term-ime/config.json</code>。可在这里开关语言、

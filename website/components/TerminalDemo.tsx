@@ -43,7 +43,7 @@ export default function TerminalDemo({ className = '' }: Props) {
   useEffect(() => {
     if (!hostRef.current) return;
     const term = new Terminal({
-      fontFamily: "'Maple Mono CN','Maple Mono','JetBrains Mono',ui-monospace,monospace",
+      fontFamily: "'Maple Mono NF CN','Maple Mono NF','JetBrains Mono',ui-monospace,monospace",
       fontSize: 14,
       lineHeight: 1.4,
       cols: 80,
@@ -157,11 +157,6 @@ export default function TerminalDemo({ className = '' }: Props) {
               if (stopped) return;
               if (mode !== 'CN') {
                 output += ch;
-              } else if (ch === ' ') {
-                // In CN mode a space separates committed words (the real app
-                // would pick the first candidate, but here the script uses a
-                // literal space to delimit words like "你好 世界").
-                output += ' ';
               } else {
                 setComp(composition + ch);
               }

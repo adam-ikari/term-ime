@@ -2,17 +2,18 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 
-// Self-hosted Maple Mono CN (sub set to ASCII + CJK + punctuation, woff2).
-// Loaded via next/font/local so it works on GitHub Pages static export.
+// Self-hosted Maple Mono NF CN (Nerd Font + CJK, subset to ASCII + CJK +
+// punctuation + Nerd Font PUA glyphs, woff2). Loaded via next/font/local so
+// it works on GitHub Pages static export.
 const mono = localFont({
   src: [
     {
-      path: '../public/fonts/MapleMono-CN-Regular.woff2',
+      path: '../public/fonts/MapleMono-NF-CN-Regular.woff2',
       weight: '400',
       style: 'normal',
     },
     {
-      path: '../public/fonts/MapleMono-CN-Bold.woff2',
+      path: '../public/fonts/MapleMono-NF-CN-Bold.woff2',
       weight: '700',
       style: 'normal',
     },
