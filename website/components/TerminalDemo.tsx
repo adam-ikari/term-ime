@@ -6,24 +6,13 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { DEMO_SCRIPT, lookupCandidates, type Candidate } from '@/lib/demo-script';
 
-// ANSI color helpers — match term-ime's REAL palette (24-bit true color):
-//   status bar background = deep green RGB(22,101,52)
-//   mode text [中文]/[EN]  = white RGB(235,245,240) on green
-//   selected candidate     = dark green on bright green RGB(74,222,128)
-//   other candidates       = light yellow RGB(254,240,138) on green
-//   hints                  = soft green-white RGB(167,219,191)
+// ANSI color helpers — match term-ime's REAL palette (24-bit true color).
+// The real status bar uses FTXUI BgColor which paints the entire row; we
+// simulate by padding spaces to term.cols and wrapping in barBg.
 const C = {
   reset: '\x1b[0m',
-  text: '\x1b[1m',                       // bold white (拼音 + committed output)
-  plain: '\x1b[0m',
-  modeCN: '\x1b[38;2;235;245;240m',      // white mode text (same for CN/EN)
-  modeEN: '\x1b[38;2;235;245;240m',      // white mode text
-  bracket: '\x1b[38;2;167;219;191m',     // soft green-white for brackets
-  sel: '\x1b[1;38;2;20;83;45;48;2;74;222;128m',  // dark green on bright green
-  cand: '\x1b[38;2;254;240;138m',        // light yellow on green bg
-  hint: '\x1b[2;38;2;167;219;191m',      // soft green-white
-  prompt: '\x1b[1;32m',                  // $ prompt
   barBg: '\x1b[48;2;22;101;52m',         // deep green status bar background
+  prompt: '\x1b[1;32m',                  // $ prompt
   shellOut: '\x1b[0m',                   // committed shell text
 };
 
@@ -44,8 +33,6 @@ export default function TerminalDemo({ className = '' }: Props) {
       fontFamily: "'Maple Mono NF CN','Maple Mono NF','JetBrains Mono',ui-monospace,monospace",
       fontSize: 14,
       lineHeight: 1.4,
-      cols: 80,
-      rows: 8,
       cursorBlink: true,
       cursorStyle: 'block',
       allowTransparency: true,
@@ -89,34 +76,34 @@ export default function TerminalDemo({ className = '' }: Props) {
       term.writeln(`${C.prompt}$ ${C.shellOut}${output}${C.reset}`);
       term.writeln('');
 
-      // status / candidate bar (green background, single line)
-      const modeColor = mode === 'CN' ? C.modeCN : C.modeEN;
+      // status / candidate bar (green background, single line, full width)
       const modeLabel = mode === 'CN' ? '中文' : 'EN';
-      let bar = `${C.barBg}${C.bracket} [${modeColor}${modeLabel}${C.bracket}]`;
+      let bar = '';
       if (mode === 'CN' && composition) {
-        // Split composition into syllables for display (e.g. "nihao" -> "ni hao")
         const displayComp = composition
           .replace(/^(n[hi]|ni|na|ne|n[a-z]?)/, '$1 ')
           .replace(/(h[ao])/g, ' $1')
           .replace(/\s+/g, ' ')
           .trim();
-        bar += ` ${C.text}拼音: ${displayComp}${C.plain}`;
+        bar = ` [${modeLabel}]  拼音: ${displayComp} `;
         bar += candidates
           .map((c, i) => {
             const sel = selectedIdx === i;
             const body = `${c.key}.${c.text}`;
-            return sel
-              ? ` ${C.sel}[${body}]${C.barBg} `
-              : ` ${C.cand}${body}`;
+            return sel ? ` [${body}] ` : ` ${body} `;
           })
           .join('');
-        // pad to fill the line with green background
-        bar += `${C.barBg}  `;
       } else {
-        bar += ` ${C.hint}^A Space 切换 | ^A S 设置`;
+        bar = ` [${modeLabel}]  ^A Space 切换 | ^A S 设置`;
       }
-      bar += `${C.reset}`;
-      term.writeln(bar);
+      // Pad to fill the terminal width with green background (like the real
+      // FTXUI BgColor that paints the entire row), using xterm's current cols.
+      const cols = term.cols;
+      // Strip ANSI escapes to get the visual width
+      const plain = bar.replace(/\x1b\[[0-9;]*m/g, '');
+      const padLen = Math.max(0, cols - plain.length);
+      bar = bar + ' '.repeat(padLen);
+      term.writeln(`${C.barBg}${bar}${C.reset}`);
     }
 
     async function run() {
