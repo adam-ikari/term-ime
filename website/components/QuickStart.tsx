@@ -23,24 +23,22 @@ export default function QuickStart() {
           </Terminal>
         </div>
 
-        <details className="quickstart-src">
-          <summary>或从源码构建</summary>
-          <div style={{ marginTop: 8 }}>
-            <Terminal title="bash">
-              <span className="prompt">$ </span>
-              git clone --recursive https://github.com/adam-ikari/term-ime.git
-              {'\n'}
-              <span className="prompt">$ </span>
-              cd term-ime
-              {'\n'}
-              <span className="prompt">$ </span>
-              make build
-              {'\n'}
-              <span className="prompt">$ </span>
-              ./build/term-ime
+        <h3>从源码构建</h3>
+        <div className="quickstart-src">
+          <Terminal title="bash">
+            <span className="prompt">$ </span>
+            git clone --recursive https://github.com/adam-ikari/term-ime.git
+            {'\n'}
+            <span className="prompt">$ </span>
+            cd term-ime
+            {'\n'}
+            <span className="prompt">$ </span>
+            make build
+            {'\n'}
+            <span className="prompt">$ </span>
+            ./build/term-ime
             </Terminal>
-          </div>
-        </details>
+        </div>
 
         <p className="note font-tip">
           <span className="tip-icon">▶</span> 推荐在终端使用等宽字体(如{' '}
