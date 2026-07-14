@@ -22,11 +22,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential cmake pkg-config
-      # yaml-cpp/leveldb/marisa/opencc build from vendored source
-      # (deps/librime/deps/*) as static archives — no system -dev needed.
-      # Boost is fully removed (librime uses std::regex + <rime/*.hpp> shims;
-      # boost/sml.hpp comes from the bundled deps/sml submodule). The binary
-      # links fully -static (zero runtime shared libs); see the ldd assertion below.
 
       - name: Configure & build (Release)
         run: |
@@ -37,18 +32,18 @@ jobs:
         run: |
           file build/term-ime
           ./build/term-ime < /dev/null || true
-          # Assert the binary is fully statically linked (zero runtime shared
-          # libs). ldd on a static binary prints "not a dynamic executable".
           if ldd build/term-ime 2>&1 | grep -qE '=> /'; then
             echo "ERROR: binary has dynamic deps:"; ldd build/term-ime; exit 1
           fi
           echo "OK: fully static, zero runtime deps"
 
-      - name: Pack artifact
+      - name: Pack artifact (binary + rime-data)
         run: |
-          mkdir -p dist/term-ime
-          cp build/term-ime dist/term-ime/
-          cp README.md CLAUDE.md dist/term-ime/ 2>/dev/null || true
+          mkdir -p dist/term-ime/bin
+          mkdir -p dist/term-ime/share/term-ime/rime-data
+          cp build/term-ime dist/term-ime/bin/
+          cp -r build/share/rime-data/* dist/term-ime/share/term-ime/rime-data/
+          cp README.md dist/term-ime/
           tar -czf term-ime-linux-x86_64.tar.gz -C dist term-ime
           sha256sum term-ime-linux-x86_64.tar.gz > term-ime-linux-x86_64.tar.gz.sha256
 
@@ -77,4 +72,4 @@ jobs:
             dist/term-ime-linux-x86_64.tar.gz.sha256
             website/public/install.sh
           generate_release_notes: true
-          draft: true
+          draft: false

@@ -80,13 +80,27 @@ if [[ -z "$BIN" ]]; then
     exit 1
 fi
 
-# Install.
+# Install binary.
 mkdir -p "${PREFIX}/bin"
 if [[ -w "${PREFIX}/bin" ]]; then
     install -m 0755 "$BIN" "${PREFIX}/bin/term-ime"
 else
     echo ">> ${PREFIX}/bin not writable; using sudo"
     sudo install -m 0755 "$BIN" "${PREFIX}/bin/term-ime"
+fi
+
+# Install rime-data (shared data: schemas + essay.txt + dict).
+EXTRACT_ROOT="$(dirname "$(dirname "$BIN")")"
+SHARED_SRC="${EXTRACT_ROOT}/share/term-ime/rime-data"
+if [[ -d "$SHARED_SRC" ]]; then
+    DATA_DEST="${PREFIX}/share/term-ime/rime-data"
+    mkdir -p "$DATA_DEST"
+    if [[ -w "$DATA_DEST" ]]; then
+        cp -r "$SHARED_SRC"/* "$DATA_DEST/"
+    else
+        sudo cp -r "$SHARED_SRC"/* "$DATA_DEST/"
+    fi
+    echo ">> Installed rime-data to ${DATA_DEST}"
 fi
 
 # Ensure the install prefix is on PATH; if not, append to the user's shell rc.
