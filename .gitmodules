@@ -18,7 +18,7 @@
 	url = https://github.com/JuliaStrings/utf8proc.git
 [submodule "deps/librime"]
 	path = deps/librime
-	url = https://github.com/rime/librime.git
+	url = https://github.com/adam-ikari/librime.git
 [submodule "deps/libuv"]
 	path = deps/libuv
 	url = https://github.com/libuv/libuv.git
