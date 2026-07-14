@@ -14,28 +14,34 @@ export default function QuickStart() {
       <div className="container">
         <h2>快速开始</h2>
 
-        <h3>1. 预编译安装(推荐)</h3>
-        <Terminal title="bash">
-          <span className="comment"># 一键安装预编译二进制(完全静态,零依赖,下载即用)</span>
-          {'\n'}
-          <span className="prompt">$ </span>
-          curl -fsSL https://github.com/adam-ikari/term-ime/releases/latest/download/install.sh | bash
-        </Terminal>
+        <div className="quickstart-options">
+          <div className="option">
+            <h3>预编译安装 (推荐)</h3>
+            <Terminal title="bash">
+              <span className="comment"># 一键安装(完全静态,零依赖)</span>
+              {'\n'}
+              <span className="prompt">$ </span>
+              curl -fsSL https://github.com/adam-ikari/term-ime/releases/latest/download/install.sh | bash
+            </Terminal>
+          </div>
 
-        <h3>2. 从源码构建</h3>
-        <Terminal title="bash">
-          <span className="prompt">$ </span>
-          git clone --recursive https://github.com/adam-ikari/term-ime.git
-          {'\n'}
-          <span className="prompt">$ </span>
-          cd term-ime
-          {'\n'}
-          <span className="prompt">$ </span>
-          make build
-          {'\n'}
-          <span className="prompt">$ </span>
-          ./build/term-ime
-        </Terminal>
+          <div className="option">
+            <h3>或从源码构建</h3>
+            <Terminal title="bash">
+              <span className="prompt">$ </span>
+              git clone --recursive https://github.com/adam-ikari/term-ime.git
+              {'\n'}
+              <span className="prompt">$ </span>
+              cd term-ime
+              {'\n'}
+              <span className="prompt">$ </span>
+              make build
+              {'\n'}
+              <span className="prompt">$ </span>
+              ./build/term-ime
+            </Terminal>
+          </div>
+        </div>
 
         <p className="note font-tip">
           <span className="tip-icon">▶</span> 推荐在终端使用等宽字体(如{' '}
