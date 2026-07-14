@@ -5,8 +5,6 @@
 
 EventLoop::EventLoop() {
     uv_loop_init(&loop_);
-    uv_async_init(&loop_, &async_handle_, async_callback);
-    async_handle_.data = this;
 }
 
 EventLoop::~EventLoop() {
@@ -22,7 +20,6 @@ EventLoop::~EventLoop() {
     for (auto& [signum, sig] : signal_handles_) {
         uv_close(reinterpret_cast<uv_handle_t*>(&sig->handle), nullptr);
     }
-    uv_close(reinterpret_cast<uv_handle_t*>(&async_handle_), nullptr);
 
     // Run loop once to process closes
     uv_run(&loop_, UV_RUN_NOWAIT);
@@ -107,23 +104,6 @@ void EventLoop::unwatch_signal(int signum) {
     }
 }
 
-void EventLoop::schedule(std::function<void()> callback) {
-    {
-        std::lock_guard<std::mutex> lock(pending_mutex_);
-        pending_callbacks_.push_back(std::move(callback));
-    }
-    uv_async_send(&async_handle_);
-}
-
-void EventLoop::queue_work(std::function<void()> work, std::function<void()> after) {
-    auto req = new WorkHandle();
-    req->work_fn = std::move(work);
-    req->after_fn = std::move(after);
-    req->work.data = req;
-
-    uv_queue_work(&loop_, &req->work, work_callback, after_work_callback);
-}
-
 // Static callbacks
 void EventLoop::timer_callback(uv_timer_t* handle) {
     auto* timer = static_cast<TimerHandle*>(handle->data);
@@ -132,7 +112,7 @@ void EventLoop::timer_callback(uv_timer_t* handle) {
     }
 }
 
-void EventLoop::io_callback(uv_poll_t* handle, int status, int events) {
+void EventLoop::io_callback(uv_poll_t* handle, int /*status*/, int /*events*/) {
     auto* io = static_cast<IoHandle*>(handle->data);
     if (!io || !io->callback)
         return;
@@ -160,39 +140,5 @@ void EventLoop::signal_callback(uv_signal_t* handle, int signum) {
     auto* sig = static_cast<SignalHandle*>(handle->data);
     if (sig && sig->callback) {
         sig->callback(signum);
-    }
-}
-
-void EventLoop::work_callback(uv_work_t* req) {
-    auto* work = static_cast<WorkHandle*>(req->data);
-    if (work && work->work_fn) {
-        work->work_fn();
-    }
-}
-
-void EventLoop::after_work_callback(uv_work_t* req, int status) {
-    auto* work = static_cast<WorkHandle*>(req->data);
-    if (work) {
-        if (work->after_fn) {
-            work->after_fn();
-        }
-        delete work;
-    }
-}
-
-void EventLoop::async_callback(uv_async_t* handle) {
-    auto* loop = static_cast<EventLoop*>(handle->data);
-    if (!loop)
-        return;
-
-    std::vector<std::function<void()>> callbacks;
-    {
-        std::lock_guard<std::mutex> lock(loop->pending_mutex_);
-        callbacks = std::move(loop->pending_callbacks_);
-        loop->pending_callbacks_.clear();
-    }
-
-    for (auto& cb : callbacks) {
-        cb();
     }
 }

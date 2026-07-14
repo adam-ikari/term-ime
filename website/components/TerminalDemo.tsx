@@ -6,26 +6,24 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { DEMO_SCRIPT, lookupCandidates, type Candidate } from '@/lib/demo-script';
 
-// ANSI color helpers — match term-ime's real palette (256-color, observed
-// via term-debug-mcp on the live app):
-//   【中文】 = bright green (1;32), 【EN】 = bright cyan (1;36)
-//   拼音: <buf>  = bold (1)
-//   selected candidate [N.x] = yellow on blue (1;33;44)
-//   other candidates       = dim yellow (22;33)
-//   Esc 取消 / hints       = dim bright-black (2;90)
-//   status bar background  = reverse video (7m), like the real app.
+// ANSI color helpers — match term-ime's REAL palette (24-bit true color):
+//   status bar background = deep green RGB(22,101,52)
+//   mode text [中文]/[EN]  = white RGB(235,245,240) on green
+//   selected candidate     = dark green on bright green RGB(74,222,128)
+//   other candidates       = light yellow RGB(254,240,138) on green
+//   hints                  = soft green-white RGB(167,219,191)
 const C = {
   reset: '\x1b[0m',
   text: '\x1b[1m',                       // bold white (拼音 + committed output)
   plain: '\x1b[0m',
-  modeCN: '\x1b[1;32m',                  // 【中文】 bright green
-  modeEN: '\x1b[1;36m',                  // 【EN】 bright cyan
-  sel: '\x1b[1;33;44m',                  // selected candidate: bold yellow on blue
-  cand: '\x1b[22;33m',                   // other candidates: dim yellow
-  hint: '\x1b[2;90m',                    // Esc 取消 / hints
+  modeCN: '\x1b[38;2;235;245;240m',      // white mode text (same for CN/EN)
+  modeEN: '\x1b[38;2;235;245;240m',      // white mode text
+  bracket: '\x1b[38;2;167;219;191m',     // soft green-white for brackets
+  sel: '\x1b[1;38;2;20;83;45;48;2;74;222;128m',  // dark green on bright green
+  cand: '\x1b[38;2;254;240;138m',        // light yellow on green bg
+  hint: '\x1b[2;38;2;167;219;191m',      // soft green-white
   prompt: '\x1b[1;32m',                  // $ prompt
-  rev: '\x1b[7m',                        // reverse video (status bar bg)
-  ai: '\x1b[1;33m',                      // [AI] badge
+  barBg: '\x1b[48;2;22;101;52m',         // deep green status bar background
   shellOut: '\x1b[0m',                   // committed shell text
 };
 
@@ -84,36 +82,40 @@ export default function TerminalDemo({ className = '' }: Props) {
       composition: string;
       candidates: Candidate[];
       selectedIdx: number | null;
-      aiBadge: boolean;
     }) {
-      const { mode, output, composition, candidates, selectedIdx, aiBadge } = opts;
+      const { mode, output, composition, candidates, selectedIdx } = opts;
       term.reset();
       // shell line: `$ ` + committed output + cursor
       term.writeln(`${C.prompt}$ ${C.shellOut}${output}${C.reset}`);
       term.writeln('');
 
-      // status / candidate bar (reverse video, single line)
+      // status / candidate bar (green background, single line)
       const modeColor = mode === 'CN' ? C.modeCN : C.modeEN;
       const modeLabel = mode === 'CN' ? '中文' : 'EN';
-      let bar = `${C.rev}${C.hint} ${C.reset}${modeColor}【${modeLabel}】${C.reset}`;
+      let bar = `${C.barBg}${C.bracket} [${modeColor}${modeLabel}${C.bracket}]`;
       if (mode === 'CN' && composition) {
-        bar += ` ${C.text}拼音: ${composition} ${C.reset}`;
+        // Split composition into syllables for display (e.g. "nihao" -> "ni hao")
+        const displayComp = composition
+          .replace(/^(n[hi]|ni|na|ne|n[a-z]?)/, '$1 ')
+          .replace(/(h[ao])/g, ' $1')
+          .replace(/\s+/g, ' ')
+          .trim();
+        bar += ` ${C.text}拼音: ${displayComp}${C.plain}`;
         bar += candidates
           .map((c, i) => {
             const sel = selectedIdx === i;
             const body = `${c.key}.${c.text}`;
             return sel
-              ? `${C.sel} [${body}]${C.reset} `
-              : `${C.cand} ${body} ${C.reset}`;
+              ? ` ${C.sel}[${body}]${C.barBg} `
+              : ` ${C.cand}${body}`;
           })
           .join('');
-        bar += `${C.hint} Esc 取消${C.reset}`;
+        // pad to fill the line with green background
+        bar += `${C.barBg}  `;
       } else {
-        // EN / idle: the real status bar shows the hint line.
-        bar += ` ${C.hint} Ctrl+A,Space 切换 | 1-9 选择 | Esc 取消 | Ctrl+A,A AI排序 | Ctrl+A,S 设置${C.reset}`;
+        bar += ` ${C.hint}^A Space 切换 | ^A S 设置`;
       }
-      if (aiBadge) bar += `${C.ai} [AI]${C.reset}`;
-      bar += `${C.rev}${C.reset}`;  // end reverse-video span
+      bar += `${C.reset}`;
       term.writeln(bar);
     }
 
@@ -137,20 +139,20 @@ export default function TerminalDemo({ className = '' }: Props) {
             composition = '';
             candidates = [];
             selectedIdx = null;
-            render({ mode, output, composition, candidates, selectedIdx, aiBadge: false });
+            render({ mode, output, composition, candidates, selectedIdx });
             await wait(500);
           } else if (step.kind === 'wait') {
             await wait(step.ms);
           } else if (step.kind === 'select') {
             selectedIdx = step.index;
-            render({ mode, output, composition, candidates, selectedIdx, aiBadge: false });
+            render({ mode, output, composition, candidates, selectedIdx });
             await wait(280);
             const c = candidates[step.index];
             if (c) output += c.text;
             composition = '';
             candidates = [];
             selectedIdx = null;
-            render({ mode, output, composition, candidates, selectedIdx, aiBadge: false });
+            render({ mode, output, composition, candidates, selectedIdx });
             await wait(400);
           } else if (step.kind === 'type') {
             for (const ch of step.chars) {
@@ -160,7 +162,7 @@ export default function TerminalDemo({ className = '' }: Props) {
               } else {
                 setComp(composition + ch);
               }
-              render({ mode, output, composition, candidates, selectedIdx, aiBadge: false });
+              render({ mode, output, composition, candidates, selectedIdx });
               await wait(130);
             }
           }

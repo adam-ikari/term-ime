@@ -4,9 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-term-ime is a virtual terminal (PTY) that runs in the Linux TTY and ships a built-in multilingual input method (IME) backed by librime, with optional LLM-based candidate ranking via llama.cpp. Linux-only, C++17, CMake build. UI is rendered with FTXUI.
-
-> Note: `README.md` is partially out of date — it mentions an ONNX neural ranker and `Shift+Space` for mode toggle; the actual code uses llama.cpp and `Ctrl+A Space`. `docs/design.md` (early design sketch, hand-rolled pinyin dict) has been removed. When updating docs, edit `README.md` and trust the source over it.
+term-ime is a virtual terminal (PTY) that runs in the Linux TTY and ships a built-in input method (IME) backed by librime (Simplified Chinese). Linux-only, C++17, CMake build. UI is rendered with FTXUI.
 
 ## Build & Run
 
@@ -26,9 +24,8 @@ cmake --build build -j$(nproc) && ./build/test-input-e2e   # build + run one tes
 
 A config path can be passed as the first CLI arg to override the default location: `./build/term-ime /path/to/config.json`.
 
-Submodules are required and built from source (FTXUI, spdlog, nlohmann_json, googletest, librime, llama.cpp, sml, utf8proc) — clone with `--recursive` or run `git submodule update --init --recursive`. True system dependencies are `libuv1-dev` and curl (`find_library ... uv` and `find_package(CURL)`); `librime-dev` is listed in README/CI but the build itself uses `deps/librime` (the README lists `rime-data-luna-pinyin` for the pinyin schema data).
+Submodules are required and built from source (FTXUI, spdlog, nlohmann_json, googletest, librime, libuv, sml, utf8proc) - clone with `--recursive` or run `git submodule update --init --recursive`. librime's nested deps (yaml-cpp, leveldb, marisa, opencc) are built from `deps/librime/deps/` as static archives at configure time (staged into `build/_deps_stage`). Build-time system deps are just `build-essential`/`cmake`/`pkg-config` — no system Boost: librime was patched to drop Boost entirely (std::regex replaces boost::regex; boost::algorithm/signals2/interprocess/crc/uuid are replaced by `<rime/*.hpp>` shims under `deps/librime/src/rime/`). The only remaining `<boost/...>` include is `boost/sml.hpp`, from the bundled deps/sml submodule. The final `term-ime` binary links **fully static** (`-static` + LTO + gc-sections): `ldd` reports "not a dynamic executable" — zero runtime shared-library deps.
 
-CMake acceleration options (off by default): `-DLLAMA_USE_CUDA=ON`, `-DLLAMA_USE_METAL=ON`, `-DLLAMA_USE_VULKAN=ON`, `-DLLAMA_USE_NPU=ON`.
 
 ## Tests
 
@@ -72,32 +69,29 @@ There is **no** cppcheck / clang-tidy / sanitizer configured — static checking
 
 Four CMake static libraries compose the app; `main.cpp` is thin wiring around them:
 
-- **`term-core`** — `EventLoop` (libuv: fd polling, signals, timers, `queue_work` thread-pool, `schedule` for next-tick), `App` (top-level orchestrator owning all subsystems and routing PTY/keyboard/resize events), `InputProcessor` (a Boost.SML state machine that classifies each input byte: forward to shell, detect Ctrl+A+Space mode toggle, or reassemble escape sequences), `Config`.
+- **`term-core`** — `EventLoop` (libuv: fd polling, signals, timers), `App` (top-level orchestrator owning all subsystems and routing PTY/keyboard/resize events), `InputProcessor` (a Boost.SML state machine that classifies each input byte: forward to shell, detect Ctrl+A+Space mode toggle, or reassemble escape sequences), `Config`.
 - **`term-terminal`** — `Pty` (forks the shell on a pseudo-terminal), `Screen` (cell grid buffer, cursor, scroll), `Parser` (VT100/CSI escape-sequence → screen), plus the `ui/` rendering layer.
-- **`term-ime-lib`** — `ImeEngine` abstract interface with `RimeIme` (librime wrapper: schema selection, compose/select/page), `LanguageManager` (config-driven language switching, not hardcoded), `CandidateRanker` interface with `NullRanker` and `LlamaRanker` (async, lazy-loaded llama.cpp ranker running on a worker thread with a task queue), `KaomojiLib`, `ModelDownloader` (curl), and `util/` (`utf8`, `i18n`, `logger`).
+- **`term-ime-lib`** — `ImeEngine` abstract interface with `RimeIme` (librime wrapper: schema selection, compose/select/page), `LanguageManager` (config-driven language switching, not hardcoded), `KaomojiLib`, and `util/` (`utf8`, `i18n`, `logger`).
 - **`term-ime`** (executable) — `main.cpp` sets up file logging, loads `AppConfig`, inits `I18n` from `active_language`, creates `EventLoop` + `App`, and registers fd/signal callbacks. Notable behavior: when the settings panel is visible, PTY data is ignored so the shell keeps running but its output isn't shown; PTY EOF triggers graceful exit.
 
 ### UI layer (`src/ui/`)
 
-A small JSX-style declarative framework over FTXUI: `jsx.hpp` re-exports FTXUI `Element`/`Decorator` and wrappers (`Text`, `HBox`, `VBox`, color/size decorators). `components.hpp` builds reusable components (`CandidateBar`, `ModeIndicator`, `StatusBar`, `AIIndicator`) as pure functions from props structs → `Element`. `settings.hpp` is the in-app settings panel (`SettingsState`, `settings_handle_key`, `settings_init`/`settings_apply` against `AppConfig`). `renderer.cpp` owns the raw TTY (termios raw mode, alt screen) and composes the screen + candidate bar + status bar + settings panel each frame.
+A small JSX-style declarative framework over FTXUI: `jsx.hpp` re-exports FTXUI `Element`/`Decorator` and wrappers (`Text`, `HBox`, `VBox`, color/size decorators). `components.hpp` builds reusable components (`CandidateBar`, `ModeIndicator`, `StatusBar`) as pure functions from props structs → `Element`. `settings.hpp` is the in-app settings panel (`SettingsState`, `settings_handle_key`, `settings_init`/`settings_apply` against `AppConfig`). `renderer.cpp` owns the raw TTY (termios raw mode, alt screen) and composes the screen + candidate bar + status bar + settings panel each frame.
 
 ### Key flows
 
 - **Input → IME vs shell** (`app.cpp` `on_keyboard_data`): `main.cpp` feeds stdin bytes to `App::on_keyboard_data`, which runs each byte through `InputProcessor` (a Boost.SML state machine). `Ctrl+A` (byte `0x01`) is a *prefix* state — the next byte decides:
   - `Ctrl+A Space` → toggle Chinese/English mode (consumed, not forwarded)
-  - `Ctrl+A A` → toggle AI ranking (`App::toggle_ai_ranking`)
   - `Ctrl+A S` → toggle settings panel
   - `Ctrl+A Ctrl+A` → forward a literal `0x01` to the shell
   - other key → forward `Ctrl+A` + that key to the shell
-  - (README says `Ctrl+A Space`, `test/TEST_CASES.md` says `Shift+Space` — the code is `Ctrl+A Space`.)
   - In Chinese mode (non-composing), lowercase `a-z` start IME composition; selected candidates are written to the PTY as UTF-8. While composing/selecting: `1-9` pick a candidate, `Space` picks the first, `Backspace` (`0x08`/`0x7f`) cancels, further `a-z` extend the buffer, and everything else (arrow keys / escape sequences) is ignored. All other bytes forward to the shell. The settings panel, when visible, captures keys and PTY output is suppressed.
-- **Async ranking**: `LlamaRanker::rank_async` enqueues a `RankTask`; the worker thread lazily loads the GGUF model, builds a prompt, parses the LLM's ranking, and invokes the callback. `App` caches `last_candidates_` and re-renders on completion. Model download is likewise async via `ModelDownloader` (curl) with progress reported to the status bar.
-- **Config & i18n**: `AppConfig` (JSON; `AppConfig::default_path()` uses `$XDG_CONFIG_HOME/term-ime/config.json`, falling back to `~/.config/term-ime/config.json`) drives languages, rime dirs, llama ranker, UI language, log level. Override the path with `./build/term-ime <path>`. `I18n` loads translations from `data/translations/*.json` keyed by `ui_language`. `main.cpp` maps `active_language` → `I18n::Lang` and overrides `config.shell` from `$SHELL` when unset *or* when it's the default `/bin/bash`.
+- **Candidate ranking**: librime ranks candidates by its own statistical model; the app renders them as-is (no separate ranker). `App::render_candidates_bar` pulls `ime_->candidates()` and paints the bar.
+- **Config & i18n**: `AppConfig` (JSON; `AppConfig::default_path()` uses `$XDG_CONFIG_HOME/term-ime/config.json`, falling back to `~/.config/term-ime/config.json`) drives languages, rime dirs, UI language, log level. Override the path with `./build/term-ime <path>`. `I18n` loads translations from `data/translations/*.json` keyed by `ui_language`. `main.cpp` maps `active_language` → `I18n::Lang` and overrides `config.shell` from `$SHELL` when unset *or* when it's the default `/bin/bash`.
 - **Logging**: `main.cpp` writes to `~/.cache/term-ime/term-ime.log` (falls back to `/tmp` when `$HOME` is unset), level from `config.log_level`. `test/test_all.sh` greps this log to verify startup, so a missing log file is the first sign of a failed launch.
 
 ## Conventions to preserve
 
 - Languages are config-driven — do not hardcode language/mode checks; go through `LanguageManager` and `LanguageConfig`.
-- The IME layer is abstracted behind `ImeEngine` / `CandidateRanker` to allow swapping backends (librime vs. others; null vs. llama ranking). Keep new ranking logic behind `CandidateRanker`.
-- Async/off-thread work goes through `EventLoop::queue_work` or dedicated worker threads (see `LlamaRanker`); never block the input path.
+- Async/off-thread work should not block the input path; the `EventLoop` (libuv) drives fd/signal/timer callbacks on the main thread.
 - Add new tests as a CMake `add_executable` in `CMakeLists.txt` and link the relevant `term-*` lib. Mirror the existing `tests/` naming (`test_<area>.cpp`).

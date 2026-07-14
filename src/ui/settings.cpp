@@ -185,8 +185,8 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     SettingsItem ui_lang;
     ui_lang.label = I18n::t("settings.ui_language");
     ui_lang.key = "ui_language";
-    ui_lang.options = {"en", "zh-CN", "zh-TW", "ja"};
-    ui_lang.display_options = {"English", "简体中文", "繁體中文", "日本語"};
+    ui_lang.options = {"en", "zh-CN"};
+    ui_lang.display_options = {"English", "简体中文"};
     ui_lang.value = config.ui_language;
     for (size_t i = 0; i < ui_lang.options.size(); ++i) {
         if (ui_lang.options[i] == config.ui_language) {
@@ -197,49 +197,6 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     }
     state.items.push_back(ui_lang);
 
-    // AI Ranking
-    SettingsItem ai_ranking;
-    ai_ranking.label = I18n::t("settings.ai_ranking");
-    ai_ranking.key = "ai_ranking";
-    ai_ranking.options = {"off", "on"};
-    ai_ranking.display_options = {"Off", "On"};
-    ai_ranking.value = config.llama_ranker.enabled ? "on" : "off";
-    ai_ranking.selected_index = config.llama_ranker.enabled ? 1 : 0;
-    ai_ranking.display_value = ai_ranking.display_options[ai_ranking.selected_index];
-    state.items.push_back(ai_ranking);
-
-    // Backend
-    SettingsItem backend;
-    backend.label = I18n::t("settings.backend");
-    backend.key = "backend";
-    backend.options = {"cpu", "cuda", "metal", "vulkan"};
-    backend.display_options = {"CPU", "CUDA", "Metal", "Vulkan"};
-    backend.value = config.llama_ranker.backend;
-    for (size_t i = 0; i < backend.options.size(); ++i) {
-        if (backend.options[i] == config.llama_ranker.backend) {
-            backend.selected_index = i;
-            backend.display_value = backend.display_options[i];
-            break;
-        }
-    }
-    state.items.push_back(backend);
-
-    // Threads
-    SettingsItem threads;
-    threads.label = I18n::t("settings.threads");
-    threads.key = "threads";
-    threads.options = {"1", "2", "4", "8"};
-    threads.display_options = {"1", "2", "4", "8"};
-    threads.value = std::to_string(config.llama_ranker.n_threads);
-    for (size_t i = 0; i < threads.options.size(); ++i) {
-        if (threads.options[i] == threads.value) {
-            threads.selected_index = i;
-            threads.display_value = threads.display_options[i];
-            break;
-        }
-    }
-    state.items.push_back(threads);
-
     state.focus_index = 0;
 }
 
@@ -247,12 +204,6 @@ void settings_apply(SettingsState& state, AppConfig& config) {
     for (const auto& item : state.items) {
         if (item.key == "ui_language") {
             config.ui_language = item.value;
-        } else if (item.key == "ai_ranking") {
-            config.llama_ranker.enabled = (item.value == "on");
-        } else if (item.key == "backend") {
-            config.llama_ranker.backend = item.value;
-        } else if (item.key == "threads") {
-            config.llama_ranker.n_threads = std::stoi(item.value);
         }
     }
 }

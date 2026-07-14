@@ -17,20 +17,6 @@ struct LanguageConfig {
     static LanguageConfig from_json(const json& j);
 };
 
-// LLM ranker configuration (optional smart candidate ranking)
-struct LlamaRankerConfig {
-    bool enabled = false;
-    std::string model_path;       // Path to GGUF model
-    int n_threads = 2;            // Number of threads for inference
-    int max_tokens = 10;          // Max tokens to generate
-    int timeout_ms = 100;         // Timeout for inference
-    std::string backend = "cpu";  // "cpu", "cuda", "metal", "vulkan"
-    int n_gpu_layers = 0;         // Number of layers to offload to GPU
-
-    json to_json() const;
-    static LlamaRankerConfig from_json(const json& j);
-};
-
 struct AppConfig {
     // Shell settings
     std::string shell = "/bin/bash";
@@ -40,7 +26,7 @@ struct AppConfig {
     std::string active_language = "zh-Hans";  // Current active language
 
     // UI language for i18n
-    std::string ui_language = "zh-CN";  // UI display language: "en", "zh-CN", "zh-TW", "ja"
+    std::string ui_language = "zh-CN";  // UI display language: "en", "zh-CN"
 
     // IME settings
     std::string dict_path = "data/pinyin.dict";
@@ -54,9 +40,6 @@ struct AppConfig {
     // Display settings
     bool show_mode_indicator = true;
     std::string candidate_bar_position = "bottom";  // "bottom" or "top"
-
-    // LLM ranker settings (optional)
-    LlamaRankerConfig llama_ranker;
 
     // Logging
     std::string log_level = "warn";  // "debug", "info", "warn", "error"

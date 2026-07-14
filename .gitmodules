@@ -7,12 +7,6 @@
 [submodule "deps/json"]
 	path = deps/json
 	url = https://github.com/nlohmann/json
-[submodule "deps/rxcpp"]
-	path = deps/rxcpp
-	url = https://github.com/ReactiveX/RxCpp
-[submodule "deps/deps/librime"]
-	path = deps/deps/librime
-	url = https://github.com/rime/librime
 [submodule "deps/googletest"]
 	path = deps/googletest
 	url = https://github.com/google/googletest.git
@@ -25,9 +19,6 @@
 [submodule "deps/librime"]
 	path = deps/librime
 	url = https://github.com/rime/librime.git
-[submodule "deps/llama.cpp"]
-	path = deps/llama.cpp
-	url = https://github.com/ggerganov/llama.cpp
 [submodule "deps/libuv"]
 	path = deps/libuv
 	url = https://github.com/libuv/libuv.git

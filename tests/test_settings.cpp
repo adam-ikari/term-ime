@@ -67,11 +67,8 @@ int main() {
     std::cout << "Test 5: Apply settings to config\n";
     state.items[0].value = "en";
     state.items[0].selected_index = 0;
-    state.items[1].value = "on";
-    state.items[1].selected_index = 1;
     settings_apply(state, config);
-    std::cout << "  Config ui_language: " << config.ui_language << "\n";
-    std::cout << "  Config ai_ranking.enabled: " << (config.llama_ranker.enabled ? "true" : "false") << "\n\n";
+    std::cout << "  Config ui_language: " << config.ui_language << "\n\n";
 
     // Test 6: Close settings
     std::cout << "Test 6: Close settings panel\n";

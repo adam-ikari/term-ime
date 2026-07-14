@@ -21,15 +21,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential cmake pkg-config \
-            libboost-all-dev \
-            libgflags-dev \
-            libyaml-cpp-dev \
-            libmarisa-dev \
-            libopencc-dev \
-            libleveldb-dev \
-            libprotobuf-dev \
-            protobuf-compiler
+            build-essential cmake pkg-config
+      # yaml-cpp/leveldb/marisa/opencc build from vendored source
+      # (deps/librime/deps/*) as static archives — no system -dev needed.
+      # Boost is fully removed (librime uses std::regex + <rime/*.hpp> shims;
+      # boost/sml.hpp comes from the bundled deps/sml submodule). The binary
+      # links fully -static (zero runtime shared libs); see the ldd assertion below.
 
       - name: Configure & build (Release)
         run: |
@@ -40,6 +37,12 @@ jobs:
         run: |
           file build/term-ime
           ./build/term-ime < /dev/null || true
+          # Assert the binary is fully statically linked (zero runtime shared
+          # libs). ldd on a static binary prints "not a dynamic executable".
+          if ldd build/term-ime 2>&1 | grep -qE '=> /'; then
+            echo "ERROR: binary has dynamic deps:"; ldd build/term-ime; exit 1
+          fi
+          echo "OK: fully static, zero runtime deps"
 
       - name: Pack artifact
         run: |

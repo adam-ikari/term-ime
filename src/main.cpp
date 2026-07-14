@@ -40,10 +40,6 @@ int main(int argc, char* argv[]) {
     I18n::Lang i18n_lang = I18n::Lang::EN;
     if (config.active_language == "zh-Hans") {
         i18n_lang = I18n::Lang::ZH_CN;
-    } else if (config.active_language == "zh-Hant" || config.active_language == "zh-Hant-TW") {
-        i18n_lang = I18n::Lang::ZH_TW;
-    } else if (config.active_language == "ja") {
-        i18n_lang = I18n::Lang::JA;
     }
     I18n::init(i18n_lang);
 
@@ -84,7 +80,12 @@ int main(int argc, char* argv[]) {
     });
 
     // Register keyboard reader
-    loop.watch_fd(STDIN_FILENO, [&app](const char* data, size_t len) { app.on_keyboard_data(data, len); });
+    loop.watch_fd(STDIN_FILENO, [&app, &loop](const char* data, size_t len) {
+        app.on_keyboard_data(data, len);
+        if (app.quit_requested()) {
+            loop.stop();
+        }
+    });
 
     // Register signal handlers
     loop.watch_signal(SIGWINCH, [&app](int signum) { app.on_resize(signum); });

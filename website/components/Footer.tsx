@@ -10,11 +10,11 @@ export default function Footer() {
         </div>
         <div className="meta">
           <a
-            href="https://github.com/adam/term-ime"
+            href="https://github.com/adam-ikari/term-ime"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <IconGitHub size={14} /> github.com/adam/term-ime
+            <IconGitHub size={14} /> github.com/adam-ikari/term-ime
           </a>
           <span className="sep">·</span>
           <span>MIT License</span>

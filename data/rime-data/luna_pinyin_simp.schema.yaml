@@ -19,3 +19,4 @@ schema:
 
 translator:
   prism: luna_pinyin_simp
+  dictionary: luna_pinyin

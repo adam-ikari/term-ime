@@ -12,8 +12,6 @@ class I18n {
     enum class Lang {
         EN,     // English
         ZH_CN,  // Simplified Chinese
-        ZH_TW,  // Traditional Chinese
-        JA      // Japanese
     };
 
     // Initialize with language

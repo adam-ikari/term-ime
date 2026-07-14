@@ -14,7 +14,6 @@ export type DemoScene = {
   composition: string; // pinyin buffer
   candidates: Candidate[]; // shown when composition non-empty in CN mode
   output: string; // committed text so far
-  aiBadge: boolean; // show [AI] badge on the status bar
 };
 
 export const INITIAL_SCENE: DemoScene = {
@@ -22,7 +21,6 @@ export const INITIAL_SCENE: DemoScene = {
   composition: '',
   candidates: [],
   output: '',
-  aiBadge: false,
 };
 
 // Candidate lookup keyed by exact composition; falls back to longest matching
@@ -37,7 +35,7 @@ export const CANDIDATE_TABLE: Record<string, Candidate[]> = {
   ],
   ni: [
     { key: '1', text: '你' },
-    { key: '2', text: '妳' },
+    { key: '2', text: '拟' },
     { key: '3', text: '尼' },
     { key: '4', text: '泥' },
     { key: '5', text: '呢' },
@@ -45,7 +43,7 @@ export const CANDIDATE_TABLE: Record<string, Candidate[]> = {
   nihao: [
     { key: '1', text: '你好' },
     { key: '2', text: '妳好' },
-    { key: '3', text: '尼豪' },
+    { key: '3', text: '逆号' },
   ],
   s: [
     { key: '1', text: '是' },

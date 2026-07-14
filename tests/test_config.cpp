@@ -45,13 +45,13 @@ TEST_F(ConfigTest, LanguageConfigToJson) {
 }
 
 TEST_F(ConfigTest, LanguageConfigFromJson) {
-    json j = {{"id", "ja"}, {"name", "日本語"}, {"schema", "kana"}, {"enabled", false}};
+    json j = {{"id", "zh-Hans"}, {"name", "简体中文"}, {"schema", "luna_pinyin_simp"}, {"enabled", true}};
 
     LanguageConfig lang = LanguageConfig::from_json(j);
-    EXPECT_EQ(lang.id, "ja");
-    EXPECT_EQ(lang.name, "日本語");
-    EXPECT_EQ(lang.schema, "kana");
-    EXPECT_FALSE(lang.enabled);
+    EXPECT_EQ(lang.id, "zh-Hans");
+    EXPECT_EQ(lang.name, "简体中文");
+    EXPECT_EQ(lang.schema, "luna_pinyin_simp");
+    EXPECT_TRUE(lang.enabled);
 }
 
 TEST_F(ConfigTest, AppConfigToJson) {

@@ -8,7 +8,8 @@
 // Helper: feed a sequence of bytes and collect the results.
 static std::vector<input_sm::Result> feed(InputProcessor& p, const std::vector<uint8_t>& bytes) {
     std::vector<input_sm::Result> out;
-    for (auto b : bytes) out.push_back(p.process(b));
+    for (auto b : bytes)
+        out.push_back(p.process(b));
     return out;
 }
 
@@ -60,7 +61,7 @@ TEST(InputProcessorTest, CtrlA_A_ForwardsPrefix) {
 
 TEST(InputProcessorTest, CtrlA_CtrlA_ForwardsLiteralCtrlA) {
     InputProcessor p;
-    p.process(0x01);  // -> Prefix
+    p.process(0x01);           // -> Prefix
     auto r = p.process(0x01);  // second Ctrl+A -> literal 0x01
     EXPECT_TRUE(r.forward);
     ASSERT_EQ(r.data.size(), 1u);
@@ -87,8 +88,8 @@ TEST(InputProcessorTest, LoneEscapeDoesNotForward) {
 
 TEST(InputProcessorTest, EscapeThenCsiTerminatorForwardsWhole) {
     InputProcessor p;
-    p.process(0x1b);  // -> Escape
-    p.process('[');   // -> EscapeCSI
+    p.process(0x1b);          // -> Escape
+    p.process('[');           // -> EscapeCSI
     auto r = p.process('A');  // terminator -> forward ESC[A
     EXPECT_TRUE(r.forward);
     ASSERT_EQ(r.data.size(), 3u);
@@ -111,7 +112,7 @@ TEST(InputProcessorTest, ApplicationModeArrowEscO_Forwards) {
 
 TEST(InputProcessorTest, EscapeThenNonCsiForwardsTwoBytes) {
     InputProcessor p;
-    p.process(0x1b);  // -> Escape
+    p.process(0x1b);          // -> Escape
     auto r = p.process('x');  // not '['/'O' -> forward ESC x
     EXPECT_TRUE(r.forward);
     ASSERT_EQ(r.data.size(), 2u);
@@ -143,7 +144,7 @@ TEST(InputProcessorTest, EscapeCsiBufferIsCapped) {
     // without exploding.
     for (int i = 0; i < 5000; ++i) {
         auto r = p.process('0' + (i % 10));  // digits are non-terminators
-        EXPECT_FALSE(r.forward);  // still buffering, not forwarding
+        EXPECT_FALSE(r.forward);             // still buffering, not forwarding
     }
     EXPECT_TRUE(p.in_escape());
     // A terminator still resolves the sequence (cap reset it but we continue).

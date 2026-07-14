@@ -27,7 +27,8 @@ class ImeEngine {
     virtual std::string buffer() const = 0;
     virtual std::vector<Candidate> candidates() const = 0;
     virtual std::u32string select(int index) = 0;
-    virtual void cancel() = 0;
+    virtual void backspace() = 0;  // delete one syllable char
+    virtual void cancel() = 0;     // clear entire composition
     virtual void page_up() = 0;
     virtual void page_down() = 0;
 };

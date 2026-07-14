@@ -11,6 +11,22 @@ namespace ui {
 
 namespace {
 
+// Refined 24-bit color palette — green status bar background.
+namespace color {
+// Status bar background — deep green
+const FtxuiColor kBarBg = FtxuiColor::RGB(22, 101, 52);  // deep green
+// Mode indicator text — bright white on green
+const FtxuiColor kMode = FtxuiColor::RGB(235, 245, 240);
+const FtxuiColor kBracket = FtxuiColor::RGB(167, 219, 191);  // soft green-white
+// Candidates
+const FtxuiColor kSelectedBg = FtxuiColor::RGB(74, 222, 128);  // bright green highlight
+const FtxuiColor kSelectedFg = FtxuiColor::RGB(20, 83, 45);
+const FtxuiColor kCandidate = FtxuiColor::RGB(254, 240, 138);  // light yellow
+// Hints — light green-gray
+const FtxuiColor kHint = FtxuiColor::RGB(167, 219, 191);
+const FtxuiColor kSeparator = FtxuiColor::RGB(56, 92, 70);
+}  // namespace color
+
 std::string u32_to_utf8(const std::u32string& s) {
     std::string result;
     for (char32_t c : s) {
@@ -21,8 +37,9 @@ std::string u32_to_utf8(const std::u32string& s) {
     return result;
 }
 
-FtxuiColor GetModeColor(const std::string& mode) {
-    return (mode.find("中文") != std::string::npos) ? FtxuiColor::Green : FtxuiColor::Cyan;
+// Single mode color (no per-language switching).
+FtxuiColor GetModeColor(const std::string& /*mode*/) {
+    return color::kMode;
 }
 
 }  // namespace
@@ -32,9 +49,8 @@ FtxuiColor GetModeColor(const std::string& mode) {
 // ============================================================================
 
 Element ModeIndicator(const ModeIndicatorProps& props) {
-    FtxuiColor mode_color = props.is_chinese ? FtxuiColor::Green : FtxuiColor::Cyan;
-
-    return HBox({Text(" 【") | Dim(), Text(props.mode) | Bold() | TextColor(mode_color), Text("】 ") | Dim()});
+    return HBox({Text(" [") | Dim() | TextColor(color::kBracket), Text(props.mode) | Bold() | TextColor(color::kMode),
+                 Text("] ") | Dim() | TextColor(color::kBracket)});
 }
 
 // ============================================================================
@@ -69,9 +85,9 @@ Element CandidateItem(const CandidateItemProps& props) {
     std::string label = std::to_string(props.index) + "." + display_text;
 
     if (props.selected) {
-        return Text(" [" + label + "] ") | Bold() | BgColor(FtxuiColor::Blue);
+        return Text(" [" + label + "] ") | Bold() | BgColor(color::kSelectedBg) | TextColor(color::kSelectedFg);
     } else {
-        return Text(" " + label + " ") | TextColor(FtxuiColor::Yellow);
+        return Text(" " + label + " ") | TextColor(color::kCandidate);
     }
 }
 
@@ -95,10 +111,7 @@ Element CandidateBar(const CandidateBarProps& props) {
             {.index = static_cast<int>(i + 1), .text = props.candidates[i].text, .selected = (i == props.selected)}));
     }
 
-    // Cancel hint
-    items.push_back(Text("  Esc " + I18n::t("hint.cancel") + " ") | Dim() | TextColor(FtxuiColor::GrayDark));
-
-    return HBox(std::move(items)) | Inverted() | Height(1);
+    return HBox(std::move(items)) | BgColor(color::kBarBg) | Height(1);
 }
 
 // ============================================================================
@@ -119,31 +132,7 @@ Element EmptyBar(const EmptyBarProps& props) {
     // Hints
     items.push_back(HintsBar());
 
-    return HBox(std::move(items)) | Inverted() | Height(1);
-}
-
-// ============================================================================
-// AIIndicator
-// ============================================================================
-
-Element AIIndicator(const AIIndicatorProps& props) {
-    if (props.downloading) {
-        std::string progress = std::to_string(props.download_progress);
-        return Text(" [下载模型 " + progress + "%]") | TextColor(FtxuiColor::Yellow);
-    }
-
-    if (props.loading) {
-        // Use spinner animation
-        static size_t frame = 0;
-        frame = (frame + 1) % SpinnerFrames().size();
-        return Text(" [" + SpinnerFrame(frame) + " AI...]") | TextColor(FtxuiColor::Cyan);
-    }
-
-    if (props.enabled) {
-        return Text(" [AI]") | TextColor(FtxuiColor::Green);
-    }
-
-    return Empty();
+    return HBox(std::move(items)) | BgColor(color::kBarBg) | Height(1);
 }
 
 // ============================================================================
@@ -154,13 +143,7 @@ Element StatusBar(const StatusBarProps& props) {
     Elements items;
 
     // Language and mode
-    items.push_back(Text(" 【" + props.lang_name + " " + props.mode + "】") | Bold());
-
-    // AI indicator
-    items.push_back(AIIndicator({.enabled = props.ai_enabled,
-                                 .loading = props.ai_loading,
-                                 .downloading = props.downloading,
-                                 .download_progress = props.download_progress}));
+    items.push_back(Text(" [" + props.lang_name + " " + props.mode + "]") | Bold());
 
     return HBox(std::move(items)) | TextColor(GetModeColor(props.mode));
 }
@@ -170,18 +153,13 @@ Element StatusBar(const StatusBarProps& props) {
 // ============================================================================
 
 Element HintItem(const HintItemProps& props) {
-    return Text(" " + props.key + " " + props.action + " ") | Dim() | TextColor(FtxuiColor::GrayDark);
+    return Text(" " + props.key + " " + props.action + " ") | Dim() | TextColor(color::kHint);
 }
 
 Element HintsBar() {
-    return HBox(
-        {HintItem({.key = "Ctrl+A,Space", .action = I18n::t("hint.toggle_mode")}),
-         Text("|") | TextColor(FtxuiColor::GrayDark), HintItem({.key = "1-9", .action = I18n::t("hint.select")}),
-         Text("|") | TextColor(FtxuiColor::GrayDark), HintItem({.key = "Esc", .action = I18n::t("hint.cancel")}),
-         Text("|") | TextColor(FtxuiColor::GrayDark),
-         HintItem({.key = "Ctrl+A,A", .action = I18n::t("hint.ai_toggle")}),
-         Text("|") | TextColor(FtxuiColor::GrayDark),
-         HintItem({.key = "Ctrl+A,S", .action = I18n::t("settings.title")})});
+    return HBox({HintItem({.key = "^A Space", .action = I18n::t("hint.toggle_mode")}),
+                 Text("|") | TextColor(color::kHint),
+                 HintItem({.key = "^A S", .action = I18n::t("settings.title")})});
 }
 
 // ============================================================================
@@ -200,29 +178,16 @@ Element MainBar(const MainBarProps& props) {
     // ---- Width calculation helpers ----
 
     // Fixed elements widths (don't shrink)
-    // ModeIndicator: " 【中文】 " → estimate from mode text
-    // Actually we reuse the same structure; approximate by rendering
-    // For now calculate: " 【" + mode + "】 "
+    // ModeIndicator: " [中文] " → space + [ + mode + ] + space
     std::string mode_text = props.mode;
-    int mode_w = 2 /*空格+【*/ + utf8::string_width(mode_text) + 2 /*】+空格*/;  // ≈ " 【XX】 "
+    int mode_w = 1 /*空格*/ + 1 /*[*/ + utf8::string_width(mode_text) + 1 /*]*/ + 1 /*空格*/;
 
     // Pinyin: " pinyin: " + buffer + " "
     std::string pinyin_prefix = " " + I18n::t("status.pinyin") + ": ";
     int pinyin_w = utf8::string_width(pinyin_prefix) + utf8::string_width(props.buffer) + 1 /*结尾空格*/;
 
-    // AI indicator: estimate max width
-    int ai_w = props.downloading ? (1 + 2 + 2 + 2 + 2 + 2 + 2) :  // " [下载模型 XX%]"
-                   props.ai_loading ? 10
-                                    :  // " [⠙ AI...]
-                   props.ai_enabled ? 5
-                                    : 0;  // " [AI]"
-
-    // Cancel hint: " Esc 取消 "
-    std::string cancel_text = "  Esc " + I18n::t("hint.cancel") + " ";
-    int cancel_w = utf8::string_width(cancel_text);
-
     // Total fixed width (filler takes remaining, so we don't add filler width)
-    int fixed_w = mode_w + pinyin_w + ai_w + cancel_w;
+    int fixed_w = mode_w + pinyin_w;
 
     // Candidate item width: " N.text " or " [N.text] "
     auto candidate_width = [](const std::u32string& text, bool selected) -> int {
@@ -300,19 +265,11 @@ Element MainBar(const MainBarProps& props) {
         }
     }
 
-    // AI indicator
-    items.push_back(AIIndicator({.enabled = props.ai_enabled,
-                                 .loading = props.ai_loading,
-                                 .downloading = props.downloading,
-                                 .download_progress = props.download_progress}));
-
     // Filler
     items.push_back(Filler());
 
     // Cancel hint
-    items.push_back(Text(" Esc " + I18n::t("hint.cancel") + " ") | Dim() | TextColor(FtxuiColor::GrayDark));
-
-    return HBox(std::move(items)) | Inverted() | Height(1);
+    return HBox(std::move(items)) | BgColor(color::kBarBg) | Height(1);
 }
 
 }  // namespace ui

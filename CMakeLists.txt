@@ -6,7 +6,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
-set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+# Release: optimize for size + dead-code elimination + link-time optimization.
+# -Os + -ffunction-sections/-fdata-sections + --gc-sections drops the fully-static
+# binary from ~8.1M to ~6.1M (FTXUI/librime unused modules discarded); -flto then
+# removes cross-TU unreferenced template instantiations (esp. std::regex) for
+# ~6.1M -> ~6.1M (stripped ~4.9M). Function/data sections + gc-sections are
+# also added to the final link for the term-ime executable below.
+set(CMAKE_CXX_FLAGS_RELEASE "-Os -ffunction-sections -fdata-sections -flto")
+set(CMAKE_C_FLAGS_RELEASE "-Os -ffunction-sections -fdata-sections -flto")
+set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-Wl,--gc-sections -flto")
 
 # ============================================================
 # Sanitizers (product-grade hardening / leak detection)
@@ -25,14 +33,6 @@ if(ENABLE_UBSAN)
 endif()
 
 # ============================================================
-# Hardware acceleration options (configurable)
-# ============================================================
-option(LLAMA_USE_CUDA "Enable CUDA acceleration" OFF)
-option(LLAMA_USE_METAL "Enable Metal/MPS acceleration (Mac)" OFF)
-option(LLAMA_USE_VULKAN "Enable Vulkan acceleration" OFF)
-option(LLAMA_USE_NPU "Enable NPU acceleration" OFF)
-
-# ============================================================
 # Dependencies
 # ============================================================
 add_subdirectory(deps/ftxui)
@@ -42,45 +42,101 @@ add_subdirectory(deps/googletest)
 
 # Build librime from source (minimal configuration). Self-contained build
 # (no system librime-dev dependency) for reproducibility across distros.
+
+# ----------------------------------------------------------------
+# librime's transitive deps — build vendored sources as STATIC archives
+# ----------------------------------------------------------------
+# librime's find modules (deps/librime/cmake/Find*.cmake) use find_library/
+# find_path, so they resolve to installed files, not add_subdirectory targets.
+# We mirror librime's own deps.mk: configure+build+install each vendored dep
+# (yaml-cpp, leveldb, marisa, opencc) into a private stage prefix, then put it
+# on CMAKE_PREFIX_PATH so librime's find_package picks up the static .a + headers
+# instead of system .so. BUILD_STATIC=ON (set below) flips every *_STATIC flag
+# so the find modules prefer .a and define the correct static guards.
+#
+# leveldb builds WITHOUT snappy (check_library_exists finds none in our static
+# stage -> HAVE_SNAPPY stays OFF), eliminating the snappy runtime dep.
+# opencc builds with its own bundled marisa (USE_SYSTEM_MARISA=OFF) but does not
+# embed it (libopencc.a has no marisa:: symbols), so librime's own marisa link
+# satisfies it — no duplicate.
+set(_RIME_DEPS_STAGE ${CMAKE_BINARY_DIR}/_deps_stage)
+set(_RIME_DEPS
+    ${CMAKE_SOURCE_DIR}/deps/librime/deps/yaml-cpp
+    ${CMAKE_SOURCE_DIR}/deps/librime/deps/leveldb
+    ${CMAKE_SOURCE_DIR}/deps/librime/deps/marisa-trie
+    ${CMAKE_SOURCE_DIR}/deps/librime/deps/opencc)
+set(_RIME_DEPS_STAMP ${_RIME_DEPS_STAGE}/.installed)
+if(NOT EXISTS ${_RIME_DEPS_STAMP})
+    message(STATUS "Building vendored librime deps (yaml-cpp/leveldb/marisa/opencc) -> ${_RIME_DEPS_STAGE}")
+    file(MAKE_DIRECTORY ${_RIME_DEPS_STAGE})
+    set(_DEP_COMMON -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
+                    -DCMAKE_INSTALL_PREFIX=${_RIME_DEPS_STAGE}
+                    -DCMAKE_POSITION_INDEPENDENT_CODE=ON)
+    # yaml-cpp
+    execute_process(COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/deps/librime/deps/yaml-cpp
+                            -B ${CMAKE_BINARY_DIR}/_deps_build/yaml-cpp
+                            ${_DEP_COMMON} -DYAML_CPP_BUILD_TESTS=OFF -DYAML_CPP_BUILD_TOOLS=OFF
+                            -DYAML_CPP_BUILD_CONTRIB=OFF -DYAML_CPP_INSTALL=ON RESULT_VARIABLE _rc)
+    if(_rc EQUAL 0)
+        execute_process(COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/_deps_build/yaml-cpp
+                                --target install -j RESULT_VARIABLE _rc)
+    endif()
+    # leveldb (no snappy in this static env)
+    if(_rc EQUAL 0)
+        execute_process(COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/deps/librime/deps/leveldb
+                                -B ${CMAKE_BINARY_DIR}/_deps_build/leveldb
+                                ${_DEP_COMMON} -DLEVELDB_BUILD_TESTS=OFF -DLEVELDB_BUILD_BENCHMARKS=OFF
+                                RESULT_VARIABLE _rc)
+    endif()
+    if(_rc EQUAL 0)
+        execute_process(COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/_deps_build/leveldb
+                                --target install -j RESULT_VARIABLE _rc)
+    endif()
+    # marisa-trie
+    if(_rc EQUAL 0)
+        execute_process(COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/deps/librime/deps/marisa-trie
+                                -B ${CMAKE_BINARY_DIR}/_deps_build/marisa ${_DEP_COMMON} RESULT_VARIABLE _rc)
+    endif()
+    if(_rc EQUAL 0)
+        execute_process(COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/_deps_build/marisa
+                                --target install -j RESULT_VARIABLE _rc)
+    endif()
+    # opencc (bundled marisa, but not embedded)
+    if(_rc EQUAL 0)
+        execute_process(COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/deps/librime/deps/opencc
+                                -B ${CMAKE_BINARY_DIR}/_deps_build/opencc
+                                ${_DEP_COMMON} -DUSE_SYSTEM_MARISA=OFF -DBUILD_TESTING=OFF
+                                -DOPENCC_BUILD_TOOLS=OFF RESULT_VARIABLE _rc)
+    endif()
+    if(_rc EQUAL 0)
+        execute_process(COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/_deps_build/opencc
+                                --target install -j RESULT_VARIABLE _rc)
+    endif()
+    if(NOT _rc EQUAL 0)
+        message(FATAL_ERROR "Failed to build a vendored librime dep (rc=${_rc}). See ${CMAKE_BINARY_DIR}/_deps_build/.")
+    endif()
+    file(WRITE ${_RIME_DEPS_STAMP} "done\n")
+endif()
+list(PREPEND CMAKE_PREFIX_PATH ${_RIME_DEPS_STAGE})
+
+# Boost: only the HEADER-ONLY libs are used (signals2, unordered_map/set,
+# algorithm/string, crc) — librime was patched to use std::regex instead of
+# boost::regex, so no compiled boost_regex/filesystem/system lib is needed and
+# there is no ICU. find_package(Boost) (no COMPONENTS) pulls just the headers;
+# Boost::regex/filesystem/system are NOT linked. (System Boost headers are a
+# build-time-only dep; they compile into our binary — zero runtime Boost dep.)
+
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_TEST OFF CACHE BOOL "" FORCE)
 set(BUILD_DATA OFF CACHE BOOL "" FORCE)
 set(BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
 set(ENABLE_LOGGING OFF CACHE BOOL "" FORCE)
 set(ENABLE_THREADING ON CACHE BOOL "" FORCE)
+set(ENABLE_TIMESTAMP OFF CACHE BOOL "" FORCE)
+# BUILD_STATIC makes librime's find modules prefer .a (via *_STATIC) and set the
+# static-define guards (YAML_CPP_STATIC_DEFINE, Opencc_BUILT_AS_STATIC, etc.).
+set(BUILD_STATIC ON CACHE BOOL "" FORCE)
 add_subdirectory(deps/librime EXCLUDE_FROM_ALL)
-
-# llama.cpp - minimal build for LLM ranking with optional acceleration
-set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
-set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
-set(LLAMA_BUILD_COMMON OFF CACHE BOOL "" FORCE)
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-
-# Configure acceleration backends
-if(LLAMA_USE_CUDA)
-    message(STATUS "Enabling CUDA acceleration for llama.cpp")
-    set(LLAMA_CUDA ON CACHE BOOL "" FORCE)
-endif()
-
-if(LLAMA_USE_METAL)
-    message(STATUS "Enabling Metal/MPS acceleration for llama.cpp")
-    set(LLAMA_METAL ON CACHE BOOL "" FORCE)
-endif()
-
-if(LLAMA_USE_VULKAN)
-    message(STATUS "Enabling Vulkan acceleration for llama.cpp")
-    set(LLAMA_VULKAN ON CACHE BOOL "" FORCE)
-endif()
-
-# NPU support via Vulkan or custom backend
-if(LLAMA_USE_NPU)
-    message(STATUS "Enabling NPU acceleration (via Vulkan)")
-    set(LLAMA_VULKAN ON CACHE BOOL "" FORCE)
-endif()
-
-add_subdirectory(deps/llama.cpp EXCLUDE_FROM_ALL)
 
 # ----------------------------------------------------------------
 # libuv (bundled submodule, no system package)
@@ -90,10 +146,6 @@ add_subdirectory(deps/libuv EXCLUDE_FROM_ALL)
 # libuv defines `uv_a` (static) which propagates its own include dirs.
 set(LIBUV_TARGET uv_a)
 message(STATUS "Using bundled libuv (target: uv_a)")
-
-# Note: model downloads use the system `curl` command via popen (see
-# src/util/model_downloader.cpp) — no libcurl link dependency, so no
-# curl/mbedTLS/OpenSSL submodule is needed. This keeps the build lean.
 
 # SML (State Machine Library) - header-only
 set(SML_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/deps/sml/include)
@@ -112,13 +164,10 @@ add_library(term-ime-lib STATIC
     src/ime/engine.cpp
     src/ime/rime_engine.cpp
     src/ime/language.cpp
-    src/ime/ranker.cpp
-    src/ime/llama_ranker.cpp
     src/ime/kaomoji.cpp
     src/util/utf8.cpp
     src/util/logger.cpp
     src/util/i18n.cpp
-    src/util/model_downloader.cpp
 )
 
 target_include_directories(term-ime-lib
@@ -127,7 +176,6 @@ target_include_directories(term-ime-lib
         $<INSTALL_INTERFACE:include>
         ${CMAKE_SOURCE_DIR}/deps/librime/include
         ${CMAKE_SOURCE_DIR}/deps/librime/src
-        ${CMAKE_SOURCE_DIR}/deps/llama.cpp/include
 )
 
 target_link_libraries(term-ime-lib
@@ -135,13 +183,12 @@ target_link_libraries(term-ime-lib
     PUBLIC nlohmann_json::nlohmann_json
     PUBLIC spdlog::spdlog
     PUBLIC utf8proc
-    PUBLIC llama
 )
-# librime (static) pulls in Boost.regex and friends; its own target_link
-# dependencies don't always propagate through the static chain, so link them
-# explicitly here. Required at final link on systems without a system librime.
-find_package(Boost REQUIRED COMPONENTS regex filesystem system)
-target_link_libraries(term-ime-lib PUBLIC Boost::regex Boost::filesystem Boost::system)
+# Boost: fully removed. librime's boost::algorithm/signals2/interprocess/crc/uuid
+# are replaced by <rime/*.hpp> shims (std::regex replaced boost::regex earlier);
+# the only remaining <boost/...> include is boost/sml.hpp, provided by the
+# bundled deps/sml submodule (SML_INCLUDE_DIR), not by system Boost. No
+# find_package(Boost), no libboost-all-dev build dep.
 
 set_target_properties(term-ime-lib PROPERTIES
     OUTPUT_NAME "termime"
@@ -211,6 +258,10 @@ target_link_libraries(term-ime
     PRIVATE ftxui::dom
     PRIVATE ftxui::screen
 )
+# Fully static single-file executable: link glibc/libstdc++/libgcc statically too,
+# so the binary has zero runtime shared-library deps (only the dynamic loader).
+# forkpty (libutil) is part of static glibc, so -lutil resolves to libutil.a.
+target_link_options(term-ime PRIVATE -static -Wl,--gc-sections)
 
 # ============================================================
 # Install
@@ -224,7 +275,6 @@ install(FILES
     src/ime/engine.hpp
     src/ime/rime_engine.hpp
     src/ime/language.hpp
-    src/ime/ranker.hpp
     DESTINATION include/term-ime
 )
 
@@ -248,6 +298,10 @@ endforeach()
 # ----------------------------------------------------------------
 # Bundled rime-data (luna_pinyin schemas + dict) — copied to build/share/rime-data
 # so the binary finds schemas with no system rime-data-luna-pinyin package.
+# Includes essay.txt (the preset vocabulary frequency table) — without it,
+# use_preset_vocabulary: true in luna_pinyin.dict.yaml can't load word
+# frequencies, so candidates fall back to single chars sorted by Unicode (rare
+# chars like 㘈 rank ahead of 你) and phrases like "你好" are missing.
 # ----------------------------------------------------------------
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/share/rime-data)
 file(GLOB RIME_DATA_FILES "${CMAKE_SOURCE_DIR}/data/rime-data/*.yaml")
@@ -255,9 +309,12 @@ foreach(RIME_DATA_FILE ${RIME_DATA_FILES})
     get_filename_component(NAME ${RIME_DATA_FILE} NAME)
     configure_file(${RIME_DATA_FILE} ${CMAKE_BINARY_DIR}/share/rime-data/${NAME} COPYONLY)
 endforeach()
+# essay.txt is the preset vocabulary table (3.7MB, ~300k phrases with weights).
+configure_file(${CMAKE_SOURCE_DIR}/data/rime-data/essay.txt
+               ${CMAKE_BINARY_DIR}/share/rime-data/essay.txt COPYONLY)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/data/rime-data/
         DESTINATION share/term-ime/rime-data
-        FILES_MATCHING PATTERN "*.yaml")
+        FILES_MATCHING PATTERN "*.yaml" PATTERN "essay.txt")
 # Expose the build-tree bundled data dir to C++.
 target_compile_definitions(term-ime-lib PUBLIC
     RIME_BUNDLED_DATA_DIR="${CMAKE_BINARY_DIR}/share/rime-data")
@@ -323,3 +380,4 @@ target_link_libraries(test-input-e2e
 # Register tests with CTest
 include(GoogleTest)
 gtest_discover_tests(term-ime-tests)
+

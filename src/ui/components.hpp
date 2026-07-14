@@ -53,24 +53,10 @@ Element EmptyBar(const EmptyBarProps& props);
 // Status Bar Components
 // ============================================================================
 
-// Props for AIIndicator
-struct AIIndicatorProps {
-    bool enabled = false;
-    bool loading = false;
-    bool downloading = false;
-    int download_progress = 0;
-};
-
-Element AIIndicator(const AIIndicatorProps& props);
-
 // Props for StatusBar
 struct StatusBarProps {
     std::string mode;
     std::string lang_name;
-    bool ai_enabled = false;
-    bool ai_loading = false;
-    bool downloading = false;
-    int download_progress = 0;
 };
 
 Element StatusBar(const StatusBarProps& props);
@@ -99,10 +85,6 @@ struct MainBarProps {
     std::vector<Candidate> candidates;
     size_t selected = 0;
     std::string buffer;
-    bool ai_enabled = false;
-    bool ai_loading = false;
-    bool downloading = false;
-    int download_progress = 0;
     int term_width = 80;    // Terminal width in columns
     int scroll_offset = 0;  // Scroll offset in characters for overflow
 };

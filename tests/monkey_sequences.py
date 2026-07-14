@@ -106,7 +106,6 @@ class CtrlA(Action):
 
     next:
       space  -> toggle Chinese/English mode
-      a      -> toggle AI ranking
       s      -> toggle settings panel
       ctrla  -> forward a literal 0x01
       other  -> forward Ctrl+A + arbitrary byte (shell passthrough)
@@ -118,8 +117,6 @@ class CtrlA(Action):
     def _next_byte(self) -> int:
         if self.next == "space":
             return SPACE
-        if self.next == "a":
-            return ord("a")
         if self.next == "s":
             return ord("s")
         if self.next == "ctrla":
@@ -330,32 +327,6 @@ def _p3_settings_esc() -> List[Action]:
     ]
 
 
-def _p4_ai_ranking_concurrent(rounds_pinyin: int = 12) -> List[Action]:
-    """Rapid pinyin to trigger rank_async while interleaving input/toggles so
-    on_ranking_complete races on_keyboard_data (bug #4). Assumes AI ranking is
-    already enabled (caller does CtrlA(a) first and waits for model)."""
-    seq: List[Action] = []
-    words = ["nihao", "shijie", "zhongguo", "xiexie", "nihao"]
-    for i in range(rounds_pinyin):
-        seq.append(Printable(words[i % len(words)]))
-        seq.append(Wait(ms=80))       # let rank_async fire
-        if i % 3 == 0:
-            seq.append(CtrlA(next="space"))  # toggle mid-flight to mutate ime_
-            seq.append(CtrlA(next="space"))
-    return seq
-
-
-def _p5_leak_loop(iters: int = 60) -> List[Action]:
-    """Shorter, higher-frequency ranking loop for RSS sampling (bug #5)."""
-    seq: List[Action] = []
-    for i in range(iters):
-        seq.append(Printable("nihao"))
-        seq.append(Space())           # select -> triggers commit + ranking path
-        seq.append(Wait(ms=40))
-        seq.append(Backspace())
-    return seq
-
-
 def _p6_exit_hang() -> List[Action]:
     """Just drives some input; the actual hang assertion is on tui_stop timing
     with a SIGTERM-trapping shell (bug #6)."""
@@ -370,14 +341,12 @@ PROBES = {
     "P1": _p1_escapecsi(),
     "P2": _p2_toggle_mid_composition(),
     "P3": _p3_settings_esc(),
-    "P4": _p4_ai_ranking_concurrent(),
-    "P5": _p5_leak_loop(),
     "P6": _p6_exit_hang(),
 }
 
 
 def reset_sequence() -> List[Action]:
-    """INV-3: drive the app back to a clean 【EN】 state with no candidate bar.
+    """INV-3: drive the app back to a clean [EN] state with no candidate bar.
 
     - lone Esc to nudge out of any Escape/EscapeCSI state (harmless if not in one)
     - Ctrl+A+Space up to twice to reach EN (idempotent: toggles CN<->EN)

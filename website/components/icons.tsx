@@ -53,15 +53,6 @@ export const IconPuzzle = (p: IconProps) =>
 export const IconBolt = (p: IconProps) =>
   svg(<path d="M13 2L4 14h7l-1 8 9-12h-7z" />, p);
 
-export const IconBrain = (p: IconProps) =>
-  svg(
-    <>
-      <path d="M9 4a3 3 0 00-3 3 3 3 0 00-2 5 3 3 0 001 5 3 3 0 005 1V4z" />
-      <path d="M15 4a3 3 0 013 3 3 3 0 012 5 3 3 0 01-1 5 3 3 0 01-5 1V4z" />
-    </>,
-    p
-  );
-
 export const IconChar = (p: IconProps) =>
   svg(
     <>

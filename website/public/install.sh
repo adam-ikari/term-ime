@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # term-ime installer — downloads a prebuilt binary from GitHub Releases.
+# The binary is fully statically linked (zero runtime shared-library deps), so
+# no system runtime libraries need to be installed — just drop it on PATH.
 #
 # Usage:
 #   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash
 #   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --version v1.0.0 --prefix ~/.local
 #
-# Defaults: latest release, prefix /usr/local (needs sudo).
+# Defaults: latest release, prefix ~/.local (no sudo needed).
 set -euo pipefail
 
 REPO="adam-ikari/term-ime"
@@ -43,12 +45,11 @@ if [[ -z "$VERSION" ]]; then
 fi
 echo ">> Installing term-ime ${VERSION}"
 
-# Detect arch.
+# Detect arch. Only x86_64 is published (release.yml builds linux-x86_64 only).
 ARCH="$(uname -m)"
 case "$ARCH" in
     x86_64|amd64) ASSET_ARCH="linux-x86_64" ;;
-    aarch64|arm64) ASSET_ARCH="linux-arm64" ;;
-    *) echo "error: unsupported architecture: $ARCH" >&2; exit 1 ;;
+    *) echo "error: unsupported architecture: $ARCH (prebuilt binaries are x86_64 only; build from source for other archs)" >&2; exit 1 ;;
 esac
 
 ASSET="term-ime-${ASSET_ARCH}.tar.gz"

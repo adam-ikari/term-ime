@@ -21,15 +21,11 @@ jobs:
         sudo apt-get install -y \
           build-essential \
           cmake \
-          pkg-config \
-          libboost-all-dev \
-          libgflags-dev \
-          libyaml-cpp-dev \
-          libmarisa-dev \
-          libopencc-dev \
-          libleveldb-dev \
-          libprotobuf-dev \
-          protobuf-compiler
+          pkg-config
+      # yaml-cpp/leveldb/marisa/opencc build from vendored source as static
+      # archives. Boost is fully removed (librime uses std::regex + <rime/*.hpp>
+      # shims; only boost/sml.hpp remains, from the bundled deps/sml submodule).
+      # The binary links -static (zero runtime shared libs).
 
     - name: Configure CMake
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release

@@ -1,5 +1,4 @@
 #include "app.hpp"
-#include "event_loop.hpp"
 #include "util/i18n.hpp"
 #include <spdlog/spdlog.h>
 #include <unistd.h>
@@ -91,19 +90,6 @@ bool App::init(const AppConfig& config) {
             spdlog::info("Rime IME initialized");
         }
 
-        // Initialize LLM ranker if enabled in config
-        if (config_.llama_ranker.enabled) {
-            spdlog::info("Initializing LLM ranker");
-            llama_ranker_ = std::make_unique<LlamaRanker>();
-            if (llama_ranker_->initialize(config_.llama_ranker)) {
-                ai_ranking_enabled_ = true;
-                spdlog::info("LLM ranker initialized");
-            } else {
-                spdlog::warn("Failed to initialize LLM ranker, continuing without AI ranking");
-                llama_ranker_.reset();
-            }
-        }
-
         // Initialize settings panel
         ui::settings_init(settings_state_, config_);
         settings_state_.on_change = [this](const std::string& key, const std::string& value) {
@@ -135,7 +121,7 @@ void App::on_pty_data(const char* data, size_t len) {
         parser_->feed(reinterpret_cast<const uint8_t*>(data), len);
     }
 
-    // 重绘候选/状态栏。render_candidates_ex 内部对 IME inactive 时的状态栏
+    // 重绘候选/状态栏。render_candidates 内部对 IME inactive 时的状态栏
     // 做签名去重:shell 高频逐字节回显(如 zle 逐字符回显、注入转义序列被
     // forward)触发的重复重绘会被跳过,而状态栏真正被 shell 清屏擦除时仍会
     // 重绘恢复(monkey 发现 F4)。scroll region(init 的 DECSTBM)进一步保证
@@ -150,56 +136,7 @@ void App::render_candidates_bar() {
     auto candidates = ime_ ? ime_->candidates() : std::vector<Candidate>();
     std::string buffer = ime_ ? ime_->buffer() : "";
 
-    // Every new candidate batch gets a fresh version, regardless of whether a
-    // new ranking is kicked off. If a ranking is already in flight, the in-
-    // progress one keeps its old captured version, so its callback will be
-    // discarded by on_ranking_complete when it arrives after newer input
-    // (monkey finding F5).
-    uint64_t version = ++candidate_version_;
-
-    // Apply AI ranking if enabled and candidates available
-    if (ai_ranking_enabled_ && llama_ranker_ && !candidates.empty() && !ai_ranking_in_progress_) {
-        // Store candidates for async ranking
-        last_candidates_ = candidates;
-
-        // Start async ranking (delayed execution)
-        ai_ranking_in_progress_ = true;
-        llama_ranker_->rank_async(candidates,
-                                  "",  // context (could be from screen)
-                                  buffer, [this, version](std::vector<Candidate> ranked) {
-                                      on_ranking_complete(std::move(ranked), version);
-                                  });
-    }
-
-    // Use extended render with AI status
-    renderer_.render_candidates_ex(candidates, selected_candidate_, buffer, mode, ai_ranking_enabled_,
-                                   ai_ranking_in_progress_, model_downloading_.load(), model_download_progress_);
-}
-
-void App::on_ranking_complete(std::vector<Candidate> ranked, uint64_t version) {
-    ai_ranking_in_progress_ = false;
-
-    // Discard stale results: if a newer candidate batch has been produced
-    // since this ranking was kicked off, applying the old ranking would
-    // regress the candidate bar to an earlier input (monkey finding F5).
-    if (version != candidate_version_.load()) {
-        spdlog::debug("Discarding stale ranking result (version {} != {})", version, candidate_version_.load());
-        return;
-    }
-
-    last_candidates_ = ranked;
-
-    // Re-render with ranked candidates
-    if (ime_ && ime_->state() != ImeState::Inactive) {
-        std::string mode = ime_->mode() == ImeMode::Chinese ? "中文" : "EN";
-        std::string buffer = ime_->buffer();
-
-        renderer_.render_candidates_ex(ranked, selected_candidate_, buffer, mode,
-                                       true,   // ai_enabled
-                                       false,  // ai_loading (ranking complete)
-                                       false,  // downloading
-                                       0);
-    }
+    renderer_.render_candidates(candidates, selected_candidate_, buffer, mode);
 }
 
 void App::on_keyboard_data(const char* data, size_t len) {
@@ -270,15 +207,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
             if (input_result.data.size() == 2 && input_result.data[0] == 1) {
                 // Ctrl+A + key combinations
                 char second_key = static_cast<char>(input_result.data[1]);
-                if (second_key == 'a') {
-                    spdlog::info("Ctrl+A + A detected, toggling AI ranking");
-                    // Cancel IME input first
-                    if (ime_->state() != ImeState::Inactive) {
-                        ime_->cancel();
-                    }
-                    toggle_ai_ranking();
-                    continue;
-                } else if (second_key == 's') {
+                if (second_key == 's') {
                     spdlog::info("Ctrl+A + S detected, toggling settings");
                     // Cancel IME input first
                     if (ime_->state() != ImeState::Inactive) {
@@ -286,6 +215,14 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     }
                     toggle_settings();
                     continue;
+                } else if (second_key == '\x03') {
+                    // Ctrl+A + Ctrl+C — quit term-ime
+                    spdlog::info("Ctrl+A + Ctrl+C detected, quitting");
+                    if (ime_->state() != ImeState::Inactive) {
+                        ime_->cancel();
+                    }
+                    on_quit(0);
+                    return;
                 }
             }
         }
@@ -325,7 +262,11 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 render();
                 continue;
             } else if (ch == '\b' || ch == 127) {
-                ime_->cancel();
+                // Backspace: delete one syllable character, not the whole
+                // composition. Send XK_BackSpace to rime so it handles the
+                // deletion internally (preserving remaining input).
+                ime_->backspace();
+                selected_candidate_ = 0;
                 render();
                 continue;
             } else if (ch >= 'a' && ch <= 'z') {
@@ -411,114 +352,6 @@ bool App::switch_language(const std::string& lang_id) {
     return language_manager_.switch_language(lang_id);
 }
 
-void App::toggle_ai_ranking() {
-    if (model_downloading_.load()) {
-        spdlog::info("Model download in progress, ignoring toggle");
-        return;
-    }
-
-    if (!llama_ranker_) {
-        // Check if model exists
-        std::string model_path = config_.llama_ranker.model_path;
-        if (model_path.empty()) {
-            model_path = ModelDownloader::get_default_save_path("qwen-0.5b-q4");
-        }
-
-        // Expand ~ in path
-        if (!model_path.empty() && model_path[0] == '~') {
-            const char* home = std::getenv("HOME");
-            if (home) {
-                model_path = std::string(home) + model_path.substr(1);
-            }
-        }
-
-        // Check if model file exists
-        bool model_exists = std::filesystem::exists(model_path);
-        spdlog::info("Model path: {}, exists: {}", model_path, model_exists);
-
-        if (!model_exists) {
-            // Start model download
-            start_model_download();
-            return;
-        }
-
-        // Initialize ranker with existing model
-        spdlog::info("Initializing LLM ranker on demand");
-        llama_ranker_ = std::make_unique<LlamaRanker>();
-        if (llama_ranker_->initialize(config_.llama_ranker)) {
-            ai_ranking_enabled_ = true;
-            spdlog::info("LLM ranker initialized and enabled");
-        } else {
-            spdlog::warn("Failed to initialize LLM ranker");
-            llama_ranker_.reset();
-        }
-    } else {
-        ai_ranking_enabled_ = !ai_ranking_enabled_;
-        spdlog::info("AI ranking {}", ai_ranking_enabled_ ? "enabled" : "disabled");
-    }
-    render();
-}
-
-void App::start_model_download() {
-    spdlog::info("Starting model download");
-    model_downloading_ = true;
-    model_download_progress_ = 0;
-
-    if (!model_downloader_) {
-        model_downloader_ = std::make_unique<ModelDownloader>();
-    }
-
-    std::string model_name = "qwen-0.5b-q4";  // Default model
-    std::string save_path = config_.llama_ranker.model_path;
-    if (save_path.empty()) {
-        save_path = ModelDownloader::get_default_save_path(model_name);
-    }
-
-    model_downloader_->download_async(
-        model_name, save_path,
-        [this](int progress, const std::string& status) {
-            model_download_progress_ = progress;
-            spdlog::info("Download progress: {}% - {}", progress, status);
-            render();
-        },
-        [this](bool success, const std::string& path) { on_model_downloaded(success, path); });
-
-    render();
-}
-
-void App::on_model_downloaded(bool success, const std::string& path) {
-    model_downloading_ = false;
-
-    if (success) {
-        spdlog::info("Model downloaded successfully: {}", path);
-
-        // Update config with downloaded model path
-        config_.llama_ranker.model_path = path;
-        // The user explicitly requested AI ranking (Ctrl+A+A) and just waited
-        // for a download; flip enabled on so initialize() doesn't reject the
-        // very model we just fetched (monkey finding F7).
-        config_.llama_ranker.enabled = true;
-
-        // Initialize ranker
-        llama_ranker_ = std::make_unique<LlamaRanker>();
-        if (llama_ranker_->initialize(config_.llama_ranker)) {
-            ai_ranking_enabled_ = true;
-            spdlog::info("LLM ranker initialized with downloaded model");
-        } else {
-            spdlog::warn("Failed to initialize LLM ranker with downloaded model");
-            llama_ranker_.reset();
-        }
-    } else {
-        spdlog::error("Model download failed");
-    }
-
-    render();
-}
-
-bool App::is_ai_ranking_enabled() const {
-    return ai_ranking_enabled_;
-}
-
 void App::switch_ui_language(const std::string& lang_code) {
     I18n::Lang new_lang = I18n::parse_lang(lang_code);
     I18n::set_lang(new_lang);
@@ -528,13 +361,19 @@ void App::switch_ui_language(const std::string& lang_code) {
 }
 
 std::vector<std::pair<std::string, std::string>> App::available_ui_languages() {
-    return {{"en", "English"}, {"zh-CN", "简体中文"}, {"zh-TW", "繁體中文"}, {"ja", "日本語"}};
+    return {{"en", "English"}, {"zh-CN", "简体中文"}};
 }
 
 void App::toggle_settings() {
+    bool was_visible = settings_state_.visible;
     settings_state_.visible = !settings_state_.visible;
     if (settings_state_.visible) {
         ui::settings_init(settings_state_, config_);
+    } else if (was_visible && screen_) {
+        // The settings panel drew a fullscreen overlay (ESC[2J); restore the
+        // shell view from the Screen grid before repainting the status bar,
+        // otherwise the stale settings content remains on screen.
+        renderer_.redraw_shell(*screen_);
     }
     render();
 }
@@ -552,12 +391,6 @@ void App::on_settings_change(const std::string& key, const std::string& value) {
         config_.ui_language = value;
         // Re-init settings to update labels
         ui::settings_init(settings_state_, config_);
-    } else if (key == "ai_ranking") {
-        config_.llama_ranker.enabled = (value == "on");
-    } else if (key == "backend") {
-        config_.llama_ranker.backend = value;
-    } else if (key == "threads") {
-        config_.llama_ranker.n_threads = std::stoi(value);
     }
 
     render();
@@ -565,6 +398,10 @@ void App::on_settings_change(const std::string& key, const std::string& value) {
 
 void App::on_settings_close() {
     settings_state_.visible = false;
+    // Restore the shell view after the fullscreen settings overlay.
+    if (screen_) {
+        renderer_.redraw_shell(*screen_);
+    }
     // Save config to file
     config_.save(AppConfig::default_path());
     spdlog::info("Settings saved to: {}", AppConfig::default_path());

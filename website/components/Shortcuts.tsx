@@ -1,12 +1,13 @@
 import Terminal from './Terminal';
 
 const ROWS: { keys: string[]; desc: string }[] = [
-  { keys: ['Ctrl+A', 'Space'], desc: '切换中英文模式' },
-  { keys: ['1', '-', '9'], desc: '选择候选词' },
+  { keys: ['^A Space'], desc: '切换中英文模式' },
+  { keys: ['^A S'], desc: '打开设置面板' },
+  { keys: ['^A ^C'], desc: '退出 term-ime' },
+  { keys: ['1-9'], desc: '选择候选词' },
   { keys: ['Space'], desc: '选择首个候选词(候选状态时)' },
-  { keys: ['Esc'], desc: '取消输入 / 关闭设置面板' },
-  { keys: ['Ctrl+A', 'A'], desc: '切换 AI 候选词排序' },
-  { keys: ['Ctrl+A', 'S'], desc: '打开设置面板' },
+  { keys: ['Backspace'], desc: '删除单个拼音字母' },
+  { keys: ['Esc'], desc: '取消输入' },
   { keys: ['exit'], desc: '退出 shell' },
 ];
 

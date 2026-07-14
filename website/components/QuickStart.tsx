@@ -2,14 +2,10 @@ import Terminal from './Terminal';
 
 const CONFIG_JSON = `{
   "languages": [
-    {"id": "zh-Hans", "name": "简体中文", "enabled": true},
-    {"id": "zh-Hant", "name": "繁體中文", "enabled": true}
+    {"id": "zh-Hans", "name": "简体中文", "enabled": true}
   ],
   "active_language": "zh-Hans",
-  "ui_language": "zh-CN",
-  "ai_ranking": {
-    "enabled": false
-  }
+  "ui_language": "zh-CN"
 }`;
 
 export default function QuickStart() {
@@ -18,25 +14,15 @@ export default function QuickStart() {
       <div className="container">
         <h2>快速开始</h2>
 
-        <h3>1. 安装系统依赖</h3>
+        <h3>1. 预编译安装(推荐)</h3>
         <Terminal title="bash">
-          <span className="comment"># Debian / Ubuntu(构建依赖,libuv/curl/rime-data 已内置)</span>
+          <span className="comment"># 一键安装预编译二进制(完全静态,零依赖,下载即用)</span>
           {'\n'}
           <span className="prompt">$ </span>
-          sudo apt-get install build-essential cmake pkg-config \
-            libboost-all-dev libgflags-dev libyaml-cpp-dev libmarisa-dev \
-            libopencc-dev libleveldb-dev libprotobuf-dev protobuf-compiler
+          curl -fsSL https://github.com/adam-ikari/term-ime/releases/latest/download/install.sh | bash
         </Terminal>
 
-        <h3>2a. 预编译安装(推荐)</h3>
-        <Terminal title="bash">
-          <span className="comment"># 一键安装预编译二进制(自动选择架构)</span>
-          {'\n'}
-          <span className="prompt">$ </span>
-          curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash
-        </Terminal>
-
-        <h3>2b. 从源码构建</h3>
+        <h3>2. 从源码构建</h3>
         <Terminal title="bash">
           <span className="prompt">$ </span>
           git clone --recursive https://github.com/adam-ikari/term-ime.git
@@ -62,7 +48,7 @@ export default function QuickStart() {
         <h3>3. 配置(可选)</h3>
         <p className="note">
           配置文件位于 <code>~/.config/term-ime/config.json</code>。可在这里开关语言、
-          切换界面语言、启用 AI 候选词排序。
+          切换界面语言。
         </p>
         <details>
           <summary>查看 config.json 示例</summary>

@@ -141,13 +141,114 @@ void Renderer::restore() {
     initialized_ = false;
 }
 
-void Renderer::render(const Screen& screen) {
+void Renderer::render(const Screen& /*screen*/) {
     // 直接转发 PTY 数据，不再重绘整个屏幕
 }
 
 void Renderer::forward_output(const char* data, size_t len) {
     // 直接转发 PTY 输出到终端
     fwrite(data, 1, len, stdout);
+    fflush(stdout);
+
+    // Scan for sequences that can erase/overwrite the status bar (which lives
+    // on the last row, outside the scroll region). The scroll region (DECSTBM)
+    // keeps normal shell scrolling off that row, but a shell `clear` (ESC[2J),
+    // a line/scroll erase (ESC[J / ESC[K / ESC[<n>J / ESC[<n>K), or an absolute
+    // cursor move onto the last row will clobber it. When any such sequence is
+    // seen, flag the bar dirty so render_candidates() repaints it next frame
+    // instead of skipping via the dedup (which otherwise hides it for up to 16
+    // PTY bytes — the EN-mode "status bar disappears" bug).
+    struct winsize ws;
+    int last_row = 0;
+    if (ioctl(tty_fd_, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) {
+        last_row = ws.ws_row;
+    }
+    for (size_t i = 0; i < len; ++i) {
+        uint8_t c = static_cast<uint8_t>(data[i]);
+        if (c != 0x1b)  // ESC
+            continue;
+        // Need at least ESC [ ... <final byte>. Final bytes: @A-Z[\]^_`a-z{|}~
+        size_t j = i + 1;
+        if (j >= len || data[j] != '[')
+            continue;
+        // Walk parameters (digits, ';', '?') to the final byte.
+        size_t k = j + 1;
+        while (k < len) {
+            uint8_t p = static_cast<uint8_t>(data[k]);
+            if ((p >= '0' && p <= '9') || p == ';' || p == '?') {
+                ++k;
+                continue;
+            }
+            break;
+        }
+        if (k >= len)
+            break;
+        uint8_t final = static_cast<uint8_t>(data[k]);
+        std::string params(data + j + 1, data + k);
+        // Full-screen / line erases wipe the bar regardless of row.
+        if ((final == 'J' && (params.empty() || params == "0" || params == "2" || params == "3")) ||
+            (final == 'K' && (params.empty() || params == "0" || params == "2"))) {
+            bar_dirty_ = true;
+            break;
+        }
+        // Absolute cursor positioning onto the last row: CSI <row> ; <col> H
+        // or CSI <row> ; <col> f — if <row> == last_row, the shell is writing
+        // on the status bar row.
+        if ((final == 'H' || final == 'f') && last_row > 0) {
+            // parse leading row number
+            int row = 0;
+            size_t p = 0;
+            while (p < params.size() && params[p] >= '0' && params[p] <= '9') {
+                row = row * 10 + (params[p] - '0');
+                ++p;
+            }
+            if (row == last_row) {
+                bar_dirty_ = true;
+                break;
+            }
+        }
+    }
+}
+
+void Renderer::redraw_shell(const Screen& screen) {
+    if (!initialized_)
+        return;
+    struct winsize ws;
+    if (ioctl(tty_fd_, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0) {
+        ws.ws_row = 24;
+        ws.ws_col = 80;
+    }
+    // Save cursor, clear the scroll region (the shell area, rows 1..row-1),
+    // repaint each cell from the Screen grid, then restore cursor. The status
+    // bar (last row) is repainted separately by render_candidates().
+    printf("\x1b[s");     // save cursor
+    printf("\x1b[1;1H");  // home within scroll region
+    printf("\x1b[2J");    // clear (scroll region is set, but 2J clears whole screen)
+    int rows = std::min(screen.rows(), static_cast<int>(ws.ws_row) - 1);
+    int cols = std::min(screen.cols(), static_cast<int>(ws.ws_col));
+    for (int r = 0; r < rows; ++r) {
+        printf("\x1b[%d;1H", r + 1);
+        std::string line;
+        line.reserve(cols);
+        for (int c = 0; c < cols; ++c) {
+            Cell cell = screen.get(r, c);
+            if (cell.ch == 0)
+                line.push_back(' ');
+            else
+                line += utf8::encode(cell.ch);
+        }
+        fwrite(line.data(), 1, line.size(), stdout);
+    }
+    // Move the shell cursor back to where the Screen thinks it is (clamped to
+    // the scroll region), so resumed shell output continues from the right spot.
+    int cr = std::min(screen.cursor_row(), rows - 1);
+    int cc = std::min(screen.cursor_col(), cols - 1);
+    if (cr < 0)
+        cr = 0;
+    if (cc < 0)
+        cc = 0;
+    printf("\x1b[%d;%dH", cr + 1, cc + 1);
+    printf("\x1b[u");  // restore cursor (redundant with explicit move, kept for safety)
     fflush(stdout);
 }
 
@@ -182,12 +283,6 @@ void Renderer::render_element(const ui::Element& element) {
 
 void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_t selected, const std::string& buffer,
                                  const std::string& mode) {
-    render_candidates_ex(candidates, selected, buffer, mode, false, false, false, 0);
-}
-
-void Renderer::render_candidates_ex(const std::vector<Candidate>& candidates, size_t selected,
-                                    const std::string& buffer, const std::string& mode, bool ai_enabled,
-                                    bool ai_loading, bool downloading, int download_progress) {
     // Get terminal width
     struct winsize ws;
     if (ioctl(tty_fd_, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0) {
@@ -196,17 +291,20 @@ void Renderer::render_candidates_ex(const std::vector<Candidate>& candidates, si
     }
 
     // Dedup: when the IME is inactive (no candidates, empty buffer) the status
-    // bar content is fully determined by mode + ai flags + progress, which rarely
-    // change. Shell output drives render_candidates_bar() on every PTY byte, so
-    // without dedup a high-frequency shell echo (e.g. zle per-char echo, or a
-    // forwarded escape sequence) repaints the whole bar N times (monkey finding
-    // F4). Skip identical repaints, but force one every BAR_FORCE_REDRAW_EVERY
-    // calls so a shell `clear` (which wipes the bar) is recovered shortly.
+    // bar content is fully determined by mode, which rarely changes. Shell
+    // output drives render_candidates_bar() on every PTY byte, so without dedup
+    // a high-frequency shell echo (e.g. zle per-char echo, or a forwarded
+    // escape sequence) repaints the whole bar N times (monkey finding F4).
+    // Skip identical repaints, but force one every BAR_FORCE_REDRAW_EVERY calls
+    // so a shell `clear` (which wipes the bar) is recovered shortly.
     bool ime_active = !candidates.empty() || !buffer.empty();
     if (!ime_active) {
-        std::string sig = mode + "|" + (ai_enabled ? "1" : "0") + (ai_loading ? "1" : "0") + (downloading ? "1" : "0") +
-                          "|" + std::to_string(download_progress);
-        if (sig == last_bar_sig_ && bar_skip_count_ < BAR_FORCE_REDRAW_EVERY) {
+        // If the shell just emitted a sequence that erased the bar, force a
+        // repaint now regardless of the dedup signature (see forward_output).
+        bool force = bar_dirty_;
+        bar_dirty_ = false;
+        std::string sig = mode;
+        if (!force && sig == last_bar_sig_ && bar_skip_count_ < BAR_FORCE_REDRAW_EVERY) {
             ++bar_skip_count_;
             return;
         }
@@ -246,15 +344,12 @@ void Renderer::render_candidates_ex(const std::vector<Candidate>& candidates, si
         // Suffix: "] " = 2 cols
         int cand_item_overhead = 6;  // " [N." + "] "
 
-        // Fixed parts: mode + pinyin + AI + cancel
+        // Fixed parts: mode + pinyin + cancel
         std::string mode_text = mode;
         int mode_w = 2 + utf8::string_width(mode_text) + 2;
         std::string pinyin_prefix = " " + I18n::t("status.pinyin") + ": ";
         int pinyin_w = utf8::string_width(pinyin_prefix) + utf8::string_width(buffer) + 1;
-        int ai_w = downloading ? 10 : (ai_loading ? 10 : (ai_enabled ? 5 : 0));
-        std::string cancel_text = "  Esc " + I18n::t("hint.cancel") + " ";
-        int cancel_w = utf8::string_width(cancel_text);
-        int fixed_w = mode_w + pinyin_w + ai_w + cancel_w;
+        int fixed_w = mode_w + pinyin_w;
 
         int available_for_text = ws.ws_col - fixed_w - cand_item_overhead;
 
@@ -328,10 +423,6 @@ void Renderer::render_candidates_ex(const std::vector<Candidate>& candidates, si
                                 .candidates = candidates,
                                 .selected = selected,
                                 .buffer = buffer,
-                                .ai_enabled = ai_enabled,
-                                .ai_loading = ai_loading,
-                                .downloading = downloading,
-                                .download_progress = download_progress,
                                 .term_width = static_cast<int>(ws.ws_col),
                                 .scroll_offset = scroll_off});
 

@@ -24,8 +24,8 @@ const mono = localFont({
 
 export const metadata: Metadata = {
   title: 'term-ime — TTY 中文输入虚拟终端',
-  description: '在 Linux TTY 中运行的虚拟终端,内置中文拼音输入法与可选 AI 候选词排序。',
-  metadataBase: new URL('https://adam.github.io'),
+  description: '在 Linux TTY 中运行的虚拟终端,内置中文拼音输入法,自包含、无系统输入法依赖。',
+  metadataBase: new URL('https://adam-ikari.github.io'),
   openGraph: {
     title: 'term-ime',
     description: 'Linux TTY 虚拟终端,内置中文拼音输入法',

@@ -53,17 +53,13 @@ const std::string& I18n::get(const std::string& key) {
 }
 
 std::vector<std::pair<I18n::Lang, std::string>> I18n::available_languages() {
-    return {{Lang::EN, "English"}, {Lang::ZH_CN, "简体中文"}, {Lang::ZH_TW, "繁體中文"}, {Lang::JA, "日本語"}};
+    return {{Lang::EN, "English"}, {Lang::ZH_CN, "简体中文"}};
 }
 
 std::string I18n::lang_code(Lang lang) {
     switch (lang) {
     case Lang::ZH_CN:
         return "zh-CN";
-    case Lang::ZH_TW:
-        return "zh-TW";
-    case Lang::JA:
-        return "ja";
     default:
         return "en";
     }
@@ -72,10 +68,6 @@ std::string I18n::lang_code(Lang lang) {
 I18n::Lang I18n::parse_lang(const std::string& code) {
     if (code == "zh-CN" || code == "zh-Hans")
         return Lang::ZH_CN;
-    if (code == "zh-TW" || code == "zh-Hant")
-        return Lang::ZH_TW;
-    if (code == "ja")
-        return Lang::JA;
     return Lang::EN;
 }
 
@@ -141,33 +133,15 @@ void I18n::load_default_translations(Lang lang) {
     switch (lang) {
     case Lang::ZH_CN:
         translations_ = {
-            {"mode.chinese", "中文"},  {"mode.english", "EN"},  {"hint.toggle_mode", "切换"},
-            {"hint.select", "选择"},   {"hint.cancel", "取消"}, {"hint.ai_toggle", "AI排序"},
-            {"status.pinyin", "拼音"},
-        };
-        break;
-
-    case Lang::ZH_TW:
-        translations_ = {
-            {"mode.chinese", "中文"},  {"mode.english", "EN"},  {"hint.toggle_mode", "切換"},
-            {"hint.select", "選擇"},   {"hint.cancel", "取消"}, {"hint.ai_toggle", "AI排序"},
-            {"status.pinyin", "拼音"},
-        };
-        break;
-
-    case Lang::JA:
-        translations_ = {
-            {"mode.chinese", "中国語"},    {"mode.english", "EN"},  {"hint.toggle_mode", "切替"},
-            {"hint.select", "選択"},       {"hint.cancel", "取消"}, {"hint.ai_toggle", "AI並替"},
-            {"status.pinyin", "ピンイン"},
+            {"mode.chinese", "中文"}, {"mode.english", "EN"},  {"hint.toggle_mode", "切换"},
+            {"hint.select", "选择"},  {"hint.cancel", "取消"}, {"status.pinyin", "拼音"},
         };
         break;
 
     default:
         translations_ = {
-            {"mode.chinese", "中文"},    {"mode.english", "EN"},    {"hint.toggle_mode", "Toggle"},
-            {"hint.select", "Select"},   {"hint.cancel", "Cancel"}, {"hint.ai_toggle", "AI Rank"},
-            {"status.pinyin", "Pinyin"},
+            {"mode.chinese", "中文"},  {"mode.english", "EN"},    {"hint.toggle_mode", "Toggle"},
+            {"hint.select", "Select"}, {"hint.cancel", "Cancel"}, {"status.pinyin", "Pinyin"},
         };
         break;
     }

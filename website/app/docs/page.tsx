@@ -9,19 +9,18 @@ const SECTIONS = [
   {
     id: 'shortcuts',
     title: '快捷键',
-    body: `Ctrl+A 是前缀键,按下后下一个按键决定动作:
+    body: `^A 是前缀键(Ctrl+A),按下后下一个按键决定动作:
 
-  Ctrl+A  Space    切换中英文模式
-  Ctrl+A  A        开关 AI 候选词排序
-  Ctrl+A  S        打开设置面板
-  Ctrl+A  Ctrl+A   向 shell 发送字面 Ctrl+A
-  Ctrl+A  其他键   向 shell 转发 Ctrl+A + 该键
+  ^A Space    切换中英文模式
+  ^A S        打开设置面板
+  ^A ^C       退出 term-ime
+  ^A ^A       向 shell 发送字面 Ctrl+A
 
 输入候选状态:
   1-9       选择对应候选词
   Space     选择首个候选词
+  Backspace 删除单个拼音字母
   Esc       取消输入
-  Backspace 取消输入
 
 设置面板:
   ↑/↓ 或 j/k   上下导航
@@ -33,10 +32,9 @@ const SECTIONS = [
     title: '配置',
     body: `配置文件位于 ~/.config/term-ime/config.json,可在这里:
 
-  - 开关语言(简体中文 / 繁体中文 等)
+  - 开关语言(简体中文)
   - 设置启动时激活的语言
   - 切换界面语言(中文 / 英文)
-  - 启用 AI 候选词排序
 
 首次运行会生成默认配置。命令行也可传路径覆盖:
   ./build/term-ime /path/to/config.json`,
@@ -50,18 +48,8 @@ const SECTIONS = [
 需在真实 TTY 或支持 alternate screen 的终端中运行(Ctrl+Alt+F1 切到 TTY,
 或在 xterm / GNOME Terminal 等终端里)。
 
-启动后默认英文模式,按 Ctrl+A Space 切换到中文,输入拼音即可看到候选词。
-退出:在 shell 里输入 exit,或按 Ctrl+C。`,
-  },
-  {
-    id: 'ai',
-    title: 'AI 候选词排序',
-    body: `term-ime 可选启用 AI 候选词排序,根据上下文把最可能的候选词排到最前。
-
-启用:按 Ctrl+A A 切换。首次启用会下载一个小型语言模型(约 300MB),
-之后即可使用。模型在后台加载,不影响打字。
-
-关闭:再次按 Ctrl+A A。`,
+启动后默认英文模式,按 ^A Space 切换到中文,输入拼音即可看到候选词。
+退出:按 ^A ^C,或在 shell 里输入 exit。`,
   },
 ];
 

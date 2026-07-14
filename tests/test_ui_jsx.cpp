@@ -60,26 +60,8 @@ int main() {
     ftxui::Render(screen4b, item_normal);
     std::cout << "Normal: " << screen4b.ToString() << "\n\n";
 
-    // Test 5: AIIndicator component
-    std::cout << "Test 5: AIIndicator Component\n";
-    auto ai_enabled = AIIndicator({.enabled = true, .loading = false});
-    auto ai_loading = AIIndicator({.enabled = true, .loading = true});
-    auto ai_downloading = AIIndicator({.downloading = true, .download_progress = 50});
-
-    auto screen5a = ftxui::Screen::Create(ftxui::Dimension::Fixed(15), ftxui::Dimension::Fixed(1));
-    ftxui::Render(screen5a, ai_enabled);
-    std::cout << "AI enabled: " << screen5a.ToString() << "\n";
-
-    auto screen5b = ftxui::Screen::Create(ftxui::Dimension::Fixed(15), ftxui::Dimension::Fixed(1));
-    ftxui::Render(screen5b, ai_loading);
-    std::cout << "AI loading: " << screen5b.ToString() << "\n";
-
-    auto screen5c = ftxui::Screen::Create(ftxui::Dimension::Fixed(20), ftxui::Dimension::Fixed(1));
-    ftxui::Render(screen5c, ai_downloading);
-    std::cout << "Downloading 50%: " << screen5c.ToString() << "\n\n";
-
-    // Test 6: Full MainBar component
-    std::cout << "Test 6: MainBar Component (Full UI)\n";
+    // Test 5: Full MainBar component
+    std::cout << "Test 5: MainBar Component (Full UI)\n";
     std::vector<Candidate> candidates;
     Candidate c1;
     c1.text = U"你好";
@@ -96,30 +78,23 @@ int main() {
     c3.code = "nihaoa";
     candidates.push_back(c3);
 
-    auto main_bar = MainBar({.mode = "中文",
-                             .lang_name = "简体中文",
-                             .candidates = candidates,
-                             .selected = 0,
-                             .buffer = "nihao",
-                             .ai_enabled = true,
-                             .ai_loading = false,
-                             .downloading = false,
-                             .download_progress = 0});
+    auto main_bar =
+        MainBar({.mode = "中文", .lang_name = "简体中文", .candidates = candidates, .selected = 0, .buffer = "nihao"});
 
     auto screen6 = ftxui::Screen::Create(ftxui::Dimension::Fixed(80), ftxui::Dimension::Fixed(1));
     ftxui::Render(screen6, main_bar);
     std::cout << "MainBar: " << screen6.ToString() << "\n\n";
 
-    // Test 7: EmptyBar (no candidates)
-    std::cout << "Test 7: EmptyBar Component\n";
+    // Test 6: EmptyBar (no candidates)
+    std::cout << "Test 6: EmptyBar Component\n";
     auto empty_bar = EmptyBar({.mode = "EN"});
 
     auto screen7 = ftxui::Screen::Create(ftxui::Dimension::Fixed(80), ftxui::Dimension::Fixed(1));
     ftxui::Render(screen7, empty_bar);
     std::cout << "EmptyBar: " << screen7.ToString() << "\n\n";
 
-    // Test 8: HintsBar
-    std::cout << "Test 8: HintsBar Component\n";
+    // Test 7: HintsBar
+    std::cout << "Test 7: HintsBar Component\n";
     auto hints = HintsBar();
 
     auto screen8 = ftxui::Screen::Create(ftxui::Dimension::Fixed(60), ftxui::Dimension::Fixed(1));
