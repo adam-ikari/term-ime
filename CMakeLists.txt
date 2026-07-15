@@ -330,6 +330,7 @@ add_executable(term-ime-tests
     tests/test_utf8.cpp
     tests/test_config.cpp
     tests/test_ime_state.cpp
+    tests/test_i18n.cpp
     tests/test_input_processor.cpp
 )
 

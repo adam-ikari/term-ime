@@ -135,6 +135,7 @@ void I18n::load_default_translations(Lang lang) {
         translations_ = {
             {"mode.chinese", "中文"}, {"mode.english", "EN"},  {"hint.toggle_mode", "切换"},
             {"hint.select", "选择"},  {"hint.cancel", "取消"}, {"status.pinyin", "拼音"},
+            {"settings.title", "设置"},
         };
         break;
 
@@ -142,6 +143,7 @@ void I18n::load_default_translations(Lang lang) {
         translations_ = {
             {"mode.chinese", "中文"},  {"mode.english", "EN"},    {"hint.toggle_mode", "Toggle"},
             {"hint.select", "Select"}, {"hint.cancel", "Cancel"}, {"status.pinyin", "Pinyin"},
+            {"settings.title", "Settings"},
         };
         break;
     }
