@@ -78,6 +78,7 @@ export default function TerminalDemo({ className = '' }: Props) {
 
       // status / candidate bar (green background, single line, full width)
       const modeLabel = mode === 'CN' ? '中文' : 'EN';
+      const cols = term.cols;
       let bar = '';
       if (mode === 'CN' && composition) {
         const displayComp = composition
@@ -96,9 +97,13 @@ export default function TerminalDemo({ className = '' }: Props) {
       } else {
         bar = ` [${modeLabel}]  ^A Space 切换 | ^A S 设置`;
       }
+      // Truncate bar if it exceeds terminal width to prevent wrapping
+      const plainBar = bar.replace(/\x1b\[[0-9;]*m/g, '');
+      if (plainBar.length > cols) {
+        bar = bar.slice(0, cols - 1) + '…';
+      }
       // Pad to fill the terminal width with green background (like the real
       // FTXUI BgColor that paints the entire row), using xterm's current cols.
-      const cols = term.cols;
       // Strip ANSI escapes to get the visual width
       const plain = bar.replace(/\x1b\[[0-9;]*m/g, '');
       const padLen = Math.max(0, cols - plain.length);
