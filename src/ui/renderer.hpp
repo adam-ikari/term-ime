@@ -35,6 +35,7 @@ class Renderer {
 
     int read_key();
     int get_tty_fd() const;
+    bool is_initialized() const { return initialized_; }
 
    private:
     int tty_fd_ = -1;

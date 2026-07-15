@@ -32,6 +32,10 @@ bool App::init(const AppConfig& config) {
         // Initialize renderer
         spdlog::info("Initializing renderer");
         renderer_.init();
+        if (!renderer_.is_initialized()) {
+            spdlog::error("Renderer initialization failed (not a TTY or alternate screen not supported)");
+            return false;
+        }
 
         // Spawn shell in PTY
         spdlog::info("Spawning PTY");
@@ -43,7 +47,8 @@ bool App::init(const AppConfig& config) {
 
         // Get terminal size
         struct winsize ws;
-        if (ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0 || ws.ws_row > 1000 ||
+        int tty_fd = renderer_.get_tty_fd();
+        if (ioctl(tty_fd, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0 || ws.ws_row > 1000 ||
             ws.ws_col == 0 || ws.ws_col > 1000) {
             spdlog::warn("Failed to get terminal size, using defaults");
             ws.ws_row = 24;
