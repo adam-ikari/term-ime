@@ -97,16 +97,39 @@ export default function TerminalDemo({ className = '' }: Props) {
       } else {
         bar = ` [${modeLabel}]  ^A Space 切换 | ^A S 设置`;
       }
-      // Truncate bar if it exceeds terminal width to prevent wrapping
+      // Truncate bar if it exceeds terminal width to prevent wrapping.
+      // CJK characters take 2 display columns in xterm, so we must count
+      // display width (not string length) against term.cols.
+      function displayWidth(str: string): number {
+        let w = 0;
+        for (const ch of str) {
+          // CJK Unified Ideographs, Hiragana, Katakana, Hangul, etc.
+          const code = ch.codePointAt(0) || 0;
+          if (code >= 0x4e00 && code <= 0x9fff) w += 2;
+          else if (code >= 0x3000 && code <= 0x303f) w += 2; // CJK punctuation
+          else if (code >= 0x3040 && code <= 0x309f) w += 2; // Hiragana
+          else if (code >= 0x30a0 && code <= 0x30ff) w += 2; // Katakana
+          else if (code >= 0xff00 && code <= 0xffef) w += 2; // Fullwidth forms
+          else w += 1;
+        }
+        return w;
+      }
       const plainBar = bar.replace(/\x1b\[[0-9;]*m/g, '');
-      if (plainBar.length > cols) {
-        bar = bar.slice(0, cols - 1) + '…';
+      if (displayWidth(plainBar) > cols) {
+        // Truncate character by character until it fits
+        let truncated = '';
+        for (let i = 0; i < plainBar.length; i++) {
+          const test = plainBar.slice(0, i + 1);
+          if (displayWidth(test) > cols - 1) break;
+          truncated = test;
+        }
+        bar = truncated + '…';
       }
       // Pad to fill the terminal width with green background (like the real
       // FTXUI BgColor that paints the entire row), using xterm's current cols.
       // Strip ANSI escapes to get the visual width
       const plain = bar.replace(/\x1b\[[0-9;]*m/g, '');
-      const padLen = Math.max(0, cols - plain.length);
+      const padLen = Math.max(0, cols - displayWidth(plain));
       bar = bar + ' '.repeat(padLen);
       term.writeln(`${C.barBg}${bar}${C.reset}`);
     }
