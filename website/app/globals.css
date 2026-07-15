@@ -220,15 +220,25 @@ kbd, .kbd {
 .terminal-body { padding: 14px 16px; color: var(--text); font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; overflow: hidden; }
 
 /* Hero */
-.hero { padding: 56px 0 32px; }
+.hero {
+  padding: 80px 0 64px;
+  min-height: calc(100vh - 48px); /* 减去导航栏高度 */
+  display: flex;
+  align-items: center;
+}
+.hero .container {
+  width: 100%;
+}
 .hero-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 40px;
   align-items: center;
+  width: 100%;
 }
 @media (max-width: 820px) {
   .hero-grid { grid-template-columns: 1fr; gap: 28px; }
+  .hero { min-height: auto; padding: 48px 0; }
 }
 .lead { text-align: left; }
 .lead h1 {
@@ -252,6 +262,9 @@ kbd, .kbd {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-height: 380px;
+  display: flex;
+  flex-direction: column;
 }
 .demo-chrome {
   display: flex;
@@ -263,7 +276,8 @@ kbd, .kbd {
   padding: 0 12px;
 }
 .demo-title { margin: 0 auto; color: var(--text-dim); font-size: 12px; }
-.demo-inner { padding: 8px 10px; }
+.demo-inner { padding: 8px 10px; flex: 1; overflow: hidden; }
+.demo-inner .xterm-host { height: 100%; }
 .xterm-host :global(.xterm) { padding: 0; }
 .xterm-host :global(.xterm-viewport) { background-color: transparent !important; }
 .xterm-host :global(.xterm-screen) { background-color: transparent !important; }
