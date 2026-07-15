@@ -28,12 +28,6 @@ bool App::init(const AppConfig& config) {
     I18n::init(ui_lang);
     spdlog::info("UI language initialized: {}", config_.ui_language);
 
-    // 检查是否是 TTY
-    if (!isatty(STDIN_FILENO)) {
-        spdlog::error("Not a TTY, cannot run");
-        return false;
-    }
-
     try {
         // Initialize renderer
         spdlog::info("Initializing renderer");

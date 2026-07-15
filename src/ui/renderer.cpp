@@ -4,6 +4,7 @@
 #include "jsx.hpp"
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/screen/string.hpp>
+#include <spdlog/spdlog.h>
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
@@ -51,9 +52,11 @@ Renderer::~Renderer() {
 void Renderer::init() {
     tty_fd_ = STDIN_FILENO;
 
-    // 检查是否是 TTY
+    // Check if we're running in a terminal that supports alternate screen.
+    // If not (e.g., piped input, systemd service), we can't use raw mode
+    // or alternate screen, so mark as uninitialized but don't fail.
     if (!isatty(tty_fd_)) {
-        // 非 TTY 环境，不初始化
+        spdlog::warn("Not a TTY; alternate screen and raw mode unavailable");
         initialized_ = false;
         return;
     }

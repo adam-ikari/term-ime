@@ -67,11 +67,12 @@ int main(int argc, char* argv[]) {
         std::cerr << "╔══════════════════════════════════════════════════════════════╗" << std::endl;
         std::cerr << "║  term-ime 启动失败                                           ║" << std::endl;
         std::cerr << "╠══════════════════════════════════════════════════════════════╣" << std::endl;
-        std::cerr << "║  原因: 未检测到 TTY 终端                                      ║" << std::endl;
+        std::cerr << "║  原因: 初始化失败                                            ║" << std::endl;
         std::cerr << "║                                                              ║" << std::endl;
-        std::cerr << "║  term-ime 需要在以下环境运行:                               ║" << std::endl;
-        std::cerr << "║    • Linux 真实 TTY (Ctrl+Alt+F3~F6)                        ║" << std::endl;
-        std::cerr << "║    • 支持 alternate screen 的终端模拟器                      ║" << std::endl;
+        std::cerr << "║  可能的原因:                                                ║" << std::endl;
+        std::cerr << "║    • 未连接到终端 (stdin/stdout 被重定向)                   ║" << std::endl;
+        std::cerr << "║    • 终端不支持 alternate screen (需要 xterm-256color 等)   ║" << std::endl;
+        std::cerr << "║    • 无法创建 PTY (权限不足)                                ║" << std::endl;
         std::cerr << "║                                                              ║" << std::endl;
         std::cerr << "║  详细日志: " << (log_dir + "/term-ime.log") << std::endl;
         std::cerr << "╚══════════════════════════════════════════════════════════════╝" << std::endl;
