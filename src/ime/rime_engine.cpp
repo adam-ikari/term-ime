@@ -229,10 +229,10 @@ std::u32string RimeIme::select(int index) {
         const char* text = commit.text;
         std::u32string result = text ? utf8_to_utf32(text) : U"";
         rime_->free_commit(&commit);
-        update_state();  // Update state after selection
+        // Clear composition after selection so state() returns Inactive
+        rime_->clear_composition(session_);
         return result;
     }
-    update_state();  // Update state even if no commit
     return U"";
 }
 
