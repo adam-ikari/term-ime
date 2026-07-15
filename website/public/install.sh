@@ -139,4 +139,16 @@ esac
 INSTALLED="${BIN_DIR}/term-ime"
 if [[ ":${PATH}:" == *":${BIN_DIR}:"* ]]; then INSTALLED="term-ime"; fi
 echo ">> Installed: ${INSTALLED}"
+
+# Verify the installed binary is actually statically linked.
+echo ">> Verifying binary..."
+if ! file "${PREFIX}/bin/term-ime" | grep -q "statically linked"; then
+    echo "!! WARNING: Binary does not appear to be fully statically linked."
+    echo "!! This may indicate a build issue. Please report at:"
+    echo "!! https://github.com/${REPO}/issues"
+    echo "!!"
+    echo "!! Dynamic dependencies detected:"
+    ldd "${PREFIX}/bin/term-ime" 2>/dev/null || true
+fi
+
 echo ">> Run: term-ime"
