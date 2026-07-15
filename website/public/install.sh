@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # term-ime installer — downloads a prebuilt binary from GitHub Releases.
 # The binary is fully statically linked (zero runtime shared-library deps), so
-# no system runtime libraries need to be installed — just drop it on PATH.
+# no system runtime shared libraries need to be installed — just drop it on PATH.
 #
-# Usage:
+# Usage (user install, no sudo):
 #   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash
 #   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --version v1.0.0 --prefix ~/.local
+#
+# Usage (system install, requires sudo):
+#   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --prefix /usr/local
 #
 # Defaults: latest release, prefix ~/.local (no sudo needed).
 set -euo pipefail
@@ -13,6 +16,7 @@ set -euo pipefail
 REPO="adam-ikari/term-ime"
 PREFIX="${HOME}/.local"
 VERSION=""
+SUDO=""
 
 print_usage() {
     cat <<'EOF'
@@ -22,6 +26,15 @@ Options:
   --version <tag>   Release tag to install (default: latest)
   --prefix <dir>    Install prefix (default: ~/.local — no sudo needed)
   -h, --help        Show this help
+
+Install modes:
+  User install (default):
+    curl -fsSL .../install.sh | bash
+    # Installs to ~/.local/bin/term-ime — no sudo needed
+
+  System install:
+    curl -fsSL .../install.sh | bash -s -- --prefix /usr/local
+    # Installs to /usr/local/bin/term-ime — may need sudo
 EOF
 }
 
@@ -82,12 +95,13 @@ fi
 
 # Install binary.
 mkdir -p "${PREFIX}/bin"
-if [[ -w "${PREFIX}/bin" ]]; then
-    install -m 0755 "$BIN" "${PREFIX}/bin/term-ime"
-else
-    echo ">> ${PREFIX}/bin not writable; using sudo"
-    sudo install -m 0755 "$BIN" "${PREFIX}/bin/term-ime"
+
+# Detect if we need sudo for the target prefix.
+if [[ ! -w "${PREFIX}/bin" ]]; then
+    SUDO="sudo"
 fi
+
+${SUDO} install -m 0755 "$BIN" "${PREFIX}/bin/term-ime"
 
 # Install rime-data (shared data: schemas + essay.txt + dict).
 EXTRACT_ROOT="$(dirname "$(dirname "$BIN")")"
@@ -95,11 +109,7 @@ SHARED_SRC="${EXTRACT_ROOT}/share/term-ime/rime-data"
 if [[ -d "$SHARED_SRC" ]]; then
     DATA_DEST="${PREFIX}/share/term-ime/rime-data"
     mkdir -p "$DATA_DEST"
-    if [[ -w "$DATA_DEST" ]]; then
-        cp -r "$SHARED_SRC"/* "$DATA_DEST/"
-    else
-        sudo cp -r "$SHARED_SRC"/* "$DATA_DEST/"
-    fi
+    ${SUDO} cp -r "$SHARED_SRC"/* "$DATA_DEST/"
     echo ">> Installed rime-data to ${DATA_DEST}"
 fi
 

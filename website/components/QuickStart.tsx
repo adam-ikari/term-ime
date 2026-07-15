@@ -14,12 +14,23 @@ export default function QuickStart() {
       <div className="container">
         <h2>快速开始</h2>
 
+        <h3>用户安装（推荐，无需 sudo）</h3>
         <div className="quickstart-primary">
           <Terminal title="bash">
-            <span className="comment"># 一键安装(完全静态,零依赖)</span>
+            <span className="comment"># 一键安装到 ~/.local/bin，完全静态，零依赖</span>
             {'\n'}
             <span className="prompt">$ </span>
-            curl -fsSL https://github.com/adam-ikari/term-ime/releases/latest/download/install.sh | bash
+            curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash
+          </Terminal>
+        </div>
+
+        <h3>系统安装（需要 sudo）</h3>
+        <div className="quickstart-primary">
+          <Terminal title="bash">
+            <span className="comment"># 安装到 /usr/local/bin，所有用户可用</span>
+            {'\n'}
+            <span className="prompt">$ </span>
+            curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --prefix /usr/local
           </Terminal>
         </div>
 
@@ -48,7 +59,7 @@ export default function QuickStart() {
           、Sarasa Mono、JetBrains Mono),以获得最佳的中文与候选词对齐效果。
         </p>
 
-        <h3>3. 配置(可选)</h3>
+        <h3>配置(可选)</h3>
         <p className="note">
           配置文件位于 <code>~/.config/term-ime/config.json</code>。可在这里开关语言、
           切换界面语言。
