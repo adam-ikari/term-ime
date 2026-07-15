@@ -25,13 +25,19 @@ jobs:
 
       - name: Configure & build (Release)
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXE_LINKER_FLAGS="-static -static-libgcc -static-libstdc++" \
+            -DBUILD_SHARED_LIBS=OFF
           cmake --build build -j$(nproc)
 
-      - name: Sanity-check the binary
+      - name: Verify static linking
         run: |
+          echo ">> Checking binary dependencies..."
           file build/term-ime
-          ./build/term-ime < /dev/null || true
+          echo ">> Dynamic dependencies:"
+          ldd build/term-ime || true
+          echo ">> Checking for boost symbols:"
+          nm build/term-ime 2>/dev/null | grep -i "boost.*regex" | head -5 || echo "No boost regex symbols"
           if ldd build/term-ime 2>&1 | grep -qE '=> /'; then
             echo "ERROR: binary has dynamic deps:"; ldd build/term-ime; exit 1
           fi
