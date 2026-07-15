@@ -34,9 +34,17 @@ bool RimeIme::initialize() {
     // runtime deploy is needed). The user data dir is always term-ime's own.
     std::string shared_dir = shared_data_dir_;
     if (shared_dir.empty()) {
+        // Get user's home directory for fallback paths
+        const char* home = getenv("HOME");
+        std::string user_local = home ? std::string(home) + "/.local/share/term-ime/rime-data" : "";
+
         std::vector<std::string> search_paths = {
-            RIME_BUNDLED_DATA_DIR,  "/usr/local/share/term-ime/rime-data", "/usr/share/term-ime/rime-data",
-            "/usr/share/rime-data", "/usr/local/share/rime-data",
+            RIME_BUNDLED_DATA_DIR,  // build-time bundled data
+            user_local,              // user-local install
+            "/usr/local/share/term-ime/rime-data",
+            "/usr/share/term-ime/rime-data",
+            "/usr/share/rime-data",
+            "/usr/local/share/rime-data",
         };
 
         for (const auto& path : search_paths) {
