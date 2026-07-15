@@ -129,6 +129,57 @@ void test_sequence() {
     std::cout << "  PASS\n";
 }
 
+void test_compose_select_cycle() {
+    std::cout << "Test: Compose-select cycle (select candidate then continue input)\n";
+    InputProcessor proc;
+
+    // 1. 在中文模式下输入 "ni" 开始组词
+    proc.process('n');
+    auto r1 = proc.process('i');
+    assert(r1.forward);
+
+    // 2. 按空格选中第一个候选词（模拟 select 操作后的状态重置）
+    // 在真实的 App::on_keyboard_data 中，select() 后会调用 clear_composition()
+    // 所以 IME 状态应该变为 Inactive
+
+    // 3. 继续输入新的拼音 "hao"
+    auto r2 = proc.process('h');
+    assert(r2.forward);
+    auto r3 = proc.process('a');
+    assert(r3.forward);
+    auto r4 = proc.process('o');
+    assert(r4.forward);
+
+    std::cout << "  PASS\n";
+}
+
+void test_multiple_select_cycles() {
+    std::cout << "Test: Multiple select cycles\n";
+    InputProcessor proc;
+
+    // 第一次输入
+    for (char c : std::string("ni")) {
+        auto r = proc.process(c);
+        assert(r.forward);
+    }
+    // 选中候选词（模拟状态重置）
+
+    // 第二次输入
+    for (char c : std::string("shi")) {
+        auto r = proc.process(c);
+        assert(r.forward);
+    }
+    // 选中候选词
+
+    // 第三次输入
+    for (char c : std::string("jie")) {
+        auto r = proc.process(c);
+        assert(r.forward);
+    }
+
+    std::cout << "  PASS\n";
+}
+
 int main() {
     std::cout << "=== Input Processor End-to-End Tests ===\n\n";
 
@@ -139,6 +190,8 @@ int main() {
     test_normal_key();
     test_escape_sequence();
     test_sequence();
+    test_compose_select_cycle();
+    test_multiple_select_cycles();
 
     std::cout << "\n=== All Tests Passed ===\n";
     return 0;
