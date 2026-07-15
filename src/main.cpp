@@ -9,14 +9,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <iostream>
 
 int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
 
     // 设置日志输出到文件
+    std::string log_dir;
     try {
-        std::string log_dir = std::filesystem::path(getenv("HOME") ? getenv("HOME") : "/tmp") / ".cache" / "term-ime";
+        log_dir = std::filesystem::path(getenv("HOME") ? getenv("HOME") : "/tmp") / ".cache" / "term-ime";
         std::filesystem::create_directories(log_dir);
         auto logger = spdlog::basic_logger_mt("term-ime", log_dir + "/term-ime.log", true);
         spdlog::set_default_logger(logger);
@@ -60,6 +62,20 @@ int main(int argc, char* argv[]) {
     App app;
     if (!app.init(config)) {
         spdlog::error("App init failed");
+        // Print error to stderr so user can see it even when not in TTY
+        std::cerr << std::endl;
+        std::cerr << "╔══════════════════════════════════════════════════════════════╗" << std::endl;
+        std::cerr << "║  term-ime 启动失败                                           ║" << std::endl;
+        std::cerr << "╠══════════════════════════════════════════════════════════════╣" << std::endl;
+        std::cerr << "║  原因: 未检测到 TTY 终端                                      ║" << std::endl;
+        std::cerr << "║                                                              ║" << std::endl;
+        std::cerr << "║  term-ime 需要在以下环境运行:                               ║" << std::endl;
+        std::cerr << "║    • Linux 真实 TTY (Ctrl+Alt+F3~F6)                        ║" << std::endl;
+        std::cerr << "║    • 支持 alternate screen 的终端模拟器                      ║" << std::endl;
+        std::cerr << "║                                                              ║" << std::endl;
+        std::cerr << "║  详细日志: " << (log_dir + "/term-ime.log") << std::endl;
+        std::cerr << "╚══════════════════════════════════════════════════════════════╝" << std::endl;
+        std::cerr << std::endl;
         return 1;
     }
 
