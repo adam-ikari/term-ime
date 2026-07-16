@@ -195,7 +195,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
             }
             ime_->toggle_mode();
             render();
-            return;
+            continue;
         }
 
         // Check if this is an escape sequence
@@ -213,7 +213,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                         ime_->cancel();
                     }
                     toggle_settings();
-                    return;
+                    continue;
                 } else if (second_key == '\x03') {
                     // Ctrl+A + Ctrl+C — quit term-ime
                     spdlog::info("Ctrl+A + Ctrl+C detected, quitting");
@@ -247,7 +247,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
                 }
                 render();
-                return;
+                continue;
             } else if (ch == ' ') {
                 // Space selects first candidate
                 auto candidates = ime_->select(0);
@@ -259,7 +259,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
                 }
                 render();
-                return;
+                continue;
             } else if (ch == '\b' || ch == 127) {
                 // Backspace: delete one syllable character, not the whole
                 // composition. Send XK_BackSpace to rime so it handles the
@@ -267,7 +267,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 ime_->backspace();
                 selected_candidate_ = 0;
                 render();
-                return;
+                continue;
             } else if (ch >= 'a' && ch <= 'z') {
                 ime_->input(ch);
                 selected_candidate_ = 0;
@@ -327,6 +327,8 @@ void App::on_quit(int signum) {
 void App::render() {
     if (!screen_)
         return;
+
+    need_render_ = false;
 
     spdlog::debug("render: starting");
     renderer_.render(*screen_);
