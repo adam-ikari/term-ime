@@ -78,6 +78,7 @@ class App {
     AppConfig config_;
     size_t selected_candidate_ = 0;
     bool initialized_ = false;
+    bool need_render_ = false;
     ui::SettingsState settings_state_;  // Settings panel state
 
     void on_language_change(const LanguageConfig& lang);
