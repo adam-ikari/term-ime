@@ -233,9 +233,11 @@ Element MainBar(const MainBarProps& props) {
 
     // If even 1 candidate with full text doesn't fit, enable scrolling
     if (display_count == 1 && !need_scroll) {
-        int single_w = fixed_w + candidate_width(props.candidates[props.selected].text, true);
-        if (single_w > term_w) {
-            need_scroll = true;
+        if (props.selected < props.candidates.size()) {
+            int single_w = fixed_w + candidate_width(props.candidates[props.selected].text, true);
+            if (single_w > term_w) {
+                need_scroll = true;
+            }
         }
     }
 
@@ -250,7 +252,7 @@ Element MainBar(const MainBarProps& props) {
     items.push_back(Text(" " + I18n::t("status.pinyin") + ": " + props.buffer + " ") | Bold());
 
     // Candidates
-    if (display_count == 1 && need_scroll) {
+    if (display_count == 1 && need_scroll && props.selected < props.candidates.size()) {
         // Only show the selected candidate with scrolling
         items.push_back(CandidateItem({.index = static_cast<int>(props.selected + 1),
                                        .text = props.candidates[props.selected].text,

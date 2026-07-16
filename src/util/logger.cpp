@@ -49,6 +49,7 @@ void set_level(Level level) {
 }
 
 void debug(const char* fmt, ...) {
+    if (!fmt) return;
     va_list args;
     va_start(args, fmt);
     char buf[1024];
@@ -58,6 +59,7 @@ void debug(const char* fmt, ...) {
 }
 
 void info(const char* fmt, ...) {
+    if (!fmt) return;
     va_list args;
     va_start(args, fmt);
     char buf[1024];
@@ -67,6 +69,7 @@ void info(const char* fmt, ...) {
 }
 
 void warn(const char* fmt, ...) {
+    if (!fmt) return;
     va_list args;
     va_start(args, fmt);
     char buf[1024];
@@ -76,6 +79,7 @@ void warn(const char* fmt, ...) {
 }
 
 void error(const char* fmt, ...) {
+    if (!fmt) return;
     va_list args;
     va_start(args, fmt);
     char buf[1024];

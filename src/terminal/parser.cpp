@@ -75,8 +75,18 @@ void Parser::handle_csi(char c) {
             int row = 1, col = 1;
             size_t pos = csi_params_.find(';');
             if (pos != std::string::npos) {
-                row = std::stoi(csi_params_.substr(0, pos));
-                col = std::stoi(csi_params_.substr(pos + 1));
+                try {
+                    row = std::stoi(csi_params_.substr(0, pos));
+                    col = std::stoi(csi_params_.substr(pos + 1));
+                } catch (const std::exception&) {
+                    // Malformed CSI parameters, ignore
+                }
+            } else if (!csi_params_.empty()) {
+                try {
+                    row = std::stoi(csi_params_);
+                } catch (const std::exception&) {
+                    // Malformed CSI parameter, ignore
+                }
             }
             screen_.move_cursor(row - 1, col - 1);
             break;

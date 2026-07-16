@@ -43,10 +43,12 @@ Pty::~Pty() {
 bool Pty::spawn(const std::string& shell) {
     struct winsize ws = {24, 80, 0, 0};
 
-    pid_ = forkpty(&master_fd_, nullptr, nullptr, &ws);
+    int master;
+    pid_ = forkpty(&master, nullptr, nullptr, &ws);
     if (pid_ < 0) {
         return false;
     }
+    master_fd_ = master;
 
     if (pid_ == 0) {
         // Child process
