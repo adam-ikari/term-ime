@@ -37,6 +37,13 @@ jobs:
       run: |
         cd build
         ctest --output-on-failure
+        # Run additional non-gtest test binaries
+        echo ">> Running test-input-e2e"
+        ./test-input-e2e
+        echo ">> Running test-ui-jsx"
+        ./test-ui-jsx
+        echo ">> Running test-settings"
+        ./test-settings
 
   lint:
     runs-on: ubuntu-latest
