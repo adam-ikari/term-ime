@@ -3,7 +3,7 @@
 
 __include: luna_pinyin.schema:/
 
-# 默認的opencc字形轉換選項設爲簡化字
+# 默认启用简化字（zh_hans）
 __patch:
   - switches/@2/reset: 1
   - luna_pinyin_simp.custom:/patch?
@@ -15,8 +15,32 @@ schema:
   author:
     - 佛振 <chen.sst@gmail.com>
   description: |
-    朙月拼音，簡化字輸出模式。
+    朙月拼音，简化字输出模式。
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: ["中文", "西文"]
+  - name: full_shape
+    states: ["半角", "全角"]
+  - options:
+      - zh_hant
+      - zh_hans
+      - zh_hant_hk
+      - zh_hant_tw
+    states:
+      - 傳統漢字
+      - 简化字
+      - 香港字形
+      - 臺灣字形
+    abbrev: [漢, 简, 港, 臺]
+  - name: ascii_punct
+    states: ["。，", "．，"]
 
 translator:
-  prism: luna_pinyin_simp
   dictionary: luna_pinyin
+  prism: luna_pinyin_simp
+  preedit_format:
+    - xform/([nl])v/$1ü/
+    - xform/([nl])ue/$1üe/
+    - xform/([jqxy])v/$1u/
