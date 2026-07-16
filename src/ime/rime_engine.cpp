@@ -175,6 +175,10 @@ void RimeIme::set_mode(ImeMode mode) {
 
 void RimeIme::toggle_mode() {
     mode_ = (mode_ == ImeMode::Chinese) ? ImeMode::English : ImeMode::Chinese;
+    // Clear rime session composition when switching modes
+    if (rime_ && session_) {
+        rime_->clear_composition(session_);
+    }
 }
 
 std::string RimeIme::buffer() const {
@@ -254,6 +258,8 @@ void RimeIme::cancel() {
     // Send Escape to cancel
     rime_->process_key(session_, 0xFF1B, 0);  // XK_Escape
     update_state();
+    // Always clear composition to ensure clean state
+    rime_->clear_composition(session_);
 }
 
 void RimeIme::page_up() {
