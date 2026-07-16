@@ -224,16 +224,18 @@ std::u32string RimeIme::select(int index) {
     rime_->process_key(session_, key, 0);
 
     // Get committed text
+    std::u32string result;
     RIME_STRUCT(RimeCommit, commit);
     if (rime_->get_commit(session_, &commit)) {
         const char* text = commit.text;
-        std::u32string result = text ? utf8_to_utf32(text) : U"";
+        result = text ? utf8_to_utf32(text) : U"";
         rime_->free_commit(&commit);
-        // Clear composition after selection so state() returns Inactive
-        rime_->clear_composition(session_);
-        return result;
     }
-    return U"";
+
+    // Always clear composition after selection, so state() returns Inactive
+    // and the next input can start a new composition.
+    rime_->clear_composition(session_);
+    return result;
 }
 
 void RimeIme::backspace() {
