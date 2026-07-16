@@ -167,7 +167,8 @@ Element HintsBar() {
 // ============================================================================
 
 Element MainBar(const MainBarProps& props) {
-    if (props.candidates.empty()) {
+    // 即使没有候选词，也要显示拼音（buffer 可能非空）
+    if (props.candidates.empty() && props.buffer.empty()) {
         return EmptyBar({.mode = props.mode});
     }
 
