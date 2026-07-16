@@ -165,3 +165,86 @@ TEST(InputProcessorTest, ResetClearsEscapeState) {
     EXPECT_TRUE(r.forward);
     ASSERT_EQ(r.data.size(), 1u);
 }
+
+// ---- Parser boundary tests ----
+TEST(InputProcessorTest, CtrlA_ForwardIsOnlyCtrlA_NotToggle) {
+    InputProcessor p;
+    p.process(0x01);
+    // A digit after Ctrl+A should forward {0x01, digit}, not toggle
+    auto r = p.process('1');
+    EXPECT_TRUE(r.forward);
+    ASSERT_EQ(r.data.size(), 2u);
+    EXPECT_EQ(r.data[0], 0x01);
+    EXPECT_EQ(r.data[1], '1');
+    EXPECT_FALSE(r.toggle_mode);
+}
+
+TEST(InputProcessorTest, CtrlA_Digit_NotToggle) {
+    InputProcessor p;
+    p.process(0x01);
+    auto r = p.process('2');
+    EXPECT_TRUE(r.forward);
+    EXPECT_FALSE(r.toggle_mode);
+}
+
+TEST(InputProcessorTest, CtrlA_UppercaseLetter_Forwards) {
+    InputProcessor p;
+    p.process(0x01);
+    auto r = p.process('Z');
+    EXPECT_TRUE(r.forward);
+    ASSERT_EQ(r.data.size(), 2u);
+    EXPECT_EQ(r.data[0], 0x01);
+    EXPECT_EQ(r.data[1], 'Z');
+}
+
+TEST(InputProcessorTest, MultipleEscSequencesCorrectly) {
+    InputProcessor p;
+    // First ESC sequence
+    p.process(0x1b);
+    p.process('[');
+    auto r1 = p.process('A');
+    EXPECT_TRUE(r1.forward);
+    EXPECT_FALSE(p.in_escape());
+
+    // Second ESC sequence immediately after
+    p.process(0x1b);
+    p.process('[');
+    auto r2 = p.process('B');
+    EXPECT_TRUE(r2.forward);
+    EXPECT_FALSE(p.in_escape());
+}
+
+TEST(InputProcessorTest, TwoConsecutiveEscSequences) {
+    InputProcessor p;
+    // Arrow up then arrow down
+    auto rs1 = feed(p, {0x1b, '[', 'A'});
+    EXPECT_TRUE(rs1[2].forward);
+    EXPECT_FALSE(p.in_escape());
+
+    auto rs2 = feed(p, {0x1b, '[', 'B'});
+    EXPECT_TRUE(rs2[2].forward);
+    EXPECT_FALSE(p.in_escape());
+}
+
+TEST(InputProcessorTest, NonAsciiBytesForwardNormally) {
+    InputProcessor p;
+    // High bytes (0x80+) should forward normally
+    for (uint8_t b = 0x80; b < 0x90; ++b) {
+        auto r = p.process(b);
+        EXPECT_TRUE(r.forward);
+        ASSERT_EQ(r.data.size(), 1u);
+        EXPECT_EQ(r.data[0], b);
+    }
+}
+
+TEST(InputProcessorTest, CtrlA_SpaceAfterOtherBytes_StillToggles) {
+    InputProcessor p;
+    // Send some normal bytes first
+    p.process('h');
+    p.process('e');
+    // Then Ctrl+A + Space
+    p.process(0x01);
+    auto r = p.process(' ');
+    EXPECT_TRUE(r.toggle_mode);
+    EXPECT_FALSE(r.forward);
+}
