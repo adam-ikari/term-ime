@@ -269,10 +269,15 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 render();
                 continue;
             } else if (ch >= 'a' && ch <= 'z') {
-                ime_->input(ch);
+                bool accepted = ime_->input(ch);
                 selected_candidate_ = 0;
-                // 组词中连续输入，延迟渲染
-                need_render_ = true;
+                if (accepted) {
+                    // 输入被接受，延迟渲染
+                    need_render_ = true;
+                } else {
+                    // 输入未被接受（如无效拼音组合），立即渲染显示当前状态
+                    render();
+                }
                 continue;
             }
             // Other keys are ignored while composing
@@ -282,9 +287,13 @@ void App::on_keyboard_data(const char* data, size_t len) {
 
         // Not composing - check if should start composing
         if (ime_->mode() == ImeMode::Chinese && byte >= 'a' && byte <= 'z' && !input_processor_.in_escape()) {
-            ime_->input(static_cast<char>(byte));
+            bool accepted = ime_->input(static_cast<char>(byte));
             selected_candidate_ = 0;
-            need_render_ = true;
+            if (accepted) {
+                need_render_ = true;
+            } else {
+                render();
+            }
             continue;
         }
 
