@@ -236,9 +236,11 @@ std::u32string RimeIme::select(int index) {
         rime_->free_commit(&commit);
     }
 
-    // Always clear composition after selection, so state() returns Inactive
-    // and the next input can start a new composition.
-    rime_->clear_composition(session_);
+    // If state is still Composing/Selecting but buffer is empty, clear it.
+    // Otherwise keep it so the user can continue typing the remaining input.
+    if (state() != ImeState::Inactive && buffer().empty()) {
+        rime_->clear_composition(session_);
+    }
     return result;
 }
 
