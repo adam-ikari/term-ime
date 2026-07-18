@@ -29,6 +29,8 @@ Submodules are required and built from source (FTXUI, spdlog, nlohmann_json, goo
 
 ## Tests
 
+**发布前必须通过所有测试。** 详细测试规范见 [TESTING.md](TESTING.md)。
+
 ```bash
 make test                         # runs ./build/term-ime-tests (the gtest binary)
 cd build && ctest --output-on-failure   # CTest; only term-ime-tests is gtest_discover_tests'd
@@ -36,10 +38,10 @@ cd build && ctest --output-on-failure   # CTest; only term-ime-tests is gtest_di
 
 There are **four** test executables, but CMake only registers `term-ime-tests` with CTest via `gtest_discover_tests`:
 
-- `term-ime-tests` — UTF-8, config, IME state (gtest; entry in `tests/test_main.cpp`)
+- `term-ime-tests` — UTF-8, config, IME state, I18n, input processor (gtest; entry in `tests/test_main.cpp`)
 - `test-ui-jsx` — UI JSX components (plain `main()`, custom checks)
 - `test-settings` — settings panel (plain `main()`, custom checks)
-- `test-input-e2e` — input processor state machine, plain `assert`-based (not gtest)
+- `test-input-e2e` — input processor state machine, compose-select cycles (plain `assert`-based)
 
 So `--gtest_filter` only applies to `term-ime-tests`. Run an individual non-ctest binary directly, e.g. `./build/test-input-e2e`. Run a single gtest case:
 
@@ -48,6 +50,22 @@ So `--gtest_filter` only applies to `term-ime-tests`. Run an individual non-ctes
 ```
 
 `tests/*.py` (e2e over a real PTY) and `test/test_all.sh` are standalone scripts — **not** wired into `make`/`ctest`. Invoke them manually with `python3 tests/test_e2e.py` etc.; they expect `./build/term-ime` to exist.
+
+### 发布前完整测试命令
+
+```bash
+# 1. 构建
+cmake --build build -j$(nproc)
+
+# 2. 自动化测试
+./build/term-ime-tests
+./build/test-input-e2e
+./build/test-ui-jsx
+./build/test-settings
+
+# 3. 手动 TUI 验收（详见 TESTING.md）
+./build/term-ime
+```
 
 ## Formatting
 
