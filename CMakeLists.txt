@@ -312,9 +312,13 @@ endforeach()
 # essay.txt is the preset vocabulary table (3.7MB, ~300k phrases with weights).
 configure_file(${CMAKE_SOURCE_DIR}/data/rime-data/essay.txt
                ${CMAKE_BINARY_DIR}/share/rime-data/essay.txt COPYONLY)
+# Copy opencc data files for simplifier (t2s conversion)
+file(COPY ${CMAKE_SOURCE_DIR}/data/rime-data/opencc/ DESTINATION ${CMAKE_BINARY_DIR}/share/rime-data/opencc/)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/data/rime-data/
         DESTINATION share/term-ime/rime-data
         FILES_MATCHING PATTERN "*.yaml" PATTERN "essay.txt")
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/data/rime-data/opencc/
+        DESTINATION share/term-ime/rime-data/opencc)
 # Expose the build-tree bundled data dir to C++.
 target_compile_definitions(term-ime-lib PUBLIC
     RIME_BUNDLED_DATA_DIR="${CMAKE_BINARY_DIR}/share/rime-data")

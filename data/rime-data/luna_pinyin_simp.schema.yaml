@@ -2,7 +2,7 @@
 # encoding: utf-8
 # 朙月拼音·简化字版
 # 使用 luna_pinyin 词典 + OpenCC 简化字转换
-# 默认输出简体中文
+# 默认输出简体中文，支持繁简切换
 
 schema:
   schema_id: luna_pinyin_simp
@@ -18,18 +18,9 @@ switches:
     states: ["中文", "西文"]
   - name: full_shape
     states: ["半角", "全角"]
-  - options:
-      - zh_hant
-      - zh_hans
-      - zh_hant_hk
-      - zh_hant_tw
+  - name: zh_hans
     reset: 1
-    states:
-      - 傳統漢字
-      - 简化字
-      - 香港字形
-      - 臺灣字形
-    abbrev: [漢, 简, 港, 臺]
+    states: ["漢字", "汉字"]
   - name: ascii_punct
     states: ["。，", "．，"]
 
@@ -51,7 +42,7 @@ engine:
     - fallback_segmentor
   translators:
     - punct_translator
-    - table_translator
+    - script_translator
     - reverse_lookup_translator
   filters:
     - simplifier@zh_hans
@@ -64,7 +55,7 @@ speller:
     - erase/^xx$/
     - abbrev/^([a-z]).+$/$1/
     - abbrev/^([a-z]+[a-z]).+$/$1/
-    - derive/^([nl])ue$/$1ve/
+    - derive/^([nl])ue/$1ve/
     - derive/^([jqxy])u/$1v/
     - derive/un$/uen/
     - derive/iu$/iou/
@@ -85,12 +76,18 @@ speller:
     - derive/^[jqxy]u$/[jqxy]v/
 
 translator:
-  dictionary: luna_pinyin_simp
+  dictionary: luna_pinyin
   prism: luna_pinyin_simp
   preedit_format:
     - xform/([nl])v/$1ü/
     - xform/([nl])ue/$1üe/
     - xform/([jqxy])v/$1u/
+
+simplifier:
+  opencc_config: t2s.json
+  tags: [abc]
+  tips: none
+  option_name: "x"
 
 zh_hans:
   option_name: zh_hans
