@@ -312,8 +312,10 @@ endforeach()
 # essay.txt is the preset vocabulary table (3.7MB, ~300k phrases with weights).
 configure_file(${CMAKE_SOURCE_DIR}/data/rime-data/essay.txt
                ${CMAKE_BINARY_DIR}/share/rime-data/essay.txt COPYONLY)
-# Copy opencc data files for simplifier (t2s conversion)
-file(COPY ${CMAKE_SOURCE_DIR}/data/rime-data/opencc/ DESTINATION ${CMAKE_BINARY_DIR}/share/rime-data/opencc/)
+# Copy opencc data files for simplifier (t2s conversion) — optional, skip if not present
+if(EXISTS ${CMAKE_SOURCE_DIR}/data/rime-data/opencc/t2s.json)
+  file(COPY ${CMAKE_SOURCE_DIR}/data/rime-data/opencc/ DESTINATION ${CMAKE_BINARY_DIR}/share/rime-data/opencc/)
+endif()
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/data/rime-data/
         DESTINATION share/term-ime/rime-data
         FILES_MATCHING PATTERN "*.yaml" PATTERN "essay.txt")
