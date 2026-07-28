@@ -235,6 +235,14 @@ void App::on_keyboard_data(const char* data, size_t len) {
             }
 
             char ch = static_cast<char>(byte);
+            // ESC (0x1b) cancels composition immediately
+            if (ch == 0x1b) {
+                spdlog::debug("IME composing: ESC cancels composition");
+                ime_->cancel();
+                selected_candidate_ = 0;
+                render();
+                continue;
+            }
             if (ch >= '1' && ch <= '9') {
                 // Select candidate
                 int idx = ch - '1';
@@ -279,6 +287,40 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     render();
                 }
                 continue;
+            } else if (ch == '\'') {
+                // 单引号作为拼音分隔符，传递给 rime 处理
+                bool accepted = ime_->input(ch);
+                if (accepted) {
+                    need_render_ = true;
+                } else {
+                    render();
+                }
+                continue;
+            } else if (ch == ',' || ch == '<') {
+                // 上翻页（逗号/<）
+                if (ime_->state() == ImeState::Selecting) {
+                    ime_->page_up();
+                    render();
+                    continue;
+                }
+            } else if (ch == '.' || ch == '>') {
+                // 下翻页（句号/>）
+                if (ime_->state() == ImeState::Selecting) {
+                    ime_->page_down();
+                    render();
+                    continue;
+                }
+            } else if (ch >= 'A' && ch <= 'Z') {
+                // 大写字母（Shift+字母）直接输出，不组词
+                if (is_escape_sequence && input_result.forward) {
+                    continue;
+                }
+                // 清除当前 composition 并输出大写字母
+                ime_->cancel();
+                selected_candidate_ = 0;
+                pty_.write(std::vector<uint8_t>{static_cast<uint8_t>(ch)});
+                render();
+                continue;
             }
             // Other keys are ignored while composing
             spdlog::debug("IME composing: ignoring key 0x{:02x}", byte);
@@ -294,6 +336,12 @@ void App::on_keyboard_data(const char* data, size_t len) {
             } else {
                 render();
             }
+            continue;
+        }
+
+        // 大写字母（Shift+字母）在中文模式下直接输出
+        if (ime_->mode() == ImeMode::Chinese && byte >= 'A' && byte <= 'Z' && !input_processor_.in_escape()) {
+            pty_.write(std::vector<uint8_t>{static_cast<uint8_t>(byte)});
             continue;
         }
 
