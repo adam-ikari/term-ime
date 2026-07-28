@@ -88,7 +88,7 @@ Element CandidateItem(const CandidateItemProps& props) {
     std::string label = std::to_string(props.index) + "." + display_text;
 
     if (props.selected) {
-        return Text(" [" + label + "] ") | Bold() | BgColor(color::kSelectedBg) | TextColor(color::kSelectedFg);
+        return Text(" " + label + " ") | Bold() | BgColor(color::kSelectedBg) | TextColor(color::kSelectedFg);
     } else {
         return Text(" " + label + " ") | TextColor(color::kCandidate);
     }
@@ -213,35 +213,34 @@ Element MainBar(const MainBarProps& props) {
     size_t display_count = max_display;
     bool need_scroll = false;
 
-    while (display_count > 0) {
+    // Try to fit as many as possible within term width.
+    // If candidates overflow, they're accessible via page down (rime's page system).
+    // Never show fewer than 1 candidate; single candidate text may be truncated.
+    while (display_count > 1) {
         int total_w = fixed_w;
         for (size_t i = 0; i < display_count; ++i) {
             bool sel = (i == props.selected);
-            // For the selected candidate, if scroll_off > 0, the display width changes
-            // But for width estimation, use the full text width (scroll doesn't help fit)
             total_w += candidate_width(props.candidates[i].text, sel);
         }
 
         if (total_w <= term_w) {
-            break;  // Fits!
+            break;
         }
         display_count--;
     }
 
-    // If 0 candidates fit, always show at least the selected one with scrolling
+    // If even 1 candidate doesn't fit, enable text scrolling for it
+    if (display_count >= 1 && props.selected < props.candidates.size()) {
+        int single_w = fixed_w + candidate_width(props.candidates[props.selected].text, true);
+        if (single_w > term_w) {
+            need_scroll = true;
+        }
+    }
+
+    // Always show at least the selected candidate
     if (display_count == 0 && !props.candidates.empty()) {
         display_count = 1;
         need_scroll = true;
-    }
-
-    // If even 1 candidate with full text doesn't fit, enable scrolling
-    if (display_count == 1 && !need_scroll) {
-        if (props.selected < props.candidates.size()) {
-            int single_w = fixed_w + candidate_width(props.candidates[props.selected].text, true);
-            if (single_w > term_w) {
-                need_scroll = true;
-            }
-        }
     }
 
     // ---- Build items ----
