@@ -14,20 +14,20 @@ namespace {
 // Refined 24-bit color palette - green status bar background.
 namespace color {
 // Status bar background - deep green
-const FtxuiColor kBarBg = FtxuiColor::RGB(22, 101, 52);
+const FtxuiColor kBarBg = FtxuiColor::Palette256::DarkGreen;
 // Mode indicator text - bright white on green
-const FtxuiColor kMode = FtxuiColor::RGB(235, 245, 240);
-const FtxuiColor kBracket = FtxuiColor::RGB(167, 219, 191);
-// Pinyin buffer - bright blue
-const FtxuiColor kPinyin = FtxuiColor::RGB(98, 184, 255);
-// Candidates - warm orange
-const FtxuiColor kCandidate = FtxuiColor::RGB(255, 191, 71);
+const FtxuiColor kMode = FtxuiColor::White;
+const FtxuiColor kBracket = FtxuiColor::Palette256::DarkSeaGreen;
+// Pinyin buffer - bright sky blue
+const FtxuiColor kPinyin = FtxuiColor::Palette256::DeepSkyBlue1;
+// Candidates - warm gold
+const FtxuiColor kCandidate = FtxuiColor::Palette256::Gold1;
 // Selected candidate - bright green highlight
-const FtxuiColor kSelectedBg = FtxuiColor::RGB(74, 222, 128);
-const FtxuiColor kSelectedFg = FtxuiColor::RGB(20, 83, 45);
+const FtxuiColor kSelectedBg = FtxuiColor::Palette256::SpringGreen1;
+const FtxuiColor kSelectedFg = FtxuiColor::Palette256::DarkGreen;
 // Hints - light green-gray
-const FtxuiColor kHint = FtxuiColor::RGB(167, 219, 191);
-const FtxuiColor kSeparator = FtxuiColor::RGB(56, 92, 70);
+const FtxuiColor kHint = FtxuiColor::Palette256::DarkSeaGreen;
+const FtxuiColor kSeparator = FtxuiColor::Palette256::DarkSeaGreen4;
 }  // namespace color
 
 std::string u32_to_utf8(const std::u32string& s) {
@@ -105,8 +105,8 @@ Element CandidateBar(const CandidateBarProps& props) {
     bool is_chinese = props.mode.find("拼") != std::string::npos;
     items.push_back(ModeIndicator({.mode = props.mode, .is_chinese = is_chinese}));
 
-    // Pinyin buffer - blue underlined, no label
-    items.push_back(Text(" " + props.buffer + " ") | TextColor(color::kPinyin) | Underlined());
+    // Pinyin buffer - bright blue, no underline
+    items.push_back(Text(" " + props.buffer + " ") | TextColor(color::kPinyin));
 
     // Candidates
     for (size_t i = 0; i < props.candidates.size() && i < 9; ++i) {
@@ -251,8 +251,8 @@ Element MainBar(const MainBarProps& props) {
     bool is_chinese = props.mode.find("拼") != std::string::npos;
     items.push_back(ModeIndicator({.mode = props.mode, .is_chinese = is_chinese}));
 
-    // Pinyin buffer - blue underlined, no label
-    items.push_back(Text(" " + props.buffer + " ") | TextColor(color::kPinyin) | Underlined());
+    // Pinyin buffer - bright blue, no underline
+    items.push_back(Text(" " + props.buffer + " ") | TextColor(color::kPinyin));
 
     // Candidates
     if (display_count == 1 && need_scroll && props.selected < props.candidates.size()) {
