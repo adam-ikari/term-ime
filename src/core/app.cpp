@@ -129,7 +129,7 @@ void App::on_pty_data(const char* data, size_t len) {
 }
 
 void App::render_candidates_bar() {
-    std::string mode = (ime_ && ime_->mode() == ImeMode::Chinese) ? "中文" : "EN";
+    std::string mode = (ime_ && ime_->mode() == ImeMode::Chinese) ? "拼" : "EN";
 
     // Get candidates from IME
     auto candidates = ime_ ? ime_->candidates() : std::vector<Candidate>();

@@ -11,18 +11,21 @@ namespace ui {
 
 namespace {
 
-// Refined 24-bit color palette — green status bar background.
+// Refined 24-bit color palette - green status bar background.
 namespace color {
-// Status bar background — deep green
-const FtxuiColor kBarBg = FtxuiColor::RGB(22, 101, 52);  // deep green
-// Mode indicator text — bright white on green
+// Status bar background - deep green
+const FtxuiColor kBarBg = FtxuiColor::RGB(22, 101, 52);
+// Mode indicator text - bright white on green
 const FtxuiColor kMode = FtxuiColor::RGB(235, 245, 240);
-const FtxuiColor kBracket = FtxuiColor::RGB(167, 219, 191);  // soft green-white
-// Candidates
-const FtxuiColor kSelectedBg = FtxuiColor::RGB(74, 222, 128);  // bright green highlight
+const FtxuiColor kBracket = FtxuiColor::RGB(167, 219, 191);
+// Pinyin buffer - bright blue
+const FtxuiColor kPinyin = FtxuiColor::RGB(98, 184, 255);
+// Candidates - warm orange
+const FtxuiColor kCandidate = FtxuiColor::RGB(255, 191, 71);
+// Selected candidate - bright green highlight
+const FtxuiColor kSelectedBg = FtxuiColor::RGB(74, 222, 128);
 const FtxuiColor kSelectedFg = FtxuiColor::RGB(20, 83, 45);
-const FtxuiColor kCandidate = FtxuiColor::RGB(254, 240, 138);  // light yellow
-// Hints — light green-gray
+// Hints - light green-gray
 const FtxuiColor kHint = FtxuiColor::RGB(167, 219, 191);
 const FtxuiColor kSeparator = FtxuiColor::RGB(56, 92, 70);
 }  // namespace color
@@ -99,11 +102,11 @@ Element CandidateBar(const CandidateBarProps& props) {
     Elements items;
 
     // Mode indicator
-    bool is_chinese = props.mode.find("中文") != std::string::npos;
+    bool is_chinese = props.mode.find("拼") != std::string::npos;
     items.push_back(ModeIndicator({.mode = props.mode, .is_chinese = is_chinese}));
 
-    // Pinyin buffer
-    items.push_back(Text(" " + I18n::t("status.pinyin") + ": " + props.buffer + " ") | Bold());
+    // Pinyin buffer - blue underlined, no label
+    items.push_back(Text(" " + props.buffer + " ") | TextColor(color::kPinyin) | Underlined());
 
     // Candidates
     for (size_t i = 0; i < props.candidates.size() && i < 9; ++i) {
@@ -119,7 +122,7 @@ Element CandidateBar(const CandidateBarProps& props) {
 // ============================================================================
 
 Element EmptyBar(const EmptyBarProps& props) {
-    bool is_chinese = props.mode.find("中文") != std::string::npos;
+    bool is_chinese = props.mode.find("拼") != std::string::npos;
 
     Elements items;
 
@@ -183,9 +186,8 @@ Element MainBar(const MainBarProps& props) {
     std::string mode_text = props.mode;
     int mode_w = 1 /*空格*/ + 1 /*[*/ + utf8::string_width(mode_text) + 1 /*]*/ + 1 /*空格*/;
 
-    // Pinyin: " pinyin: " + buffer + " "
-    std::string pinyin_prefix = " " + I18n::t("status.pinyin") + ": ";
-    int pinyin_w = utf8::string_width(pinyin_prefix) + utf8::string_width(props.buffer) + 1 /*结尾空格*/;
+    // Pinyin: " " + buffer + " " (no label, blue)
+    int pinyin_w = 1 /*前空格*/ + utf8::string_width(props.buffer) + 1 /*后空格*/;
 
     // Total fixed width (filler takes remaining, so we don't add filler width)
     int fixed_w = mode_w + pinyin_w;
@@ -246,11 +248,11 @@ Element MainBar(const MainBarProps& props) {
     Elements items;
 
     // Mode indicator
-    bool is_chinese = props.mode.find("中文") != std::string::npos;
+    bool is_chinese = props.mode.find("拼") != std::string::npos;
     items.push_back(ModeIndicator({.mode = props.mode, .is_chinese = is_chinese}));
 
-    // Pinyin buffer
-    items.push_back(Text(" " + I18n::t("status.pinyin") + ": " + props.buffer + " ") | Bold());
+    // Pinyin buffer - blue underlined, no label
+    items.push_back(Text(" " + props.buffer + " ") | TextColor(color::kPinyin) | Underlined());
 
     // Candidates
     if (display_count == 1 && need_scroll && props.selected < props.candidates.size()) {

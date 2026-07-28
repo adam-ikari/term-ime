@@ -350,8 +350,7 @@ void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_
         // Fixed parts: mode + pinyin + cancel
         std::string mode_text = mode;
         int mode_w = 2 + utf8::string_width(mode_text) + 2;
-        std::string pinyin_prefix = " " + I18n::t("status.pinyin") + ": ";
-        int pinyin_w = utf8::string_width(pinyin_prefix) + utf8::string_width(buffer) + 1;
+        int pinyin_w = 1 + utf8::string_width(buffer) + 1;
         int fixed_w = mode_w + pinyin_w;
 
         int available_for_text = ws.ws_col - fixed_w - cand_item_overhead;
