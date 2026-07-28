@@ -311,13 +311,20 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     continue;
                 }
             } else if (ch >= 'A' && ch <= 'Z') {
-                // 大写字母（Shift+字母）直接输出，不组词
+                // 大写字母（Shift+字母）：先把拼音 buffer 作为字母提交，再输出当前字母
                 if (is_escape_sequence && input_result.forward) {
                     continue;
                 }
-                // 清除当前 composition 并输出大写字母
+                // 获取当前拼音 buffer 并作为普通字母提交
+                std::string buf = ime_->buffer();
+                if (!buf.empty()) {
+                    std::vector<uint8_t> buf_bytes(buf.begin(), buf.end());
+                    pty_.write(buf_bytes);
+                }
+                // 清除 composition
                 ime_->cancel();
                 selected_candidate_ = 0;
+                // 输出当前字母（保持大写，Shift+字母本身就输出大写）
                 pty_.write(std::vector<uint8_t>{static_cast<uint8_t>(ch)});
                 render();
                 continue;
@@ -339,8 +346,14 @@ void App::on_keyboard_data(const char* data, size_t len) {
             continue;
         }
 
-        // 大写字母（Shift+字母）在中文模式下直接输出
+        // 大写字母（Shift+字母）在中文模式下提交 buffer 并直接输出字母
         if (ime_->mode() == ImeMode::Chinese && byte >= 'A' && byte <= 'Z' && !input_processor_.in_escape()) {
+            std::string buf = ime_->buffer();
+            if (!buf.empty()) {
+                std::vector<uint8_t> buf_bytes(buf.begin(), buf.end());
+                pty_.write(buf_bytes);
+                ime_->cancel();
+            }
             pty_.write(std::vector<uint8_t>{static_cast<uint8_t>(byte)});
             continue;
         }
