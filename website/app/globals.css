@@ -251,7 +251,9 @@ kbd, .kbd {
 }
 .lead h1::before { content: ''; }
 .lead .tagline { color: var(--text); font-size: 18px; margin-bottom: 12px; }
-.lead .sub { color: var(--text-dim); font-size: 14px; margin-bottom: 24px; }
+.lead .sub { color: var(--text-dim); font-size: 14px; margin-bottom: 12px; }
+.lead .use-case { color: var(--accent); font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
+.lead .use-case-icon { margin-right: 6px; }
 .lead .hl { color: var(--accent); }
 .cta { display: flex; gap: 12px; flex-wrap: wrap; }
 

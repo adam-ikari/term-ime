@@ -12,6 +12,10 @@ export default function Hero() {
               中文拼音输入,<span className="hl">候选词智能排序</span>,
               <span className="hl">终端 UI</span> 渲染,流畅的 TTY 打字体验。
             </p>
+            <p className="use-case">
+              <span className="use-case-icon">🖥</span>
+              SSH 远程连接服务器,在纯终端环境中直接输入中文,无需桌面依赖。
+            </p>
             <div className="cta">
               <a className="btn primary" href="#quickstart">快速开始</a>
               <a className="btn" href="#shortcuts">快捷键</a>
