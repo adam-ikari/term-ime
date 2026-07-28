@@ -10,7 +10,7 @@ const FEATURES = [
 
 const USE_CASES = [
   '麒麟 V10 / UOS / 方德 Server 版,选无桌面最小化安装时,纯控制台(tty1–tty6)与裸 SSH shell 下无任何中文输入能力,必须装桌面环境。term-ime 不需要桌面、不需要 D-Bus、不需要 X,编译一个二进制文件传进去就能在终端里输入中文。',
-  'ARM64 / LoongArch / SW64 架构的国产服务器,即使没有桌面环境,通过 SSH 远程连接也能用 term-ime 输入中文备注和文档。',
+  'ARM64 / LoongArch / SW64 架构的国产服务器,通过源码编译即可在终端中输入中文备注和文档。无需预编译二进制,只需 gcc/cmake 和标准 build-essential 工具链。',
 ];
 
 export default function Features() {
