@@ -33,7 +33,7 @@ export default function Features() {
         <h2>使用场景</h2>
         <Terminal title="scenarios.txt">
           {USE_CASES.map((f, i) => (
-            <div key={i} className="line">
+            <div key={i} className="use-case-item">
               <span className="bullet">▸</span> {f}
             </div>
           ))}

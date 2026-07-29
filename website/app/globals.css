@@ -287,6 +287,10 @@ kbd, .kbd {
 /* Features */
 .features .bullet { color: var(--accent); margin-right: 8px; }
 
+/* Use cases */
+.features .use-case-item { margin-bottom: 16px; line-height: 1.7; }
+.features .use-case-item:last-child { margin-bottom: 0; }
+
 /* FeatureGrid */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .card { height: 100%; }
