@@ -39,3 +39,5 @@ website/.next/
 website/out/
 website/.env*.local
 
+website/build/
+website/node_modules/

@@ -1,29 +1,20 @@
-# dependencies
-/node_modules/
-/.pnp
-.pnp.js
+# Dependencies
+/node_modules
 
-# next.js
-/.next/
-/out/
-
-# production
+# Production
 /build
 
-# misc
-.DS_Store
-*.pem
+# Generated files
+.docusaurus
+.cache-loader
 
-# debug
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-check-xterm.mjs
-check2.mjs
