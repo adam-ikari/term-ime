@@ -7,7 +7,7 @@ export default function Hero() {
         <div className="hero-grid">
           <div className="lead">
             <h1>term-ime</h1>
-            <p className="tagline">在 Linux TTY 中运行的虚拟终端,内置中文拼音输入法。</p>
+            <p className="tagline">在终端里直接输入中文——不管有没有桌面环境。</p>
             <p className="sub">
               中文拼音输入,<span className="hl">候选词智能排序</span>,
               <span className="hl">终端 UI</span> 渲染,流畅的 TTY 打字体验。

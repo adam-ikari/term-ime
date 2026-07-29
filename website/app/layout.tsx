@@ -23,21 +23,21 @@ const mono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'term-ime — TTY 中文输入虚拟终端',
-  description: '在 Linux TTY 中运行的虚拟终端,内置中文拼音输入法,自包含、无系统输入法依赖。支持 ARM64/LoongArch/SW64 国产服务器,麒麟/UOS/方德等操作系统。',
+  title: 'term-ime — 终端中文输入法',
+  description: '在终端里直接输入中文。SSH 远程服务器、Docker 容器、WSL、国产操作系统(麒麟/UOS/方德)均可使用。无需桌面环境,无需 D-Bus,无需 X。',
   metadataBase: new URL('https://adam-ikari.github.io'),
-  keywords: ['中文输入法', 'Linux TTY', '终端输入法', 'SSH 中文输入', '国产服务器', '麒麟', '统信', '方德', 'ARM64', 'LoongArch', 'SW64', 'term-ime'],
+  keywords: ['终端中文输入法', 'Linux 中文输入', 'SSH 中文输入', 'Docker 中文输入', 'WSL 中文输入', '国产服务器', '麒麟', '统信', '方德', 'ARM64', 'LoongArch', 'SW64', 'term-ime'],
   openGraph: {
-    title: 'term-ime — Linux TTY 中文输入法',
-    description: 'SSH 远程连接服务器,在纯终端环境中直接输入中文,无需桌面依赖。支持国产 CPU 架构。',
+    title: 'term-ime — 终端中文输入法',
+    description: '在终端里直接输入中文。SSH 远程服务器、Docker 容器、WSL、国产操作系统均可使用。',
     type: 'website',
     locale: 'zh_CN',
     siteName: 'term-ime',
   },
   twitter: {
     card: 'summary',
-    title: 'term-ime — Linux TTY 中文输入法',
-    description: 'SSH 远程连接服务器,在纯终端环境中直接输入中文,无需桌面依赖。',
+    title: 'term-ime — 终端中文输入法',
+    description: '在终端里直接输入中文。SSH 远程服务器、Docker 容器、WSL 均可使用。',
   },
   robots: {
     index: true,
