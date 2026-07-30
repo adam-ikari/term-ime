@@ -41,7 +41,8 @@ const config: Config = {
     image: 'img/favicon.svg',
     colorMode: {
       defaultMode: 'dark',
-      respectPrefersColorScheme: true,
+      disableSwitch: true,
+      respectPrefersColorScheme: false,
     },
     navbar: {
       title: 'term-ime',
