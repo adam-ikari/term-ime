@@ -31,13 +31,13 @@
 
 .heroTagline {
   font-size: 18px;
-  color: #f0f0f0;
+  color: #ffffff;
   margin-bottom: 12px;
 }
 
 .heroDesc {
   font-size: 14px;
-  color: #aaa;
+  color: #cccccc;
   margin-bottom: 24px;
 }
 
@@ -62,8 +62,8 @@
 
 .buttonSecondary {
   background: #1a1a1a;
-  color: #e5e5e5;
-  border: 1px solid #333;
+  color: #ffffff;
+  border: 1px solid #555;
   font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
 }
 .buttonSecondary:hover {
