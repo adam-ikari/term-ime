@@ -44,6 +44,18 @@ Element SettingsMenuItem(const std::string& label, bool selected) {
     return Text("  " + label + "  ") | Dim();
 }
 
+// The registered on_change callback may re-enter settings_init() and rebuild
+// state.items (App::on_settings_change does exactly that for ui_language), which
+// would invalidate a reference to the item being reported. Hand it copies.
+void NotifyChange(const SettingsState& state, const SettingsItem& item) {
+    if (!state.on_change) {
+        return;
+    }
+    const std::string key = item.key;
+    const std::string value = item.value;
+    state.on_change(key, value);
+}
+
 }  // namespace
 
 // ============================================================================
@@ -115,9 +127,7 @@ bool settings_handle_key(SettingsState& state, int key) {
                 if (!item.display_options.empty()) {
                     item.display_value = item.display_options[item.selected_index];
                 }
-                if (state.on_change) {
-                    state.on_change(item.key, item.value);
-                }
+                NotifyChange(state, item);
             }
         }
         return true;
@@ -132,9 +142,7 @@ bool settings_handle_key(SettingsState& state, int key) {
                 if (!item.display_options.empty()) {
                     item.display_value = item.display_options[item.selected_index];
                 }
-                if (state.on_change) {
-                    state.on_change(item.key, item.value);
-                }
+                NotifyChange(state, item);
             }
         }
         return true;
@@ -155,9 +163,7 @@ bool settings_handle_key(SettingsState& state, int key) {
                 if (!item.display_options.empty()) {
                     item.display_value = item.display_options[item.selected_index];
                 }
-                if (state.on_change) {
-                    state.on_change(item.key, item.value);
-                }
+                NotifyChange(state, item);
             }
         }
         return true;

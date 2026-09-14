@@ -26,11 +26,13 @@ class I18n {
     // Set language
     static void set_lang(Lang lang);
 
-    // Get translated string
-    static const std::string& get(const std::string& key);
+    // Get translated string. Returns by value: the backing map is cleared and
+    // refilled on every set_lang(), and a missing key falls back to `key`
+    // itself, so a reference could not outlive the call safely.
+    static std::string get(const std::string& key);
 
     // Shorthand for get
-    static const std::string& t(const std::string& key) { return get(key); }
+    static std::string t(const std::string& key) { return get(key); }
 
     // Get available languages
     static std::vector<std::pair<Lang, std::string>> available_languages();

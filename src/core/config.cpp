@@ -122,19 +122,31 @@ AppConfig AppConfig::load(const std::string& path) {
     }
 }
 
-void AppConfig::save(const std::string& path) const {
-    fs::path p(path);
-
-    // Create parent directories if needed
-    if (p.has_parent_path()) {
-        fs::create_directories(p.parent_path());
-    }
-
+// Never throws: callers (e.g. settings close, which runs from a libuv callback)
+// must not have filesystem errors escape into the event loop.
+bool AppConfig::save(const std::string& path) const {
     try {
+        fs::path p(path);
+
+        // Create parent directories if needed
+        if (p.has_parent_path()) {
+            fs::create_directories(p.parent_path());
+        }
+
         std::ofstream file(p);
+        if (!file) {
+            spdlog::error("Failed to save config: cannot open {} for writing", path);
+            return false;
+        }
         file << to_json().dump(4);
+        if (!file) {
+            spdlog::error("Failed to save config: write error on {}", path);
+            return false;
+        }
         spdlog::info("Saved config to: {}", path);
+        return true;
     } catch (const std::exception& e) {
-        spdlog::error("Failed to save config: {}", e.what());
+        spdlog::error("Failed to save config to {}: {}", path, e.what());
+        return false;
     }
 }

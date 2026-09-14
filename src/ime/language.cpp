@@ -3,6 +3,8 @@
 
 void LanguageManager::load(const AppConfig& config) {
     languages_ = config.languages;
+    // Reset so an empty (or shorter) list can never leave a stale index behind.
+    current_index_ = 0;
 
     // Find and set active language
     size_t idx = find_language(config.active_language);
@@ -48,6 +50,10 @@ bool LanguageManager::switch_language(const std::string& lang_id) {
 }
 
 void LanguageManager::next_language() {
+    if (languages_.empty()) {
+        return;  // no language configured: nothing to switch to
+    }
+
     // Find next enabled language
     for (size_t i = current_index_ + 1; i < languages_.size(); ++i) {
         if (languages_[i].enabled) {
@@ -71,6 +77,10 @@ void LanguageManager::next_language() {
 }
 
 void LanguageManager::prev_language() {
+    if (languages_.empty()) {
+        return;  // no language configured: nothing to switch to
+    }
+
     // Find previous enabled language
     for (size_t i = current_index_ - 1; i < languages_.size(); --i) {
         if (languages_[i].enabled) {
@@ -94,9 +104,9 @@ void LanguageManager::prev_language() {
 }
 
 const LanguageConfig& LanguageManager::current() const {
-    if (languages_.empty()) {
-        static LanguageConfig empty{"", "", "", false};
-        return empty;
+    static const LanguageConfig empty{"", "", "", false};
+    if (current_index_ >= languages_.size()) {
+        return empty;  // no language configured (or stale index): safe empty value
     }
     return languages_[current_index_];
 }

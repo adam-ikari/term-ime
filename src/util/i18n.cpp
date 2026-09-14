@@ -42,8 +42,7 @@ void I18n::set_lang(Lang lang) {
     }
 }
 
-const std::string& I18n::get(const std::string& key) {
-    static const std::string empty;
+std::string I18n::get(const std::string& key) {
     auto it = translations_.find(key);
     if (it != translations_.end()) {
         return it->second;
@@ -133,16 +132,16 @@ void I18n::load_default_translations(Lang lang) {
     switch (lang) {
     case Lang::ZH_CN:
         translations_ = {
-            {"mode.chinese", "中文"}, {"mode.english", "EN"},  {"hint.toggle_mode", "切换"},
-            {"hint.select", "选择"},  {"hint.cancel", "取消"}, {"status.pinyin", "拼音"},
+            {"mode.chinese", "中文"},   {"mode.english", "EN"},     {"hint.toggle_mode", "切换"},
+            {"hint.select", "选择"},    {"hint.cancel", "取消"},    {"status.pinyin", "拼音"},
             {"settings.title", "设置"}, {"settings.close", "关闭"}, {"settings.ui_language", "界面语言"},
         };
         break;
 
     default:
         translations_ = {
-            {"mode.chinese", "中文"},  {"mode.english", "EN"},    {"hint.toggle_mode", "Toggle"},
-            {"hint.select", "Select"}, {"hint.cancel", "Cancel"}, {"status.pinyin", "Pinyin"},
+            {"mode.chinese", "中文"},       {"mode.english", "EN"},      {"hint.toggle_mode", "Toggle"},
+            {"hint.select", "Select"},      {"hint.cancel", "Cancel"},   {"status.pinyin", "Pinyin"},
             {"settings.title", "Settings"}, {"settings.close", "Close"}, {"settings.ui_language", "UI Language"},
         };
         break;

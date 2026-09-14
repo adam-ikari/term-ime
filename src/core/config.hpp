@@ -48,8 +48,9 @@ struct AppConfig {
     // Load from file
     static AppConfig load(const std::string& path);
 
-    // Save to file
-    void save(const std::string& path) const;
+    // Save to file. Returns false (and logs) on any filesystem/IO failure;
+    // never throws.
+    bool save(const std::string& path) const;
 
     // Get default config path
     static std::string default_path();

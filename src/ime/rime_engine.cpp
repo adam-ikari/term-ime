@@ -10,14 +10,24 @@
 #define RIME_BUNDLED_DATA_DIR ""
 #endif
 
+// rime_life_ is built with an explicit deleter: GCC cannot default-construct a
+// unique_ptr whose deleter is a nested class of the unique_ptr's owner.
 RimeIme::RimeIme(const std::string& shared_data_dir, const std::string& user_data_dir)
-    : shared_data_dir_(shared_data_dir), user_data_dir_(user_data_dir) {}
+    : rime_life_(nullptr, RimeShutdown{this}), shared_data_dir_(shared_data_dir), user_data_dir_(user_data_dir) {}
 
-RimeIme::~RimeIme() {
-    if (rime_ && session_) {
-        rime_->destroy_session(session_);
-        rime_->finalize();
+RimeIme::~RimeIme() = default;  // rime_life_ destroys the session and finalizes librime
+
+void RimeIme::RimeShutdown::operator()(RimeApi* api) const {
+    if (!api) {
+        return;
     }
+    RimeSessionId session = owner ? owner->session_ : 0;
+    if (session) {
+        api->destroy_session(session);
+        owner->session_ = 0;
+    }
+    spdlog::debug("Rime: finalizing global state (session={})", session);
+    api->finalize();
 }
 
 bool RimeIme::initialize() {
@@ -40,7 +50,7 @@ bool RimeIme::initialize() {
 
         std::vector<std::string> search_paths = {
             RIME_BUNDLED_DATA_DIR,  // build-time bundled data
-            user_local,              // user-local install
+            user_local,             // user-local install
             "/usr/local/share/term-ime/rime-data",
             "/usr/share/term-ime/rime-data",
             "/usr/share/rime-data",
@@ -95,6 +105,9 @@ bool RimeIme::initialize() {
 
     rime_->setup(&traits);
     rime_->initialize(nullptr);
+    // librime's global state exists from here on; own it so every exit path
+    // (failures below, and ~RimeIme) releases it via finalize().
+    rime_life_ = std::unique_ptr<RimeApi, RimeShutdown>(rime_, RimeShutdown{this});
 
     // Force a full maintenance check: this compiles (deploys) the dictionary into
     // prism.bin/table.bin when missing or stale. Without it, on a fresh user data
@@ -109,24 +122,35 @@ bool RimeIme::initialize() {
     // .yaml, not compiled .bin). Explicitly deploy each schema file if its prism
     // is still missing in the user data dir's staging build/.
     if (!shared_dir.empty() && rime_->deploy_schema) {
+        // Non-throwing filesystem calls: a missing/unreadable shared data dir must
+        // not throw out of here with rime left initialized.
         std::filesystem::path staging = std::filesystem::path(user_dir) / "build";
-        for (auto& entry : std::filesystem::directory_iterator(shared_dir)) {
+        std::error_code ec;
+        for (auto& entry : std::filesystem::directory_iterator(shared_dir, ec)) {
             auto p = entry.path();
             if (p.filename().string().find(".schema.yaml") == std::string::npos)
                 continue;
             std::string stem = p.stem().string();
             std::string schema_id = stem.substr(0, stem.rfind(".schema"));
             std::string prism_name = schema_id + ".prism.bin";
-            if (!std::filesystem::exists(staging / prism_name)) {
+            if (!std::filesystem::exists(staging / prism_name, ec)) {
                 spdlog::info("Deploying schema: {}", p.string());
                 rime_->deploy_schema(p.string().c_str());
             }
+        }
+        if (ec) {
+            spdlog::warn("Rime: cannot scan shared data dir {}: {}", shared_dir, ec.message());
         }
     }
 
     // Create session
     session_ = rime_->create_session();
-    return session_ != 0;
+    if (!session_) {
+        spdlog::error("Rime: failed to create session, releasing input method");
+        rime_life_.reset();  // finalize() now; no session to destroy
+        return false;
+    }
+    return true;
 }
 
 bool RimeIme::input(char ch) {

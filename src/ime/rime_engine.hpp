@@ -37,7 +37,17 @@ class RimeIme : public ImeEngine {
     bool initialize();
 
    private:
-    RimeApi* rime_ = nullptr;
+    // Stateful deleter for rime_life_: closes the current session (if one was
+    // created) and finalizes librime's global state exactly once.
+    struct RimeShutdown {
+        RimeIme* owner = nullptr;
+        void operator()(RimeApi* api) const;
+    };
+
+    RimeApi* rime_ = nullptr;  // borrowed from rime_get_api(); never owned here
+    // Non-null exactly between a successful rime_->initialize() and its
+    // finalize(), so every failure path below and ~RimeIme release librime.
+    std::unique_ptr<RimeApi, RimeShutdown> rime_life_;
     RimeSessionId session_ = 0;
     ImeMode mode_ = ImeMode::English;  // 默认英文模式，不影响终端正常使用
     std::string shared_data_dir_;
