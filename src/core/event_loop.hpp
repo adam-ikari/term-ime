@@ -59,6 +59,7 @@ class EventLoop {
         uv_poll_t handle;
         IoCallback callback;
         int fd;
+        EventLoop* owner;  // so the static poll callback can drop its own watch
     };
 
     struct SignalHandle {
@@ -75,4 +76,10 @@ class EventLoop {
     static void timer_callback(uv_timer_t* handle);
     static void io_callback(uv_poll_t* handle, int status, int events);
     static void signal_callback(uv_signal_t* handle, int signum);
+
+    // uv_close() completes asynchronously; the close callbacks own the handle
+    // memory (freed by the callbacks once libuv stops touching it).
+    static void timer_close_cb(uv_handle_t* handle);
+    static void io_close_cb(uv_handle_t* handle);
+    static void signal_close_cb(uv_handle_t* handle);
 };

@@ -89,15 +89,21 @@ int main(int argc, char* argv[]) {
             spdlog::info("PTY closed, exiting");
             app.on_quit(0);
             loop.stop();
-        } else if (!app.is_settings_visible()) {
-            // Only process PTY data when settings panel is not visible
+        } else {
             app.on_pty_data(data, len);
         }
-        // When settings visible, ignore PTY data (shell continues running but output is not shown)
     });
 
     // Register keyboard reader
     loop.watch_fd(STDIN_FILENO, [&app, &loop](const char* data, size_t len) {
+        if (len == 0 || data == nullptr) {
+            // stdin reached EOF/error (terminal gone); the EventLoop already
+            // dropped the watch, so exit gracefully instead of spinning.
+            spdlog::info("Keyboard input closed, exiting");
+            app.on_quit(0);
+            loop.stop();
+            return;
+        }
         app.on_keyboard_data(data, len);
         if (app.quit_requested()) {
             loop.stop();
