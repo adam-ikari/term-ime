@@ -38,8 +38,25 @@ struct Machine {
         const auto is_ctrl_a = [](const Byte& e) { return e.value == 1; };
         const auto is_esc = [](const Byte& e) { return e.value == 0x1b; };
         const auto is_csi = [](const Byte& e) { return e.value == '[' || e.value == 'O'; };
-        const auto is_terminator = [](const Byte& e) {
-            return (e.value >= 'A' && e.value <= 'Z') || (e.value >= 'a' && e.value <= 'z') || e.value == '~';
+        // ECMA-48 CSI grammar: parameter bytes 0x30-0x3F, intermediate bytes
+        // 0x20-0x2F, final byte 0x40-0x7E. The old rule (any letter is a
+        // terminator) left sequences such as `ESC [ @` stuck in EscapeCSI,
+        // swallowing every key that followed (defect 16).
+        const auto is_final = [](const Byte& e) {
+            const uint8_t v = e.value;
+            if (v < 0x40 || v > 0x7e)
+                return false;
+            const auto& buf = *e.buffer;
+            // SS3 (ESC O) is only defined for its own finals — arrows, Home/End
+            // and F1-F4 — so a plain letter after `ESC O` must not be mistaken
+            // for a completed sequence.
+            if (buf.size() >= 2 && buf[1] == 'O') {
+                return (v >= 'A' && v <= 'D') || v == 'F' || v == 'H' || (v >= 'P' && v <= 'S');
+            }
+            return true;
+        };
+        const auto is_param = [](const Byte& e) {
+            return (e.value >= 0x20 && e.value <= 0x2f) || (e.value >= 0x30 && e.value <= 0x3f);
         };
         const auto is_space = [](const Byte& e) { return e.value == ' '; };
 
@@ -111,8 +128,11 @@ struct Machine {
             state<Escape> + event<Byte> / forward_escape = state<Normal>,
 
             // EscapeCSI state
-            state<EscapeCSI> + event<Byte>[is_terminator] / complete_escape = state<Normal>,
+            state<EscapeCSI> + event<Byte>[is_final] / complete_escape = state<Normal>,
             state<EscapeCSI> + event<Byte> / buffer_byte,
+            // Any other byte cannot extend the sequence: end it here rather than
+            // buffering forever (which would swallow the keys that follow).
+            state<EscapeCSI> + event<Byte> / complete_escape = state<Normal>,
 
             // Prefix state
             state<Prefix> + event<Byte>[is_space] / toggle_mode = state<Normal>,

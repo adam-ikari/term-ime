@@ -115,6 +115,12 @@ void Renderer::update_scroll_region() {
         printf("\x1b[1;%dr", ws.ws_row - 1);
         fflush(stdout);
     }
+    // The status bar is laid out from the terminal width, so a resize must
+    // force the next render_candidates() to repaint it. Without this the mode
+    // signature still matches and the dedup skips the draw, leaving the bar
+    // rendered for the previous width while the rest of the screen is redrawn.
+    last_bar_sig_.clear();
+    bar_skip_count_ = 0;
 }
 
 void Renderer::restore() {

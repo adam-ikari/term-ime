@@ -3,6 +3,8 @@
 #include <spdlog/spdlog.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <cerrno>
+#include <cstring>
 #include <stdexcept>
 #include <filesystem>
 
@@ -48,12 +50,18 @@ bool App::init(const AppConfig& config) {
         // Get terminal size
         struct winsize ws;
         int tty_fd = renderer_.get_tty_fd();
-        if (ioctl(tty_fd, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0 || ws.ws_row > 1000 ||
-            ws.ws_col == 0 || ws.ws_col > 1000) {
+        if (ioctl(tty_fd, TIOCGWINSZ, &ws) < 0 || ws.ws_row < 2 || ws.ws_row > 1000 || ws.ws_col == 0 ||
+            ws.ws_col > 1000) {
             spdlog::warn("Failed to get terminal size, using defaults");
             ws.ws_row = 24;
             ws.ws_col = 80;
         }
+
+        // The status bar owns the last row and the scroll region excludes it, so
+        // the shell's usable area is rows-1. Pty::spawn sized the child from the
+        // real tty but it doesn't know about the status bar, so sync it here —
+        // without this the shell laid out for the wrong height (defect 3b).
+        pty_.resize(ws.ws_row - 1, ws.ws_col);
 
         // Create screen and parser
         spdlog::info("Creating screen {}x{}", ws.ws_row - 1, ws.ws_col);
@@ -112,6 +120,17 @@ bool App::init(const AppConfig& config) {
 }
 
 void App::on_pty_data(const char* data, size_t len) {
+    // The settings panel is a fullscreen overlay. Shell output must not be
+    // painted over it, but it must not be dropped either (defect 8): keep the
+    // internal screen model current and let on_settings_close()/
+    // toggle_settings() repaint the shell view from it.
+    if (settings_state_.visible) {
+        if (parser_) {
+            parser_->feed(reinterpret_cast<const uint8_t*>(data), len);
+        }
+        return;
+    }
+
     // 直接转发 PTY 输出到终端，不解析
     renderer_.forward_output(data, len);
 
@@ -125,17 +144,27 @@ void App::on_pty_data(const char* data, size_t len) {
     // forward)触发的重复重绘会被跳过,而状态栏真正被 shell 清屏擦除时仍会
     // 重绘恢复(monkey 发现 F4)。scroll region(init 的 DECSTBM)进一步保证
     // shell 输出不落 到状态栏行。
-    render_candidates_bar();
+    // Shell output cannot change the IME context, so reuse the cached snapshot
+    // rather than querying rime three more times (defect 17).
+    render_candidates_bar(false);
 }
 
-void App::render_candidates_bar() {
-    std::string mode = (ime_ && ime_->mode() == ImeMode::Chinese) ? "拼" : "EN";
+void App::refresh_ime_snapshot() {
+    if (!ime_) {
+        ime_snapshot_ = ImeSnapshot{};
+        return;
+    }
+    ime_snapshot_.mode = (ime_->mode() == ImeMode::Chinese) ? "拼" : "EN";
+    ime_snapshot_.candidates = ime_->candidates();
+    ime_snapshot_.buffer = ime_->buffer();
+}
 
-    // Get candidates from IME
-    auto candidates = ime_ ? ime_->candidates() : std::vector<Candidate>();
-    std::string buffer = ime_ ? ime_->buffer() : "";
-
-    renderer_.render_candidates(candidates, selected_candidate_, buffer, mode);
+void App::render_candidates_bar(bool refresh) {
+    if (refresh) {
+        refresh_ime_snapshot();
+    }
+    renderer_.render_candidates(ime_snapshot_.candidates, selected_candidate_, ime_snapshot_.buffer,
+                                ime_snapshot_.mode);
 }
 
 void App::on_keyboard_data(const char* data, size_t len) {
@@ -173,10 +202,18 @@ void App::on_keyboard_data(const char* data, size_t len) {
         // is a genuine lone ESC: close the panel (monkey finding F3).
         if (settings_state_.visible && input_processor_.in_escape()) {
             ui::settings_handle_key(settings_state_, 0x1b);
+            // That ESC was consumed as the panel's cancel key, so drop the
+            // residual escape state: otherwise the next key gets glued onto it
+            // and never reaches the panel/shell as a key of its own (defect 10).
+            input_processor_.reset();
         }
         render();
         return;
     }
+
+    // Set when ESC is consumed by the app itself (composition cancel) instead
+    // of being forwarded as part of a sequence (defect 10).
+    bool consumed_escape = false;
 
     // Process each byte through InputProcessor state machine
     for (size_t i = 0; i < len; ++i) {
@@ -239,6 +276,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
             if (ch == 0x1b) {
                 spdlog::debug("IME composing: ESC cancels composition");
                 ime_->cancel();
+                consumed_escape = true;
                 selected_candidate_ = 0;
                 render();
                 continue;
@@ -334,6 +372,15 @@ void App::on_keyboard_data(const char* data, size_t len) {
         }
     }
 
+    // The ESC below was consumed by the app, but the state machine is still
+    // parked in Escape/EscapeCSI because no sequence byte followed it in this
+    // batch. Clear that residue so the next key is an independent key rather
+    // than the tail of a bogus escape sequence (defect 10). A genuine sequence
+    // (ESC[A etc.) completes inside the batch and is left untouched.
+    if (consumed_escape && input_processor_.in_escape()) {
+        input_processor_.reset();
+    }
+
     // 延迟渲染：处理完所有字节后只渲染一次
     if (need_render_) {
         need_render_ = false;
@@ -343,8 +390,16 @@ void App::on_keyboard_data(const char* data, size_t len) {
 
 void App::on_resize(int signum) {
     (void)signum;
-    struct winsize ws;
-    ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws);
+
+    struct winsize ws {};
+    if (ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws) < 0) {
+        spdlog::debug("on_resize: TIOCGWINSZ failed: {}, keeping current size", strerror(errno));
+        return;
+    }
+    if (ws.ws_row < 2 || ws.ws_row > 1000 || ws.ws_col == 0 || ws.ws_col > 1000) {
+        spdlog::debug("on_resize: ignoring bogus terminal size {}x{}", ws.ws_row, ws.ws_col);
+        return;
+    }
 
     // Re-establish the scroll region for the new size so shell output stays out
     // of the status-bar row (monkey finding F4).
@@ -451,8 +506,11 @@ void App::on_settings_close() {
         renderer_.redraw_shell(*screen_);
     }
     // Save config to file
-    config_.save(AppConfig::default_path());
-    spdlog::info("Settings saved to: {}", AppConfig::default_path());
+    if (config_.save(AppConfig::default_path())) {
+        spdlog::info("Settings saved to: {}", AppConfig::default_path());
+    } else {
+        spdlog::error("Failed to save settings to: {}", AppConfig::default_path());
+    }
     render();
 }
 

@@ -82,7 +82,18 @@ class App {
     ui::SettingsState settings_state_;  // Settings panel state
 
     void on_language_change(const LanguageConfig& lang);
-    void render_candidates_bar();
+    // IME context snapshot. The PTY-output path repaints the status bar far more
+    // often than the user types, and shell output cannot change the IME context,
+    // so it reuses this instead of issuing three separate rime queries per
+    // chunk (defect 17).
+    struct ImeSnapshot {
+        std::string mode;
+        std::string buffer;
+        std::vector<Candidate> candidates;
+    };
+    ImeSnapshot ime_snapshot_;
+    void refresh_ime_snapshot();
+    void render_candidates_bar(bool refresh = true);
     void on_settings_change(const std::string& key, const std::string& value);
     void on_settings_close();
     void render_settings_panel();
