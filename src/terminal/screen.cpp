@@ -1,5 +1,7 @@
 #include "screen.hpp"
 #include "../util/utf8.hpp"
+#include <algorithm>
+#include <utility>
 
 Screen::Screen(int rows, int cols) {
     resize(rows, cols);
@@ -69,7 +71,19 @@ void Screen::resize(int rows, int cols) {
     if (cols <= 0)
         cols = 80;
 
+    // Copy the overlapping top-left region instead of blanking the grid: a
+    // real terminal keeps its content when the window changes size.
+    std::vector<std::vector<Cell>> next(rows, std::vector<Cell>(cols));
+    const int copy_rows = std::min(rows, rows_);
+    const int copy_cols = std::min(cols, cols_);
+    for (int r = 0; r < copy_rows; ++r) {
+        for (int c = 0; c < copy_cols; ++c) {
+            next[r][c] = grid_[r][c];
+        }
+    }
+
+    grid_ = std::move(next);
     rows_ = rows;
     cols_ = cols;
-    grid_.assign(rows, std::vector<Cell>(cols));
+    move_cursor(cursor_row_, cursor_col_);  // clamp into the new bounds
 }

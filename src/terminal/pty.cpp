@@ -2,11 +2,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <pty.h>
+#include <poll.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
+#include <cerrno>
 #include <cstring>
 #include <chrono>
 #include <thread>
+#include <spdlog/spdlog.h>
 
 Pty::Pty() = default;
 
@@ -41,7 +44,25 @@ Pty::~Pty() {
 }
 
 bool Pty::spawn(const std::string& shell) {
-    struct winsize ws = {24, 80, 0, 0};
+    // Ask the real controlling terminal for its geometry. A hard-coded 24x80
+    // makes the child shell (and every TUI it launches) lay out for the wrong
+    // size. Fall back to 24x80 when no tty is reachable.
+    struct winsize ws {};
+    const int probe_fds[] = {STDOUT_FILENO, STDIN_FILENO, STDERR_FILENO};
+    bool have_size = false;
+    for (int fd : probe_fds) {
+        if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0 && ws.ws_col > 0) {
+            have_size = true;
+            break;
+        }
+        ws = winsize{};
+    }
+    if (!have_size) {
+        ws.ws_row = 24;
+        ws.ws_col = 80;
+    }
+    ws.ws_xpixel = 0;
+    ws.ws_ypixel = 0;
 
     int master;
     pid_ = forkpty(&master, nullptr, nullptr, &ws);
@@ -75,7 +96,47 @@ std::optional<std::vector<uint8_t>> Pty::read() {
 }
 
 bool Pty::write(const std::vector<uint8_t>& data) {
-    return ::write(master_fd_, data.data(), data.size()) == static_cast<ssize_t>(data.size());
+    // master_fd_ is O_NONBLOCK: a single write() may accept only part of the
+    // buffer (large paste, long CJK commit) or return EAGAIN. Loop until every
+    // byte is handed to the kernel; dropping the tail silently lost input.
+    constexpr int kPollTimeoutMs = 1000;
+    size_t written = 0;
+    while (written < data.size()) {
+        ssize_t n = ::write(master_fd_, data.data() + written, data.size() - written);
+        if (n > 0) {
+            written += static_cast<size_t>(n);
+            continue;
+        }
+        if (n < 0 && errno == EINTR) {
+            continue;
+        }
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            struct pollfd pfd {};
+            pfd.fd = master_fd_;
+            pfd.events = POLLOUT;
+            int pr = poll(&pfd, 1, kPollTimeoutMs);
+            if (pr < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                spdlog::warn("pty write: poll failed: {}", std::strerror(errno));
+                return false;
+            }
+            if (pr == 0) {
+                spdlog::warn("pty write: stalled after {} of {} bytes", written, data.size());
+                return false;
+            }
+            if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                spdlog::warn("pty write: {} of {} bytes sent, peer gone", written, data.size());
+                return false;
+            }
+            continue;
+        }
+        spdlog::warn("pty write: {} of {} bytes sent: {}", written, data.size(),
+                     n < 0 ? std::strerror(errno) : "zero-length write");
+        return false;
+    }
+    return true;
 }
 
 int Pty::fd() const {
