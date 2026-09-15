@@ -1,15 +1,16 @@
 # Rime schema
 # encoding: utf-8
-# 朙月拼音·简化字版
-# 使用 luna_pinyin 词典 + OpenCC 简化字转换
-# 默认输出简体中文，支持繁简切换
+# 朙月拼音·简化字版·模糊音
+# luna_pinyin_simp 加上模糊音（n/l、zh/z、r/l、r/y、hu/f、en-eng、in-ing）。
+# 设置面板的「模糊音」开关在这份 schema 与 luna_pinyin_simp（精确拼音）之间切换，
+# 因此切换不需要重部署——两份 schema 各有一份自己的 prism。
 
 schema:
-  schema_id: luna_pinyin_simp
-  name: 明月拼音·简体
+  schema_id: luna_pinyin_simp_fuzzy
+  name: 明月拼音·简体·模糊音
   version: "0.31"
   description: |
-    朙月拼音，简化字输出模式。
+    朙月拼音，简化字输出模式，启用模糊音。
     使用 luna_pinyin 词典 + OpenCC 简化字转换。
 
 switches:
@@ -62,10 +63,29 @@ speller:
     - derive/ui$/uei/
     - derive/ong$/on/
     - derive/iong$/ion/
+    # 模糊音，与 data/rime-data/pinyin.yaml 的
+    # zh_z_bufen / n_l_bufen / r_l_bufen / r_y_bufen / hu_f_buhun / en_eng_bufen 等价
+    - derive/^([zcs])h/$1/
+    - derive/^([zcs])([^h])/$1h$2/
+    - derive/^n/l/
+    - derive/^l/n/
+    - derive/^r/l/
+    - derive/^ren/yin/
+    - derive/^r/y/
+    - derive/^hu$/fu/
+    - derive/^hong$/feng/
+    - derive/^hu([in])$/fe$1/
+    - derive/^hu([ao])/f$1/
+    - derive/^fu$/hu/
+    - derive/^feng$/hong/
+    - derive/^fe([in])$/hu$1/
+    - derive/^f([ao])/hu$1/
+    - derive/([ei])n$/$1ng/
+    - derive/([ei])ng$/$1n/
 
 translator:
   dictionary: luna_pinyin
-  prism: luna_pinyin_simp
+  prism: luna_pinyin_simp_fuzzy
   preedit_format:
     - xform/([nl])v/$1ü/
     - xform/([nl])ue/$1üe/

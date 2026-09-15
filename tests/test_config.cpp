@@ -94,3 +94,18 @@ TEST_F(ConfigTest, MaxCandidatesLoadsAndLegacyKeyStillWorks) {
     EXPECT_EQ(AppConfig::load(path).max_candidates, 2);
     std::remove(path.c_str());
 }
+
+TEST_F(ConfigTest, FuzzyPinyinRoundTrip) {
+    AppConfig config;
+    EXPECT_TRUE(config.fuzzy_pinyin);  // fuzzy pinyin is on by default
+    config.fuzzy_pinyin = true;
+    EXPECT_EQ(config.to_json()["fuzzy_pinyin"], true);
+
+    const std::string path = "/tmp/term-ime-test-fuzzy.json";
+    {
+        std::ofstream out(path);
+        out << config.to_json().dump();
+    }
+    EXPECT_TRUE(AppConfig::load(path).fuzzy_pinyin);
+    std::remove(path.c_str());
+}

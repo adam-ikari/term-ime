@@ -222,6 +222,17 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     max_candidates.display_value = max_candidates.value;
     state.items.push_back(max_candidates);
 
+    // Fuzzy pinyin (n/l, zh/z, en/eng …). Toggling it redeploys the schema.
+    SettingsItem fuzzy;
+    fuzzy.label = I18n::t("settings.fuzzy_pinyin");
+    fuzzy.key = "fuzzy_pinyin";
+    fuzzy.options = {"off", "on"};
+    fuzzy.display_options = {I18n::t("option.off"), I18n::t("option.on")};
+    fuzzy.selected_index = config.fuzzy_pinyin ? 1 : 0;
+    fuzzy.value = fuzzy.options[fuzzy.selected_index];
+    fuzzy.display_value = fuzzy.display_options[fuzzy.selected_index];
+    state.items.push_back(fuzzy);
+
     state.focus_index = 0;
 }
 

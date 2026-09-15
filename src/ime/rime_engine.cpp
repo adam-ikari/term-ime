@@ -332,6 +332,27 @@ std::string RimeIme::get_current_schema() {
     return "";
 }
 
+std::string RimeIme::fuzzy_variant(const std::string& schema_id) const {
+    // Bundled schemas that ship a fuzzy twin. Anything else keeps its id, so the
+    // toggle simply has no effect on it.
+    static const std::pair<const char*, const char*> kVariants[] = {
+        {"luna_pinyin_simp", "luna_pinyin_simp_fuzzy"},
+    };
+    if (!fuzzy_ || schema_id.empty())
+        return schema_id;
+    for (const auto& variant : kVariants) {
+        if (schema_id == variant.first)
+            return variant.second;
+    }
+    return schema_id;
+}
+
+void RimeIme::set_fuzzy_pinyin(bool on) {
+    // Only records the preference: the caller re-selects the schema through
+    // fuzzy_variant(), which loads the other prism without any redeploy.
+    fuzzy_ = on;
+}
+
 void RimeIme::update_state() {
     // State is updated automatically by librime
 }

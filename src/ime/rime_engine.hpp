@@ -35,6 +35,12 @@ class RimeIme : public ImeEngine {
 
     // Initialize rime engine
     bool initialize();
+    // Fuzzy pinyin (n/l, zh/z, r/l, r/y, hu/f, en-eng, in-ing). Implemented by
+    // switching to the bundled <schema>_fuzzy variant — no redeploy involved.
+    void set_fuzzy_pinyin(bool on);
+    bool fuzzy_pinyin() const { return fuzzy_; }
+    // The fuzzy twin of a bundled schema id, or the id itself when there is none.
+    std::string fuzzy_variant(const std::string& schema_id) const;
 
    private:
     // Stateful deleter for rime_life_: closes the current session (if one was
@@ -52,6 +58,7 @@ class RimeIme : public ImeEngine {
     ImeMode mode_ = ImeMode::English;  // 默认英文模式，不影响终端正常使用
     std::string shared_data_dir_;
     std::string user_data_dir_;
+    bool fuzzy_ = false;
 
     void update_state();
     std::u32string utf8_to_utf32(const std::string& utf8) const;

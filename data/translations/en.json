@@ -25,5 +25,8 @@
   "settings.title": "Settings",
   "settings.ui_language": "UI Language",
   "settings.max_candidates": "Candidates",
+  "settings.fuzzy_pinyin": "Fuzzy pinyin",
+  "option.off": "Off",
+  "option.on": "On",
   "settings.close": "Close"
 }

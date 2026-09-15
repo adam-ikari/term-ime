@@ -36,6 +36,11 @@ struct AppConfig {
     // shown adapts to the terminal width — see ui::FitCandidateBar.
     int max_candidates = 9;
 
+    // Fuzzy pinyin (n/l, zh/z, r/l, r/y, hu/f, en-eng/in-ing). On by default to
+    // preserve the schema's historical behaviour; the schema itself is precise,
+    // so turning this off gives exact spelling.
+    bool fuzzy_pinyin = true;
+
     // Rime data directories (optional)
     std::string rime_shared_data_dir;  // System rime-data directory
     std::string rime_user_data_dir;    // User config directory

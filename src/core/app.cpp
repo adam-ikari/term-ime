@@ -110,10 +110,13 @@ bool App::init(const AppConfig& config, EventLoop* event_loop) {
         show_startup_hint(I18n::t("status.initializing"));
 
         ime_ = std::make_unique<RimeIme>();
+        // Only records the preference: the schema selection below picks the
+        // fuzzy twin when it is on.
+        ime_->set_fuzzy_pinyin(config_.fuzzy_pinyin);
         if (!ime_->initialize()) {
             spdlog::warn("Failed to initialize Rime IME, continuing without IME");
         } else {
-            ime_->select_schema(current_lang.schema);
+            ime_->select_schema(ime_->fuzzy_variant(current_lang.schema));
             spdlog::info("Rime IME initialized");
         }
         // Deploy done: drop the transient hint so the shell prompt owns row 0.
@@ -677,6 +680,15 @@ void App::on_settings_change(const std::string& key, const std::string& value) {
         config_.max_candidates = std::max(1, std::min(9, requested));
         candidate_window_ = 0;
         spdlog::info("Candidate cap set to {}", config_.max_candidates);
+    } else if (key == "fuzzy_pinyin") {
+        config_.fuzzy_pinyin = (value == "on");
+        if (ime_) {
+            ime_->set_fuzzy_pinyin(config_.fuzzy_pinyin);
+            // Switching schema loads the other prism; nothing is redeployed.
+            ime_->select_schema(ime_->fuzzy_variant(language_manager_.current().schema));
+        }
+        candidate_window_ = 0;
+        spdlog::info("Fuzzy pinyin {}", config_.fuzzy_pinyin ? "enabled" : "disabled");
     }
 
     render();
