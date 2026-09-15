@@ -95,6 +95,20 @@ bool App::init(const AppConfig& config, EventLoop* event_loop) {
         const auto& current_lang = language_manager_.current();
         spdlog::info("Initializing Rime IME with schema: {}", current_lang.schema);
 
+
+        // Rime's first run compiles the dictionary (prism/table) before it can
+        // accept input, and on a cold data dir that blocks for seconds. Without
+        // this the alternate screen stays blank the whole time and every
+        // keystroke is silently ignored — which reads as a hung UI.
+        auto show_startup_hint = [this](const std::string& text) {
+            static const char kClear[] = "\x1b[H\x1b[2K";
+            renderer_.forward_output(kClear, sizeof(kClear) - 1);
+            if (!text.empty()) {
+                renderer_.forward_output(text.data(), text.size());
+            }
+        };
+        show_startup_hint(I18n::t("status.initializing"));
+
         ime_ = std::make_unique<RimeIme>();
         if (!ime_->initialize()) {
             spdlog::warn("Failed to initialize Rime IME, continuing without IME");
@@ -102,6 +116,9 @@ bool App::init(const AppConfig& config, EventLoop* event_loop) {
             ime_->select_schema(current_lang.schema);
             spdlog::info("Rime IME initialized");
         }
+        // Deploy done: drop the transient hint so the shell prompt owns row 0.
+        show_startup_hint(std::string());
+
 
         // Initialize settings panel
         ui::settings_init(settings_state_, config_);
