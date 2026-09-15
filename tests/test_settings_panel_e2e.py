@@ -179,22 +179,31 @@ def test_settings_panel():
         print(f"  Candidates row focused: {cand_focused}, ui row unfocused: {ui_unfocused}")
         results.append(("Navigate j", cand_focused and ui_unfocused))
 
-        # Test 4: Navigate with arrow key (down). Focus moves on to Close.
-        print("\n[Test 4] Navigate with arrow key (down)")
+        # Test 4: Arrow navigation. Down walks on to the fuzzy row and then the
+        # Close item; up walks back to the candidates row.
+        print("\n[Test 4] Navigate with arrow keys")
         drain(master_fd)
         send(master_fd, b"\x1b[B")  # ESC [ B (down arrow)
-        ok, buf = poll_until(master_fd, b"", r'>\s*关闭\s*<', timeout=5.0)
+        ok, buf = poll_until(master_fd, b"", row_focus_re('模糊音'), timeout=5.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:150])}")
-        close_focused = ok and bool(re.search(r'>\s*关闭\s*<', screen))
-        print(f"  Close item focused: {close_focused}")
-        results.append(("Arrow down", close_focused))
-
-        # Test 5: Up arrow returns to the candidates row; 'h' lowers the cap.
-        print("\n[Test 5] Change value (h key)")
+        fuzzy_focused = ok and bool(row_focus_re('模糊音').search(screen))
         drain(master_fd)
-        send(master_fd, b"\x1b[A")  # ESC [ A (up arrow)
-        poll_until(master_fd, b"", row_focus_re('候选词数量'), timeout=5.0)
+        send(master_fd, b"\x1b[B")  # down again -> Close
+        ok, buf = poll_until(master_fd, b"", r'>\s*关闭\s*<', timeout=5.0)
+        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
+        close_focused = ok and bool(re.search(r'>\s*关闭\s*<', screen))
+        drain(master_fd)
+        send(master_fd, b"\x1b[A\x1b[A")  # up twice -> candidates row
+        ok, buf = poll_until(master_fd, b"", row_focus_re('候选词数量'), timeout=5.0)
+        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
+        back_ok = ok and bool(row_focus_re('候选词数量').search(screen))
+        print(f"  Fuzzy row: {fuzzy_focused}, close row: {close_focused}, back: {back_ok}")
+        results.append(("Arrow down", fuzzy_focused and close_focused and back_ok))
+
+        # Test 5: 'h' on the candidates row lowers the cap (focus is already on
+        # that row after test 4).
+        print("\n[Test 5] Change value (h key)")
         drain(master_fd)
         send(master_fd, b"h")
         ok, buf = poll_until(master_fd, b"", row_focus_re('候选词数量'), timeout=5.0)
