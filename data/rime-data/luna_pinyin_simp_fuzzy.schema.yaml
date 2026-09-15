@@ -92,14 +92,14 @@ translator:
     - xform/([jqxy])v/$1u/
 
 simplifier:
-  opencc_config: t2s.json
+  opencc_config: t2s_full.json
   tags: [abc]
   tips: none
   option_name: "x"
 
 zh_hans:
   option_name: zh_hans
-  opencc_config: t2s.json
+  opencc_config: t2s_full.json
   tips: none
   excluded_types: [reverse_lookup]
 

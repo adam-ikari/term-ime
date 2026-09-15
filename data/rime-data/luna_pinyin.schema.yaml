@@ -117,7 +117,7 @@ recognizer:
 
 zh_hans:
   option_name: zh_hans
-  opencc_config: t2s.json
+  opencc_config: t2s_full.json
   tips: none
   excluded_types: [ reverse_lookup ]
 
