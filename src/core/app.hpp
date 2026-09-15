@@ -15,14 +15,16 @@
 #include <string>
 #include <atomic>
 
+class EventLoop;
 // Application state
 class App {
    public:
     App();
     ~App();
 
-    // Initialize application with config
-    bool init(const AppConfig& config);
+    // Initialize application with config. `event_loop` (owned by main()) is
+    // used to arm the orphaned-ESC timeout timer; may be null to disable it.
+    bool init(const AppConfig& config, EventLoop* event_loop = nullptr);
 
     // Handle PTY data
     void on_pty_data(const char* data, size_t len);
@@ -80,6 +82,10 @@ class App {
     bool initialized_ = false;
     bool need_render_ = false;
     ui::SettingsState settings_state_;  // Settings panel state
+    // EventLoop owned by main(); used to arm/clear the lone-ESC timeout timer.
+    EventLoop* event_loop_ = nullptr;
+    // Pending lone-ESC timeout timer id; 0 = none armed.
+    uint64_t esc_timer_id_ = 0;
 
     void on_language_change(const LanguageConfig& lang);
     // IME context snapshot. The PTY-output path repaints the status bar far more

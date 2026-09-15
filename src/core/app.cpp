@@ -1,4 +1,5 @@
 #include "app.hpp"
+#include "event_loop.hpp"
 #include "util/i18n.hpp"
 #include <spdlog/spdlog.h>
 #include <unistd.h>
@@ -7,6 +8,11 @@
 #include <cstring>
 #include <stdexcept>
 #include <filesystem>
+
+// Orphaned-ESC timeout (vi/urxvt-style escape-timeout). A bare ESC sitting in
+// the InputProcessor's Escape state for this long with no follow-up byte is
+// treated as an independent ESC keypress and forwarded to the shell.
+static constexpr uint64_t kEscapeTimeoutMs = 50;
 
 App::App() = default;
 
@@ -20,10 +26,10 @@ App::~App() {
         spdlog::error("Exception in App destructor: {}", e.what());
     }
 }
-
-bool App::init(const AppConfig& config) {
+bool App::init(const AppConfig& config, EventLoop* event_loop) {
     spdlog::info("App::init starting");
     config_ = config;
+    event_loop_ = event_loop;
 
     // Initialize i18n with UI language from config
     I18n::Lang ui_lang = I18n::parse_lang(config_.ui_language);
@@ -170,6 +176,15 @@ void App::render_candidates_bar(bool refresh) {
 void App::on_keyboard_data(const char* data, size_t len) {
     if (len == 0 || !ime_)
         return;
+
+    // Any new input supersedes a pending lone-ESC timeout: if this batch
+    // completes the escape sequence (ESC[A etc.) everything proceeds normally;
+    // if it ends with a fresh lone ESC, the timer is re-armed below. (When a
+    // timer is armed, esc_timer_id_ != 0, which implies event_loop_ != null.)
+    if (esc_timer_id_ != 0) {
+        event_loop_->clear_timer(esc_timer_id_);
+        esc_timer_id_ = 0;
+    }
 
     // If settings panel is visible, handle keys for it
     if (settings_state_.visible) {
@@ -381,6 +396,33 @@ void App::on_keyboard_data(const char* data, size_t len) {
         input_processor_.reset();
     }
 
+    // Orphaned-ESC disambiguation: a bare ESC is still pending in the state
+    // machine (not consumed by composition-cancel, settings panel not visible,
+    // no sequence byte followed). Arm a short single-shot timer; when it fires
+    // the ESC is forwarded to the shell as an independent keypress. If the
+    // user's next key completes the sequence first, the timer is cancelled at
+    // the top of the next on_keyboard_data call.
+    if (event_loop_ && !consumed_escape && !settings_state_.visible && input_processor_.in_escape()) {
+        esc_timer_id_ = event_loop_->set_timer(
+            [this]() {
+                spdlog::debug("Orphaned-ESC timeout: forwarding lone ESC");
+                input_processor_.reset();
+                pty_.write(std::vector<uint8_t>{0x1b});
+                // Reap this fired single-shot timer's handle so it does not
+                // linger in EventLoop::timers_ until shutdown. clear_timer on
+                // a fired/unknown id is a safe no-op; calling it from inside
+                // the callback is safe (uv_close is processed asynchronously).
+                if (esc_timer_id_ != 0) {
+                    uint64_t tid = esc_timer_id_;
+                    esc_timer_id_ = 0;
+                    if (event_loop_) {
+                        event_loop_->clear_timer(tid);
+                    }
+                }
+            },
+            kEscapeTimeoutMs, false);
+    }
+
     // 延迟渲染：处理完所有字节后只渲染一次
     if (need_render_) {
         need_render_ = false;
@@ -415,6 +457,11 @@ void App::on_resize(int signum) {
 
 void App::on_quit(int signum) {
     (void)signum;
+    // Cancel any pending lone-ESC timeout so it cannot fire after teardown.
+    if (event_loop_ && esc_timer_id_ != 0) {
+        event_loop_->clear_timer(esc_timer_id_);
+        esc_timer_id_ = 0;
+    }
     renderer_.restore();
     initialized_ = false;
 }

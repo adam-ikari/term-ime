@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
     // Create application
     spdlog::info("Creating app");
     App app;
-    if (!app.init(config)) {
+    if (!app.init(config, &loop)) {
         spdlog::error("App init failed");
         // Print error to stderr so user can see it even when not in TTY
         std::cerr << std::endl;
