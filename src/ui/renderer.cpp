@@ -10,36 +10,6 @@
 #include <sys/ioctl.h>
 #include <cstdio>
 #include <iostream>
-#include <chrono>
-
-// Scroll state for candidate overflow
-namespace {
-struct ScrollState {
-    bool active = false;
-    size_t last_candidate_count = 0;
-    int max_offset = 0;      // Maximum scroll offset (total chars to scroll)
-    int current_offset = 0;  // Current display offset
-    int direction = 1;       // 1 = scrolling left, -1 = scrolling back, 0 = paused
-    std::chrono::steady_clock::time_point last_tick;
-    int pause_counter = 0;
-
-    void reset() {
-        active = false;
-        last_candidate_count = 0;
-        max_offset = 0;
-        current_offset = 0;
-        direction = 1;
-        pause_counter = 0;
-    }
-};
-ScrollState g_scroll;
-
-// Tick interval: 3 render calls per scroll step (renders ~60fps → ~20 steps/sec)
-const int TICKS_PER_STEP = 3;
-const int PAUSE_AT_END_STEPS = 30;    // Pause ~1.5s at full scroll
-const int PAUSE_AT_START_STEPS = 30;  // Pause ~1.5s at start before re-scrolling
-int g_tick_counter = 0;
-}  // namespace
 
 Renderer::Renderer() = default;
 
@@ -326,105 +296,6 @@ void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_
         bar_skip_count_ = 0;
     }
 
-    // ---- Scroll state management ----
-    // Reset scroll if candidates changed
-    if (candidates.size() != g_scroll.last_candidate_count) {
-        g_scroll.reset();
-        g_scroll.last_candidate_count = candidates.size();
-    }
-
-    int scroll_off = 0;
-
-    if (!candidates.empty() && selected < candidates.size()) {
-        // Calculate if even a single candidate overflows
-        auto u32_to_utf8_str = [](const std::u32string& s) -> std::string {
-            std::string result;
-            for (char32_t c : s) {
-                if (c != 0)
-                    result += utf8::encode(c);
-            }
-            return result;
-        };
-
-        std::string sel_text = u32_to_utf8_str(candidates[selected].text);
-        int sel_text_width = utf8::string_width(sel_text);
-        // Candidate item format: " [N.XXXX] "
-        // Prefix: " [N." = 4 cols
-        // Suffix: "] " = 2 cols
-        int cand_item_overhead = 6;  // " [N." + "] "
-
-        // Fixed parts: mode + pinyin + cancel
-        std::string mode_text = mode;
-        int mode_w = 2 + utf8::string_width(mode_text) + 2;
-        int pinyin_w = 1 + utf8::string_width(buffer) + 1;
-        int fixed_w = mode_w + pinyin_w;
-
-        int available_for_text = ws.ws_col - fixed_w - cand_item_overhead;
-
-        if (available_for_text < sel_text_width) {
-            // Need scrolling
-            g_scroll.active = true;
-            // Count total characters in the selected text
-            {
-                size_t total_chars = 0;
-                {
-                    size_t bp = 0;
-                    while (bp < sel_text.size()) {
-                        int clen = utf8::char_len(static_cast<uint8_t>(sel_text[bp]));
-                        if (clen < 1)
-                            clen = 1;
-                        bp += clen;
-                        total_chars++;
-                    }
-                }
-                g_scroll.max_offset = static_cast<int>(total_chars);
-                if (g_scroll.max_offset < 1)
-                    g_scroll.max_offset = 1;
-            }
-
-            // Advance scroll position
-            g_tick_counter++;
-            if (g_tick_counter >= TICKS_PER_STEP) {
-                g_tick_counter = 0;
-
-                if (g_scroll.direction == 1) {
-                    // Scrolling left (showing later characters)
-                    g_scroll.current_offset++;
-                    if (g_scroll.current_offset >= g_scroll.max_offset) {
-                        g_scroll.current_offset = g_scroll.max_offset;
-                        g_scroll.direction = 0;  // pause at end
-                        g_scroll.pause_counter = PAUSE_AT_END_STEPS;
-                    }
-                } else if (g_scroll.direction == -1) {
-                    // Scrolling back to start
-                    g_scroll.current_offset--;
-                    if (g_scroll.current_offset <= 0) {
-                        g_scroll.current_offset = 0;
-                        g_scroll.direction = 0;  // pause at start
-                        g_scroll.pause_counter = PAUSE_AT_START_STEPS;
-                    }
-                } else if (g_scroll.direction == 0) {
-                    // Paused
-                    g_scroll.pause_counter--;
-                    if (g_scroll.pause_counter <= 0) {
-                        if (g_scroll.current_offset >= g_scroll.max_offset) {
-                            // Was at end, now scroll back
-                            g_scroll.direction = -1;
-                        } else {
-                            // Was at start, now scroll forward
-                            g_scroll.direction = 1;
-                        }
-                    }
-                }
-            }
-
-            scroll_off = g_scroll.current_offset;
-        } else {
-            g_scroll.reset();
-            g_scroll.last_candidate_count = candidates.size();
-        }
-    }
-
     // 使用 JSX 风格组件构建 UI
     auto element = ui::MainBar({.mode = mode,
                                 .lang_name = "",  // Not used in current design
@@ -432,7 +303,6 @@ void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_
                                 .selected = selected,
                                 .buffer = buffer,
                                 .term_width = static_cast<int>(ws.ws_col),
-                                .scroll_offset = scroll_off,
                                 .max_items = max_items});
 
     render_element(element);

@@ -92,28 +92,9 @@ std::string truncate_to_cols(const std::string& s, int cols) {
 
 Element CandidateItem(const CandidateItemProps& props) {
     std::string text_str = u32_to_utf8(props.text);
-    // Apply scrolling for selected candidate: show a substring window
-    std::string display_text;
-    int offset = props.scroll_offset;
-    if (props.scroll_offset > 0) {
-        // Scroll the text: skip N characters (not bytes) from the beginning
-        size_t char_count = 0;
-        size_t byte_pos = 0;
-        while (byte_pos < text_str.size() && char_count < static_cast<size_t>(offset)) {
-            int clen = utf8::char_len(static_cast<uint8_t>(text_str[byte_pos]));
-            if (clen < 1)
-                clen = 1;
-            byte_pos += clen;
-            char_count++;
-        }
-        display_text = text_str.substr(byte_pos);
-        // Prepend ellipsis to indicate scrolling
-        if (byte_pos > 0) {
-            display_text = "…" + display_text;
-        }
-    } else {
-        display_text = text_str;
-    }
+    // A candidate longer than its slot is cut with an ellipsis below, so no
+    // per-item scrolling is needed here.
+    std::string display_text = text_str;
     if (props.max_text_width > 0) {
         display_text = truncate_to_cols(display_text, props.max_text_width);
     }
@@ -194,8 +175,7 @@ Element HintItem(const HintItemProps& props) {
 
 Element HintsBar() {
     return HBox({HintItem({.key = "^A Space", .action = I18n::t("hint.toggle_mode")}),
-                 Text("|") | TextColor(color::kHint),
-                 HintItem({.key = "^A S", .action = I18n::t("settings.title")})});
+                 Text("|") | TextColor(color::kHint), HintItem({.key = "^A S", .action = I18n::t("settings.title")})});
 }
 
 // ============================================================================
@@ -282,16 +262,11 @@ Element MainBar(const MainBarProps& props) {
         return 3 + text_w + (selected ? 3 : 1);
     };
 
-    int scroll_off = props.scroll_offset;
-
     // ---- Determine how many candidates fit ----
     // Shared with App::render_candidates_bar() so the drawn set and the
     // digit-selectable set are always the same set.
     ui::CandidateBarFit fit = FitCandidateBar(term_w, props.mode, props.buffer, props.candidates, props.max_items);
     size_t display_count = static_cast<size_t>(fit.count);
-    // Truncation handles the "not even one fits" case, so the legacy scroll
-    // animation is no longer needed.
-    bool need_scroll = false;
 
     // ---- Build items ----
     Elements items;
@@ -308,7 +283,6 @@ Element MainBar(const MainBarProps& props) {
         items.push_back(CandidateItem({.index = static_cast<int>(i + 1),
                                        .text = props.candidates[i].text,
                                        .selected = (i == props.selected),
-                                       .scroll_offset = (need_scroll && i == props.selected) ? scroll_off : 0,
                                        .max_text_width = fit.text_cols}));
     }
 

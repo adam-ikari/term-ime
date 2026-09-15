@@ -27,7 +27,6 @@ struct CandidateItemProps {
     int index;
     std::u32string text;
     bool selected = false;
-    int scroll_offset = 0;  // Scroll offset in characters for overflow display
     // Max display columns for the text; 0 = unlimited. Set by the bar so a wide
     // candidate is cut with an ellipsis instead of overflowing the line.
     int max_text_width = 0;
@@ -88,9 +87,8 @@ struct MainBarProps {
     std::vector<Candidate> candidates;
     size_t selected = 0;
     std::string buffer;
-    int term_width = 80;    // Terminal width in columns
-    int scroll_offset = 0;  // Scroll offset in characters for overflow
-    int max_items = 9;  // Upper bound on candidates drawn (width may fit fewer)
+    int term_width = 80;  // Terminal width in columns
+    int max_items = 9;    // Upper bound on candidates drawn (width may fit fewer)
 };
 
 Element MainBar(const MainBarProps& props);
