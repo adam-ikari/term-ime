@@ -24,5 +24,6 @@
   "settings.language": "Language",
   "settings.title": "Settings",
   "settings.ui_language": "UI Language",
+  "settings.max_candidates": "Candidates",
   "settings.close": "Close"
 }

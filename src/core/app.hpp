@@ -109,6 +109,9 @@ class App {
     ImeSnapshot ime_snapshot_;
     void refresh_ime_snapshot();
     void render_candidates_bar(bool refresh = true);
+    // Shift the visible candidate window by one group; rolls onto the previous /
+    // next rime page when the window would run past the page edge.
+    void advance_candidate_window(int direction);  // <0 previous, >0 next
     void on_settings_change(const std::string& key, const std::string& value);
     void on_settings_close();
     void render_settings_panel();

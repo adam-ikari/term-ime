@@ -96,7 +96,6 @@ bool App::init(const AppConfig& config, EventLoop* event_loop) {
         const auto& current_lang = language_manager_.current();
         spdlog::info("Initializing Rime IME with schema: {}", current_lang.schema);
 
-
         // Rime's first run compiles the dictionary (prism/table) before it can
         // accept input, and on a cold data dir that blocks for seconds. Without
         // this the alternate screen stays blank the whole time and every
@@ -119,7 +118,6 @@ bool App::init(const AppConfig& config, EventLoop* event_loop) {
         }
         // Deploy done: drop the transient hint so the shell prompt owns row 0.
         show_startup_hint(std::string());
-
 
         // Initialize settings panel
         ui::settings_init(settings_state_, config_);
@@ -218,7 +216,8 @@ void App::render_candidates_bar(bool refresh) {
         // from exactly the list it is handed: both sides must see the same list
         // or the drawn set and the selectable set would drift apart.
         std::vector<Candidate> tail(all.begin() + candidate_window_, all.end());
-        int fit = ui::FitCandidateBar(cols, ime_snapshot_.mode, ime_snapshot_.buffer, tail, config_.max_candidates).count;
+        int fit =
+            ui::FitCandidateBar(cols, ime_snapshot_.mode, ime_snapshot_.buffer, tail, config_.max_candidates).count;
         if (fit < 1)
             fit = 1;
         if (static_cast<size_t>(fit) >= all.size()) {
@@ -245,6 +244,25 @@ void App::render_candidates_bar(bool refresh) {
         sel = selected_candidate_ - candidate_window_;
 
     renderer_.render_candidates(shown, sel, ime_snapshot_.buffer, ime_snapshot_.mode, config_.max_candidates);
+}
+void App::advance_candidate_window(int direction) {
+    if (!ime_)
+        return;
+    const size_t step = static_cast<size_t>(std::max(1, candidate_slots_));
+    if (direction > 0) {
+        if (candidate_window_ + step < ime_snapshot_.candidates.size()) {
+            candidate_window_ += step;
+        } else {
+            ime_->page_down();
+            candidate_window_ = 0;
+        }
+    } else if (candidate_window_ >= step) {
+        candidate_window_ -= step;
+    } else {
+        ime_->page_up();
+        // Ask for the tail window; render clamps to the last full one.
+        candidate_window_ = std::numeric_limits<size_t>::max();
+    }
 }
 
 void App::on_keyboard_data(const char* data, size_t len) {
@@ -354,22 +372,43 @@ void App::on_keyboard_data(const char* data, size_t len) {
 
         // If IME is composing, intercept all input except selection keys
         if (ime_->state() == ImeState::Composing || ime_->state() == ImeState::Selecting) {
-            // Escape sequences are ignored while composing
+            // Arrow keys and PageUp/PageDown page through the candidates while
+            // composing (same grouping as ','/'.'), so the whole page stays
             if (is_escape_sequence && input_result.forward) {
-                spdlog::debug("IME composing: ignoring escape sequence");
+                const auto& seq = input_result.data;  // vector<unsigned char>
+                int direction = 0;
+                if (seq.size() == 3 && (seq[1] == '[' || seq[1] == 'O')) {
+                    switch (seq[2]) {
+                    case 'D':  // left
+                    case 'A':  // up
+                        direction = -1;
+                        break;
+                    case 'C':  // right
+                    case 'B':  // down
+                        direction = 1;
+                        break;
+                    default:
+                        break;
+                    }
+                } else if (seq.size() == 4 && seq[1] == '[' && seq[3] == '~') {
+                    if (seq[2] == '5') {  // PageUp
+                        direction = -1;
+                    } else if (seq[2] == '6') {  // PageDown
+                        direction = 1;
+                    }
+                }
+                if (direction == 0) {
+                    spdlog::debug("IME composing: ignoring escape sequence");
+                    continue;
+                }
+                if (ime_->state() == ImeState::Selecting) {
+                    advance_candidate_window(direction);
+                }
+                render();
                 continue;
             }
 
             char ch = static_cast<char>(byte);
-            // ESC (0x1b) cancels composition immediately
-            if (ch == 0x1b) {
-                spdlog::debug("IME composing: ESC cancels composition");
-                ime_->cancel();
-                consumed_escape = true;
-                selected_candidate_ = 0;
-                render();
-                continue;
-            }
             if (ch >= '1' && ch <= '9') {
                 // Select the candidate in the visible slot: the slot index maps
                 // to rime's page through the window offset, so a narrow bar can
@@ -430,29 +469,16 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 }
                 continue;
             } else if (ch == ',' || ch == '<') {
-                // Previous window; one more step pages back through rime.
+                // Previous group of candidates.
                 if (ime_->state() == ImeState::Selecting) {
-                    size_t step = static_cast<size_t>(std::max(1, candidate_slots_));
-                    if (candidate_window_ >= step) {
-                        candidate_window_ -= step;
-                    } else {
-                        ime_->page_up();
-                        // Ask for the tail: render clamps to the last full window.
-                        candidate_window_ = std::numeric_limits<size_t>::max();
-                    }
+                    advance_candidate_window(-1);
                     render();
                     continue;
                 }
             } else if (ch == '.' || ch == '>') {
-                // Next window; one more step pages forward through rime.
+                // Next group of candidates.
                 if (ime_->state() == ImeState::Selecting) {
-                    size_t step = static_cast<size_t>(std::max(1, candidate_slots_));
-                    if (candidate_window_ + step < ime_snapshot_.candidates.size()) {
-                        candidate_window_ += step;
-                    } else {
-                        ime_->page_down();
-                        candidate_window_ = 0;
-                    }
+                    advance_candidate_window(1);
                     render();
                     continue;
                 }
@@ -487,6 +513,17 @@ void App::on_keyboard_data(const char* data, size_t len) {
     // (ESC[A etc.) completes inside the batch and is left untouched.
     if (consumed_escape && input_processor_.in_escape()) {
         input_processor_.reset();
+    }
+    // A lone ESC (no sequence byte followed it in this batch) cancels the
+    // composition. A completed sequence (ESC[C …) was handled as candidate
+    // paging above and leaves the state machine in Normal, so it cannot land
+    // here — checking the byte instead of the batch used to swallow arrows.
+    if (input_processor_.in_escape() && ime_ && ime_->state() != ImeState::Inactive) {
+        spdlog::debug("IME composing: ESC cancels composition");
+        ime_->cancel();
+        selected_candidate_ = 0;
+        input_processor_.reset();
+        render();
     }
 
     // Orphaned-ESC disambiguation: a bare ESC is still pending in the state
@@ -634,6 +671,12 @@ void App::on_settings_change(const std::string& key, const std::string& value) {
         config_.ui_language = value;
         // Re-init settings to update labels
         ui::settings_init(settings_state_, config_);
+    } else if (key == "max_candidates") {
+        // The settings row offers the single-digit options "1".."9".
+        const int requested = value.empty() ? 0 : value[0] - '0';
+        config_.max_candidates = std::max(1, std::min(9, requested));
+        candidate_window_ = 0;
+        spdlog::info("Candidate cap set to {}", config_.max_candidates);
     }
 
     render();

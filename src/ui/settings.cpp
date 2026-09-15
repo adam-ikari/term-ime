@@ -203,6 +203,25 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     }
     state.items.push_back(ui_lang);
 
+    // Candidate bar: how many candidates one page may show. The bar still shows
+    // fewer on a narrow terminal; this is the upper bound.
+    SettingsItem max_candidates;
+    max_candidates.label = I18n::t("settings.max_candidates");
+    max_candidates.key = "max_candidates";
+    for (int n = 1; n <= 9; ++n) {
+        max_candidates.options.push_back(std::to_string(n));
+    }
+    max_candidates.display_options = max_candidates.options;
+    int wanted = config.max_candidates;
+    if (wanted < 1)
+        wanted = 1;
+    if (wanted > 9)
+        wanted = 9;
+    max_candidates.selected_index = wanted - 1;
+    max_candidates.value = max_candidates.options[max_candidates.selected_index];
+    max_candidates.display_value = max_candidates.value;
+    state.items.push_back(max_candidates);
+
     state.focus_index = 0;
 }
 

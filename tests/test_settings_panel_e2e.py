@@ -165,58 +165,61 @@ def test_settings_panel():
             print(f"\nTotal: {sum(1 for _, r in results if r)}/{len(results)} passed")
             return False
 
-        # Test 3: Navigate down with 'j'. Focus moves from the ui-language
-        # row to the close item, which is rendered as '> 关闭 <' when focused.
+        # Test 3: Navigate down with 'j'. Focus moves from the ui-language row
+        # to the candidates row (the panel has two rows plus the Close item).
         print("\n[Test 3] Navigate down (j key)")
         drain(master_fd)
         send(master_fd, b"j")
+        ok, buf = poll_until(master_fd, b"", row_focus_re('候选词数量'), timeout=5.0)
+        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
+        print(f"  Screen preview: {repr(screen[:150])}")
+        m = row_focus_re('候选词数量').search(screen)
+        cand_focused = ok and bool(m) and m.group(1) == '9' and m.group(2) == '9'
+        ui_unfocused = '界面语言:' in screen and '界面语言: [' not in screen
+        print(f"  Candidates row focused: {cand_focused}, ui row unfocused: {ui_unfocused}")
+        results.append(("Navigate j", cand_focused and ui_unfocused))
+
+        # Test 4: Navigate with arrow key (down). Focus moves on to Close.
+        print("\n[Test 4] Navigate with arrow key (down)")
+        drain(master_fd)
+        send(master_fd, b"\x1b[B")  # ESC [ B (down arrow)
         ok, buf = poll_until(master_fd, b"", r'>\s*关闭\s*<', timeout=5.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:150])}")
         close_focused = ok and bool(re.search(r'>\s*关闭\s*<', screen))
-        # The ui row must no longer be the focused one (no brackets).
-        ui_unfocused = '界面语言:' in screen and '界面语言: [' not in screen
-        print(f"  Close item focused: {close_focused}, ui row unfocused: {ui_unfocused}")
-        results.append(("Navigate j", close_focused and ui_unfocused))
+        print(f"  Close item focused: {close_focused}")
+        results.append(("Arrow down", close_focused))
 
-        # Test 4: Navigate with arrow key (down). Focus wraps back to the
-        # ui-language row, rendered focused again.
-        print("\n[Test 4] Navigate with arrow key (down)")
+        # Test 5: Up arrow returns to the candidates row; 'h' lowers the cap.
+        print("\n[Test 5] Change value (h key)")
         drain(master_fd)
-        send(master_fd, b"\x1b[B")  # ESC [ B (down arrow)
-        ok, buf = poll_until(master_fd, b"", row_focus_re('界面语言'), timeout=5.0)
+        send(master_fd, b"\x1b[A")  # ESC [ A (up arrow)
+        poll_until(master_fd, b"", row_focus_re('候选词数量'), timeout=5.0)
+        drain(master_fd)
+        send(master_fd, b"h")
+        ok, buf = poll_until(master_fd, b"", row_focus_re('候选词数量'), timeout=5.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:150])}")
-        m = row_focus_re('界面语言').search(screen)
-        arrow_ok = ok and bool(m) and m.group(1) == '简体中文'
-        close_unfocused = '> 关闭 <' not in screen
-        print(f"  Ui row refocused: {arrow_ok}, close unfocused: {close_unfocused}")
-        results.append(("Arrow down", arrow_ok and close_unfocused))
+        m = row_focus_re('候选词数量').search(screen)
+        lowered = ok and bool(m) and m.group(1) == '8' and m.group(2) == '8'
+        print(f"  Candidate cap lowered to 8: {lowered}")
+        results.append(("Change value h", lowered))
 
-        # Test 5: Change value with 'h' (left). zh-CN -> en; on_change
-        # re-labels the panel in English.
-        print("\n[Test 5] Change value (h key)")
+        # Test 6: 'k' back up to the ui-language row, then 'h' switches the UI
+        # language; the panel re-labels itself in English.
+        print("\n[Test 6] Navigate up (k key) and switch UI language")
+        drain(master_fd)
+        send(master_fd, b"k")
+        poll_until(master_fd, b"", row_focus_re('界面语言'), timeout=5.0)
         drain(master_fd)
         send(master_fd, b"h")
         ok, buf = poll_until(master_fd, b"", row_focus_re('UI Language'), timeout=10.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:150])}")
         m = row_focus_re('UI Language').search(screen)
-        changed = ok and bool(m) and m.group(1) == 'English' and m.group(2) == '1'
-        print(f"  Value switched to English: {changed}")
-        results.append(("Change value h", changed))
-
-        # Test 6: Navigate up with 'k'. Focus moves to the close item, now
-        # rendered in English as '> Close <'.
-        print("\n[Test 6] Navigate up (k key)")
-        drain(master_fd)
-        send(master_fd, b"k")
-        ok, buf = poll_until(master_fd, b"", r'>\s*Close\s*<', timeout=5.0)
-        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
-        print(f"  Screen preview: {repr(screen[:150])}")
-        close_up = ok and bool(re.search(r'>\s*Close\s*<', screen))
-        print(f"  Close item refocused: {close_up}")
-        results.append(("Navigate k", close_up))
+        switched = ok and bool(m) and m.group(1) == 'English' and m.group(2) == '1'
+        print(f"  Ui language switched to English: {switched}")
+        results.append(("Navigate k", switched))
 
         # Test 7: Close settings with ESC. ESC closes the panel and redraws
         # the shell view. The panel content must be gone and the shell prompt

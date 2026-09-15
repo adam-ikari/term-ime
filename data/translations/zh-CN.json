@@ -24,5 +24,6 @@
   "settings.language": "语言",
   "settings.title": "设置",
   "settings.ui_language": "界面语言",
+  "settings.max_candidates": "候选词数量",
   "settings.close": "关闭"
 }
