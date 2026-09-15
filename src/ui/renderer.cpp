@@ -203,6 +203,12 @@ void Renderer::redraw_shell(const Screen& screen) {
     printf("\x1b[s");     // save cursor
     printf("\x1b[1;1H");  // home within scroll region
     printf("\x1b[2J");    // clear (scroll region is set, but 2J clears whole screen)
+    // The 2J above also wiped the status-bar row (the bar is not part of the
+    // Screen grid). Invalidate the dedup signature here, or the next
+    // render_candidates() call is skipped and the bar stays blank after the
+    // settings panel closes.
+    last_bar_sig_.clear();
+    bar_skip_count_ = 0;
     int rows = std::min(screen.rows(), static_cast<int>(ws.ws_row) - 1);
     int cols = std::min(screen.cols(), static_cast<int>(ws.ws_col));
     for (int r = 0; r < rows; ++r) {
