@@ -88,6 +88,10 @@ def test_settings_panel():
     os.environ["HOME"] = home
     os.environ["XDG_CONFIG_HOME"] = config_home
     os.environ["TERM"] = "xterm-256color"
+    # Pin the shell the app spawns: otherwise it inherits the caller's $SHELL,
+    # and a fresh HOME makes zsh run zsh-newuser-install (a wizard banner, never
+    # a prompt), which makes every prompt-based assertion depend on the caller.
+    os.environ["SHELL"] = "/bin/sh"
 
     # Create a new session with proper TTY
     pid, master_fd = pty.fork()
@@ -220,7 +224,12 @@ def test_settings_panel():
         print("\n[Test 7] Close settings (ESC)")
         drain(master_fd)
         send(master_fd, b"\x1b")
-        ok, buf = poll_until(master_fd, b"", r'term-ime', timeout=10.0)
+        drain(master_fd)
+        # Probe the shell rather than matching a prompt string: $SHELL and its
+        # startup files decide what a prompt looks like, so only the evaluated
+        # probe proves the shell view is live again.
+        send(master_fd, b"echo SHELLVIEW$((6*7))\r")
+        ok, buf = poll_until(master_fd, b"", r'SHELLVIEW42', timeout=10.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Output length: {len(buf)} bytes")
         print(f"  Screen preview: {repr(screen[:200])}")
@@ -228,7 +237,7 @@ def test_settings_panel():
                       and 'UI Language' not in screen
                       and '界面语言' not in screen
                       and 'Close' not in screen)
-        shell_back = ok and 'term-ime' in screen
+        shell_back = ok and 'SHELLVIEW42' in screen
         config_file = os.path.join(config_home, "term-ime", "config.json")
         persisted = False
         end_time = time.time() + 5.0

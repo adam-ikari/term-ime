@@ -84,6 +84,10 @@ def test_settings():
     os.environ["HOME"] = home
     os.environ["XDG_CONFIG_HOME"] = config_home
     os.environ["TERM"] = "xterm-256color"
+    # Pin the shell the app spawns: otherwise it inherits the caller's $SHELL,
+    # and a fresh HOME makes zsh run zsh-newuser-install (a wizard banner, never
+    # a prompt), which makes every prompt-based assertion depend on the caller.
+    os.environ["SHELL"] = "/bin/sh"
 
     pid, master_fd = pty.fork()
     if pid == 0:
@@ -168,17 +172,21 @@ def test_settings():
         print("\nTest 5: Close settings (ESC)")
         drain()
         send(master_fd, b"\x1b")
-        ok, buf = poll_until(master_fd, b"", r'term-ime', timeout=10.0)
+        drain()
+        # Probe the shell instead of matching a prompt string: the typed line and
+        # the evaluated result differ, so only a live shell view prints the
+        # marker. A prompt regex would depend on $SHELL and its startup files.
+        send(master_fd, b"echo SHELLVIEW$((6*7))\r")
+        ok, buf = poll_until(master_fd, b"", r'SHELLVIEW42', timeout=10.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:200])}")
-        # Panel-only markers (footer 'Up/Down', item labels) must be gone, and
-        # the shell prompt (cwd path) must be visible again.
+        # Panel-only markers (footer 'Up/Down', item labels) must be gone.
         panel_gone = ('Up/Down' not in screen
                       and 'UI Language' not in screen
                       and '界面语言' not in screen)
-        shell_back = 'term-ime' in screen
-        closed = ok and panel_gone and shell_back
-        print(f"  Shell view back: {shell_back}, panel content gone: {panel_gone}")
+        shell_back = ok and 'SHELLVIEW42' in screen
+        closed = panel_gone and shell_back
+        print(f"  Shell view back (probe): {shell_back}, panel content gone: {panel_gone}")
         results.append(closed)
 
         # Test 6: Closing persists the changed setting into the hermetic
