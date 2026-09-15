@@ -11,6 +11,8 @@ import fcntl
 import termios
 import signal
 import re
+import tempfile
+import shutil
 
 def clean_ansi(text):
     """Remove ANSI escape sequences."""
@@ -35,6 +37,34 @@ def read_all(fd, timeout=0.5):
             break
     return output
 
+def poll_until(fd, buf, pattern, timeout=10.0):
+    """Read from fd into buf until the cleaned text matches pattern, or timeout.
+
+    Returns (matched, buf).
+    """
+    rx = re.compile(pattern) if isinstance(pattern, str) else pattern
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        try:
+            ready, _, _ = select.select([fd], [], [], 0.1)
+            if ready:
+                data = os.read(fd, 4096)
+                if not data:
+                    break
+                buf += data
+        except OSError:
+            break
+        if rx.search(clean_ansi(buf.decode('utf-8', errors='replace'))):
+            return True, buf
+    return False, buf
+
+def send(fd, data):
+    """Write to the pty, ignoring errors once the session is dead."""
+    try:
+        os.write(fd, data)
+    except OSError:
+        pass
+
 def test_quick():
     print("=== Quick E2E Test ===\n")
 
@@ -45,10 +75,20 @@ def test_quick():
         print("Run: make -j$(nproc)")
         return
 
+    # Hermetic environment: keep config/logs out of the real HOME.
+    tmp_home = tempfile.mkdtemp(prefix="term-ime-e2e-")
+    home = os.path.join(tmp_home, "home")
+    config_home = os.path.join(tmp_home, "config")
+    os.makedirs(home, exist_ok=True)
+    os.makedirs(config_home, exist_ok=True)
+    os.environ["HOME"] = home
+    os.environ["XDG_CONFIG_HOME"] = config_home
+    os.environ["TERM"] = "xterm-256color"
+
     pid, master_fd = pty.fork()
     if pid == 0:
-        # Child process - start new session
-        os.setsid()
+        # Child process - pty.fork() already made us a session leader,
+        # so no os.setsid() here (it would fail with EPERM).
         os.execvp(term_ime_path, [term_ime_path])
 
     # Set terminal size
@@ -62,78 +102,70 @@ def test_quick():
     results = []
 
     try:
-        # Test 1: Check startup
+        # Test 1: Startup. The first frame is painted only after librime has
+        # deployed into the fresh HOME (takes ~5s), so poll for it.
         print("Test 1: Startup")
-        time.sleep(1.0)  # Wait for app to initialize
-        output = read_all(master_fd, 1.0)
-
-        screen = clean_ansi(output.decode('utf-8', errors='replace'))
+        buf = b""
+        ok, buf = poll_until(master_fd, buf, r'\[EN\]|\[拼\]', timeout=20.0)
+        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen length: {len(screen)} chars")
         print(f"  Screen preview: {repr(screen[:100])}")
-
-        # Check for mode indicator (EN or 中文)
-        if "EN" in screen or "中文" in screen:
-            print("  ✓ Mode indicator found")
+        mode = re.search(r'\[EN\]|\[拼\]', screen)
+        if ok and mode and mode.group(0) == '[EN]':
+            print("  ✓ Mode indicator [EN] found (English default)")
             results.append(True)
         else:
-            print("  ✗ No mode indicator")
+            print(f"  ✗ No [EN] mode indicator (found {mode.group(0) if mode else 'none'})")
             results.append(False)
 
         # Test 2: Toggle to Chinese mode
         print("\nTest 2: Toggle to Chinese mode (Ctrl+A, Space)")
-        os.write(master_fd, b"\x01 ")  # Ctrl+A + Space
-        time.sleep(0.5)
-        output = read_all(master_fd, 0.5)
-
-        screen = clean_ansi(output.decode('utf-8', errors='replace'))
-        mode = '中文' if '中文' in screen else 'EN'
+        send(master_fd, b"\x01 ")  # Ctrl+A + Space
+        buf = b""
+        ok, buf = poll_until(master_fd, buf, r'\[拼\]', timeout=5.0)
+        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
+        mode = '[拼]' if '[拼]' in screen else 'none'
         print(f"  Mode: {mode}")
-        results.append('中文' in screen)
+        results.append(ok and '[拼]' in screen)
 
         # Test 3: Input pinyin
         print("\nTest 3: Pinyin input 'nihao'")
-        os.write(master_fd, b"nihao")
-        time.sleep(0.5)
-        output = read_all(master_fd, 0.5)
-
-        screen = clean_ansi(output.decode('utf-8', errors='replace'))
+        send(master_fd, b"nihao")
+        buf = b""
+        ok, buf = poll_until(master_fd, buf, r'你好', timeout=5.0)
+        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:100])}")
-
-        # Check for candidates or pinyin display
-        if "你" in screen or "你好" in screen or "nihao" in screen.lower():
-            print("  ✓ Input recognized")
+        if ok and '你好' in screen:
+            print("  ✓ Input recognized (candidate 你好)")
             results.append(True)
         else:
             print("  ✗ No input recognized")
             results.append(False)
 
-        # Cancel with ESC
-        os.write(master_fd, b"\x1b")
-        time.sleep(0.2)
-        read_all(master_fd, 0.2)
+        # Cancel the composition with ESC
+        send(master_fd, b"\x1b")
+        time.sleep(0.3)
+        read_all(master_fd, 0.3)
 
         # Test 4: Toggle back to English
         print("\nTest 4: Toggle to English mode (Ctrl+A, Space)")
-        os.write(master_fd, b"\x01 ")  # Ctrl+A + Space
-        time.sleep(0.5)
-        output = read_all(master_fd, 0.5)
-
-        screen = clean_ansi(output.decode('utf-8', errors='replace'))
-        mode = 'EN' if 'EN' in screen else '中文'
+        send(master_fd, b"\x01 ")  # Ctrl+A + Space
+        buf = b""
+        ok, buf = poll_until(master_fd, buf, r'\[EN\]', timeout=5.0)
+        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
+        mode = '[EN]' if '[EN]' in screen else ('[拼]' if '[拼]' in screen else 'none')
         print(f"  Mode: {mode}")
-        results.append('EN' in screen)
+        results.append(ok and '[EN]' in screen)
 
-        # Test 5: Settings panel
+        # Test 5: Settings panel. '界面语言' appears only inside the panel
+        # (the help line's '^A S 设置' makes a bare '设置' check ambiguous).
         print("\nTest 5: Settings panel (Ctrl+A, S)")
-        os.write(master_fd, b"\x01s")  # Ctrl+A + S
-        time.sleep(0.5)
-        output = read_all(master_fd, 0.5)
-
-        screen = clean_ansi(output.decode('utf-8', errors='replace'))
+        send(master_fd, b"\x01s")  # Ctrl+A + S
+        buf = b""
+        ok, buf = poll_until(master_fd, buf, r'界面语言', timeout=5.0)
+        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:100])}")
-
-        # Check for settings panel indicators
-        if "设置" in screen or "Settings" in screen or "界面语言" in screen or "AI排序" in screen:
+        if ok and '界面语言' in screen:
             print("  ✓ Settings panel opened")
             results.append(True)
         else:
@@ -152,6 +184,7 @@ def test_quick():
             os.close(master_fd)
         except:
             pass
+        shutil.rmtree(tmp_home, ignore_errors=True)
 
 if __name__ == "__main__":
     test_quick()
