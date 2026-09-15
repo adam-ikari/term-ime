@@ -1,5 +1,5 @@
 {
-  "name": "Simplified Chinese (TS + JP shinjitai + extra variants)",
+  "name": "Simplified Chinese (JP shinjitai + TS + extra variants)",
   "segmentation": {
     "type": "mmseg",
     "dict": {
@@ -8,12 +8,6 @@
     }
   },
   "conversion_chain": [
-    {
-      "dict": {
-        "type": "text",
-        "file": "variants.txt"
-      }
-    },
     {
       "dict": {
         "type": "text",
@@ -33,6 +27,12 @@
             "file": "TSCharacters.ocd2"
           }
         ]
+      }
+    },
+    {
+      "dict": {
+        "type": "text",
+        "file": "variants.txt"
       }
     }
   ]
