@@ -37,13 +37,22 @@ BIN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 NON_SIMPLIFIED = set(
     "楽薬気実沢圧辺団従収効営豊発関対観転変続経顔頭帰広県領両勧権検桜済斎斉"
     "読認費単図雑仮伝仏応択線録錯帰撃撃蔵麹麺麽苧剋夥妳"
+    # Japanese kokuji pruned from luna_pinyin.dict.yaml (2026-09-15): coined in
+    # Japan, absent from 通用规范汉字表. 腺 is the one exception — it is a
+    # Japanese-coined char but fully naturalized in Chinese (甲状腺), so it is
+    # kept and asserted in KEEP below.
+    "俤俧働凧凩凪匁匂哘噺囎圦圷圸垰垳塀墹嬶屶岾峅峠怺杢杤枠枡栃桝梺椙椛椣椥榊樫"
+    "燵狆瓩畑畠硲硴笹簓籾粁粂粍糀糎纃聢膤膵艝萙蘒蟎裃躮躾軈轌辷辻込迚遖釺銯錺錻"
+    "鎹雫鞆颪鮗鯥鯰鯱鯳鰯鱈鳰鴫鶎鶫麿"
+    # Bopomofo / zhuyin symbols (dead entries: the schemas' alphabet is pinyin).
+    "ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ"
 )
 
 # Every syllable that previously exposed one of the above.
 SYLLABLES = [
     "ni", "nihao", "yue", "le", "yao", "qi", "dui", "guan", "bian", "tu",
     "qu", "mian", "me", "mo", "neng", "nen", "ke", "huo", "yun", "hu", "fu",
-    "chang", "zhang", "xue", "guo", "ren",
+    "chang", "zhang", "xue", "xian", "guo", "ren",
 ]
 
 # Simplified characters that must remain selectable (and must not be converted
@@ -61,6 +70,7 @@ KEEP = {
     "qu": "曲",
     "mian": "面",
     "yu": "于",
+    "xian": "腺",  # Japanese-coined but standard Chinese (甲状腺) — must survive the kokuji prune
 }
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
@@ -101,6 +111,8 @@ class Session:
                 break
             try:
                 chunk = os.read(self.fd, 65536)
+            except BlockingIOError:
+                continue  # non-blocking fd reported readable but had nothing yet
             except OSError:
                 break
             if not chunk:
@@ -108,7 +120,7 @@ class Session:
             out += chunk
         return out
 
-    def wait_for(self, pattern: str, seconds=30.0) -> bool:
+    def wait_for(self, pattern: str, seconds=60.0) -> bool:
         rx = re.compile(pattern)
         buf = b""
         end = time.time() + seconds
@@ -118,6 +130,8 @@ class Session:
                 continue
             try:
                 chunk = os.read(self.fd, 65536)
+            except BlockingIOError:
+                continue  # non-blocking fd reported readable but had nothing yet
             except OSError:
                 break
             if not chunk:

@@ -34,29 +34,6 @@ use_preset_vocabulary: true
 ...
 
 〇	ling
-ㄓ	zhi
-ㄔ	chi
-ㄕ	shi
-ㄖ	ri
-ㄗ	zi
-ㄘ	ci
-ㄙ	si
-ㄚ	a
-ㄛ	o
-ㄜ	e
-ㄝ	eh
-ㄞ	ai
-ㄟ	ei
-ㄠ	ao
-ㄡ	ou
-ㄢ	an
-ㄣ	en
-ㄤ	ang
-ㄥ	eng
-ㄦ	er
-ㄧ	yi
-ㄨ	wu
-ㄩ	yu
 㐀	qiu
 㐁	tian
 㐄	kua
@@ -7504,7 +7481,6 @@ use_preset_vocabulary: true
 信	xin	100%
 俢	xiu
 俣	yu
-俤	di
 俥	che
 俥	ju
 俦	chou
@@ -7788,7 +7764,6 @@ use_preset_vocabulary: true
 僋	lan
 僋	qiu
 僌	ying
-働	dong
 僎	zhuan
 像	xiang
 僐	shan
@@ -8470,7 +8445,6 @@ use_preset_vocabulary: true
 勾	gou
 勿	wu
 匀	yun
-匁	wen
 匃	gua
 匄	gai
 包	bao
@@ -11719,7 +11693,6 @@ use_preset_vocabulary: true
 岺	ling
 岻	chi
 岽	dong
-岾	han
 岿	kui
 峀	bang
 峁	mao
@@ -11761,7 +11734,6 @@ use_preset_vocabulary: true
 峞	kui
 峞	wei
 峟	you
-峠	qia
 峡	xia
 峢	li
 峣	yao
@@ -15301,7 +15273,6 @@ use_preset_vocabulary: true
 枞	cong
 枞	zong
 枟	yun
-枡	dou
 枢	ou	1%
 枢	shu
 枣	zao
@@ -15423,7 +15394,6 @@ use_preset_vocabulary: true
 栀	zhi
 栁	liu
 栂	mei
-栃	li
 栄	rong
 栅	shan
 栅	zha
@@ -15761,7 +15731,6 @@ use_preset_vocabulary: true
 椠	qian
 椢	gui
 椤	luo
-椥	zhi
 椧	ming
 椪	peng
 椫	zhan
@@ -15881,7 +15850,6 @@ use_preset_vocabulary: true
 榇	chen
 榈	lv
 榉	ju
-榊	shen
 榍	xiao
 榍	xie
 榎	jia
@@ -16078,7 +16046,6 @@ use_preset_vocabulary: true
 樨	xu
 権	quan
 横	heng
-樫	jian
 樬	cong
 樯	qiang
 樱	ying
@@ -18794,7 +18761,6 @@ use_preset_vocabulary: true
 狄	di
 狅	kuang
 狅	qing
-狆	zhong
 狇	mu
 狈	bei
 狉	pi
@@ -19468,7 +19434,6 @@ use_preset_vocabulary: true
 瓨	jiang
 瓨	wa
 瓨	zhu
-瓩	qian
 瓪	ban
 瓫	pen
 瓬	fang
@@ -19587,7 +19552,6 @@ use_preset_vocabulary: true
 畎	quan
 畏	wei
 畐	fu
-畑	tian
 畒	mu
 畓	duo
 畔	ban	0%
@@ -19608,7 +19572,6 @@ use_preset_vocabulary: true
 畞	mou
 畞	mu
 畟	ce
-畠	tian
 畡	gai
 畡	hai
 畢	bi
@@ -20585,7 +20548,6 @@ use_preset_vocabulary: true
 硰	cuo
 硰	sha
 硱	kun
-硲	yu
 硳	chi
 硵	lu
 硶	chen
@@ -21810,10 +21772,8 @@ use_preset_vocabulary: true
 类	lei
 籼	xian
 籽	zi
-籾	ni
 籿	cun
 粀	zhang
-粁	qian
 粃	bi
 粄	ban
 粅	wu
@@ -21826,7 +21786,6 @@ use_preset_vocabulary: true
 粊	bi
 粋	cui
 粌	yin
-粍	li
 粎	chi
 粑	ba
 粒	li
@@ -21899,7 +21858,6 @@ use_preset_vocabulary: true
 糋	qian
 糌	zan
 糍	ci
-糎	li
 糏	xie
 糐	fu
 糑	ni
@@ -22452,7 +22410,6 @@ use_preset_vocabulary: true
 纁	xun
 纂	cuan	0%
 纂	zuan	100%
-纃	qi
 纄	peng
 纅	li
 纅	yao
@@ -23453,7 +23410,6 @@ use_preset_vocabulary: true
 膳	shan
 膴	hu
 膴	wu
-膵	cui
 膶	run
 膷	xiang
 膷	xin
@@ -25408,7 +25364,6 @@ use_preset_vocabulary: true
 蟋	xi
 蟌	cong
 蟍	li
-蟎	man
 蟏	xiao
 蟑	zhang
 蟒	mang
@@ -27948,9 +27903,6 @@ use_preset_vocabulary: true
 辸	reng
 边	bian
 辺	bian
-辻	shi
-込	ru	99%
-込	yu	1%
 辽	liao
 达	da
 达	ta
@@ -28657,7 +28609,6 @@ use_preset_vocabulary: true
 釷	tu
 釸	xi
 釹	nv
-釺	qian
 釼	jian
 釽	pi
 釾	ye
@@ -29207,7 +29158,6 @@ use_preset_vocabulary: true
 鎶	ge
 鎷	ma
 鎸	juan
-鎹	rong
 鎻	suo
 鎼	xia
 鎿	na
@@ -30165,8 +30115,6 @@ use_preset_vocabulary: true
 雨	yu
 雩	yu
 雪	xue
-雫	na
-雫	xia
 雬	fou
 雬	fu
 雭	se
@@ -31685,7 +31633,6 @@ use_preset_vocabulary: true
 鯢	ni
 鯣	yi
 鯤	kun
-鯥	lu
 鯦	jiu
 鯧	chang
 鯨	jing	100%
@@ -31697,7 +31644,6 @@ use_preset_vocabulary: true
 鯭	meng
 鯮	zong
 鯯	ji
-鯰	nian
 鯴	shi
 鯵	shen
 鯶	huan
@@ -31765,7 +31711,6 @@ use_preset_vocabulary: true
 鰬	qian
 鰭	qi
 鰮	wen
-鰯	ruo
 鰱	lian
 鰲	ao
 鰳	le
@@ -31794,7 +31739,6 @@ use_preset_vocabulary: true
 鱅	yong
 鱆	zhang
 鱇	kang
-鱈	xue
 鱉	bie
 鱊	jue
 鱊	yu
@@ -32515,7 +32459,6 @@ use_preset_vocabulary: true
 麾	hao
 麾	hui
 麾	mao
-麿	mo
 黀	zou
 黁	nun
 黂	fei
@@ -48631,57 +48574,39 @@ use_preset_vocabulary: true
 佦	shi
 佨	bao
 侤	ta
-俧	zhi
 倿	qie
 傦	gu
 僲	xian
 儏	can
 兯	han
-凧	zheng
-凩	mu
-凪	zhi
-匂	bi
 厁	san
 咜	ta
-哘	xing
 唥	lang
 嗴	qiang
-噺	xin
 嚑	xun
 嚒	me
 嚡	hai
-囎	zen
 囖	lo
-圦	kuai
-圷	xia
-圸	shan
 垊	min
 垪	bing
-垰	ka
-垳	hang
 埖	hua
 堏	fang
 堒	kun
-塀	ping
 塰	hai
 墛	wei
 墶	da
 墸	zhu
-墹	jian
 壗	jin
 壥	chan
 夑	xie
 奍	yang
 婲	hua
 嫲	ma
-嬶	bi
 孧	you
 尡	kun
 屲	wa
-屶	dao
 屷	hui
 岼	ping
-峅	bian
 嵜	ti
 嵵	shi
 嵶	ruo
@@ -48696,7 +48621,6 @@ use_preset_vocabulary: true
 彁	ge
 彅	jian
 徔	zhi
-怺	yong
 恷	xiao
 愥	ying
 慐	gong
@@ -48716,24 +48640,16 @@ use_preset_vocabulary: true
 曻	sheng
 朥	lao
 杁	ru
-杢	jiang
 杣	shan
-杤	wan
 杦	jiu
-枠	zui
 枤	duo
 枦	lu
 枩	song
 栆	zao
-桝	jie
 桞	liu
-梺	xia
 梻	fo
-椙	chang
 椚	men
-椛	hua
 椡	dao
-椣	dian
 椦	quan
 椨	fu
 椩	geng
@@ -48796,7 +48712,6 @@ use_preset_vocabulary: true
 熖	yan
 熴	kun
 燝	jing
-燵	da
 爎	liao
 爘	can
 爳	han
@@ -48819,7 +48734,6 @@ use_preset_vocabulary: true
 砿	kuang
 硓	lao
 硘	qing
-硴	hua
 碵	tian
 碷	dun
 磮	lun
@@ -48836,13 +48750,11 @@ use_preset_vocabulary: true
 竕	fen
 竡	bai
 笂	wan
-笹	ti
 笽	min
 筺	kuang
 筽	o
 篐	gu
 篒	shi
-簓	diao
 簗	liang
 簯	qi
 簱	qi
@@ -48850,12 +48762,10 @@ use_preset_vocabulary: true
 籎	yi
 籏	qi
 籡	qie
-粂	zhai
 粏	tai
 粐	hu
 粩	lao
 粭	he
-糀	hua
 糘	jia
 紦	ba
 絋	kuang
@@ -48870,19 +48780,15 @@ use_preset_vocabulary: true
 罉	cang
 羪	yang
 聓	xu
-聢	ding
 脋	xie
 脌	nin
-膤	xue
 舮	lu
 艔	dou
-艝	xue
 艠	deng
 苆	qie
 茐	cong
 荢	yu
 莵	tu
-萙	zhen
 萞	bi
 萡	bo
 萢	pao
@@ -48892,7 +48798,6 @@ use_preset_vocabulary: true
 蔶	ze
 薭	bai
 藵	bao
-蘒	qiu
 蘰	man
 虅	teng
 螦	sao
@@ -48902,7 +48807,6 @@ use_preset_vocabulary: true
 蟵	chu
 蠴	shu
 衐	qu
-裃	ka
 裄	xing
 褄	qi
 褜	pao
@@ -48912,18 +48816,11 @@ use_preset_vocabulary: true
 誮	hua
 謃	xing
 贌	pu
-躮	fen
 躵	ren
 躻	kong
-躾	mei
 軅	yan
-軈	ying
-轌	xue
-辷	yi
-迚	zhong
 迲	qu
 逧	gu
-遖	nan
 遤	ma
 邜	wan
 郒	lang
@@ -48933,11 +48830,8 @@ use_preset_vocabulary: true
 鈨	yuan
 鈩	lu
 鈫	wen
-銯	si
 鋲	bing
 鋴	zhen
-錺	fang
-錻	wu
 錿	hu
 鎆	qian
 鎺	zu
@@ -48955,14 +48849,11 @@ use_preset_vocabulary: true
 闎	quan
 陦	dao
 靍	he
-鞆	bing
 鞐	qia
-颪	gua
 駲	zhou
 魞	ba
 魹	mo
 鮖	shi
-鮗	dong
 鮘	dai
 鮱	lao
 鮲	fu
@@ -48971,9 +48862,7 @@ use_preset_vocabulary: true
 鯏	li
 鯐	zou
 鯑	xi
-鯱	hu
 鯲	yu
-鯳	di
 鰘	shi
 鰚	xuan
 鰰	shen
@@ -48983,16 +48872,12 @@ use_preset_vocabulary: true
 鱪	shu
 鱫	ai
 鱰	shu
-鳰	ru
-鴫	tian
 鵆	heng
 鵇	nian
 鵈	e
 鵤	jiao
 鵥	pan
 鶍	yi
-鶎	zun
-鶫	dong
 𠀤	bing
 𠦌	xi
 𣐤	jiu
