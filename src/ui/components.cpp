@@ -60,6 +60,36 @@ Element ModeIndicator(const ModeIndicatorProps& props) {
 // CandidateItem
 // ============================================================================
 
+namespace {
+
+// Cut `s` to at most `cols` display columns, appending '…' when it was cut.
+// Used for the single-candidate fallback so nothing ever overflows the line.
+std::string truncate_to_cols(const std::string& s, int cols) {
+    if (cols <= 0 || utf8::string_width(s) <= cols)
+        return s;
+    std::string out;
+    int w = 0;
+    size_t pos = 0;
+    while (pos < s.size()) {
+        int len = utf8::char_len(static_cast<uint8_t>(s[pos]));
+        if (len < 1)
+            len = 1;
+        if (pos + static_cast<size_t>(len) > s.size())
+            break;
+        size_t seq = 0;
+        char32_t ch = utf8::decode(reinterpret_cast<const uint8_t*>(s.data()) + pos, len, seq);
+        int cw = utf8::width(ch);
+        if (w + cw > cols - 1)
+            break;  // keep one column for the ellipsis
+        out.append(s, pos, static_cast<size_t>(len));
+        w += cw;
+        pos += static_cast<size_t>(len);
+    }
+    return out + "…";
+}
+
+}  // namespace
+
 Element CandidateItem(const CandidateItemProps& props) {
     std::string text_str = u32_to_utf8(props.text);
     // Apply scrolling for selected candidate: show a substring window
@@ -83,6 +113,9 @@ Element CandidateItem(const CandidateItemProps& props) {
         }
     } else {
         display_text = text_str;
+    }
+    if (props.max_text_width > 0) {
+        display_text = truncate_to_cols(display_text, props.max_text_width);
     }
 
     std::string label = std::to_string(props.index) + "." + display_text;
@@ -169,6 +202,49 @@ Element HintsBar() {
 // MainBar
 // ============================================================================
 
+// Fixed part of the bar: " [mode] " (1+1+w+1+1) + " buffer " (1+w+1).
+// Item overhead: " N." + " " — use the widest (selected) form for every item so
+// moving the selection can never invalidate the budget.
+static int bar_fixed_width(const std::string& mode, const std::string& buffer) {
+    return 4 + utf8::string_width(mode) + 2 + utf8::string_width(buffer);
+}
+static constexpr int kBarItemOverhead = 6;  // " [N." + "] "
+
+CandidateBarFit FitCandidateBar(int term_width, const std::string& mode, const std::string& buffer,
+                                const std::vector<Candidate>& candidates, int max_items) {
+    CandidateBarFit fit;
+    if (term_width <= 0)
+        term_width = 80;
+    if (max_items > 9)
+        max_items = 9;  // selector keys are single digits
+    if (max_items < 1)
+        max_items = 1;
+
+    const int fixed = bar_fixed_width(mode, buffer);
+    const int limit = std::min(static_cast<int>(candidates.size()), max_items);
+    if (limit <= 0) {
+        fit.count = 0;
+        return fit;
+    }
+
+    // Prefer full texts: the largest count whose items fit untruncated.
+    for (int count = limit; count >= 1; --count) {
+        int total = fixed;
+        for (int i = 0; i < count; ++i)
+            total += kBarItemOverhead + utf8::string_width(u32_to_utf8(candidates[i].text));
+        if (total <= term_width) {
+            fit.count = count;
+            return fit;  // text_cols stays 0 = keep the whole text
+        }
+    }
+
+    // Nothing fits as-is (tiny terminal / very long preedit): one candidate with
+    // a truncated text beats a line that runs past the right edge.
+    fit.count = 1;
+    fit.text_cols = std::max(2, term_width - fixed - kBarItemOverhead);
+    return fit;
+}
+
 Element MainBar(const MainBarProps& props) {
     // 即使没有候选词，也要显示拼音（buffer 可能非空）
     if (props.candidates.empty() && props.buffer.empty()) {
@@ -209,39 +285,13 @@ Element MainBar(const MainBarProps& props) {
     int scroll_off = props.scroll_offset;
 
     // ---- Determine how many candidates fit ----
-    size_t max_display = std::min(props.candidates.size(), size_t(9));
-    size_t display_count = max_display;
+    // Shared with App::render_candidates_bar() so the drawn set and the
+    // digit-selectable set are always the same set.
+    ui::CandidateBarFit fit = FitCandidateBar(term_w, props.mode, props.buffer, props.candidates, props.max_items);
+    size_t display_count = static_cast<size_t>(fit.count);
+    // Truncation handles the "not even one fits" case, so the legacy scroll
+    // animation is no longer needed.
     bool need_scroll = false;
-
-    // Try to fit as many as possible within term width.
-    // If candidates overflow, they're accessible via page down (rime's page system).
-    // Never show fewer than 1 candidate; single candidate text may be truncated.
-    while (display_count > 1) {
-        int total_w = fixed_w;
-        for (size_t i = 0; i < display_count; ++i) {
-            bool sel = (i == props.selected);
-            total_w += candidate_width(props.candidates[i].text, sel);
-        }
-
-        if (total_w <= term_w) {
-            break;
-        }
-        display_count--;
-    }
-
-    // If even 1 candidate doesn't fit, enable text scrolling for it
-    if (display_count >= 1 && props.selected < props.candidates.size()) {
-        int single_w = fixed_w + candidate_width(props.candidates[props.selected].text, true);
-        if (single_w > term_w) {
-            need_scroll = true;
-        }
-    }
-
-    // Always show at least the selected candidate
-    if (display_count == 0 && !props.candidates.empty()) {
-        display_count = 1;
-        need_scroll = true;
-    }
 
     // ---- Build items ----
     Elements items;
@@ -254,19 +304,12 @@ Element MainBar(const MainBarProps& props) {
     items.push_back(Text(" " + props.buffer + " ") | TextColor(color::kPinyin));
 
     // Candidates
-    if (display_count == 1 && need_scroll && props.selected < props.candidates.size()) {
-        // Only show the selected candidate with scrolling
-        items.push_back(CandidateItem({.index = static_cast<int>(props.selected + 1),
-                                       .text = props.candidates[props.selected].text,
-                                       .selected = true,
-                                       .scroll_offset = scroll_off}));
-    } else {
-        for (size_t i = 0; i < display_count; ++i) {
-            items.push_back(CandidateItem({.index = static_cast<int>(i + 1),
-                                           .text = props.candidates[i].text,
-                                           .selected = (i == props.selected),
-                                           .scroll_offset = (need_scroll && i == props.selected) ? scroll_off : 0}));
-        }
+    for (size_t i = 0; i < display_count; ++i) {
+        items.push_back(CandidateItem({.index = static_cast<int>(i + 1),
+                                       .text = props.candidates[i].text,
+                                       .selected = (i == props.selected),
+                                       .scroll_offset = (need_scroll && i == props.selected) ? scroll_off : 0,
+                                       .max_text_width = fit.text_cols}));
     }
 
     // Filler

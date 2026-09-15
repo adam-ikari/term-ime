@@ -8,6 +8,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <filesystem>
+#include <limits>
 
 // Orphaned-ESC timeout (vi/urxvt-style escape-timeout). A bare ESC sitting in
 // the InputProcessor's Escape state for this long with no follow-up byte is
@@ -186,8 +187,64 @@ void App::render_candidates_bar(bool refresh) {
     if (refresh) {
         refresh_ime_snapshot();
     }
-    renderer_.render_candidates(ime_snapshot_.candidates, selected_candidate_, ime_snapshot_.buffer,
-                                ime_snapshot_.mode);
+
+    const std::vector<Candidate>& all = ime_snapshot_.candidates;
+
+    // A different candidate set means a new composition or a new rime page, so
+    // the previous window offset no longer refers to anything.
+    std::string sig;
+    for (const Candidate& c : all) {
+        for (char32_t ch : c.text) {
+            if (ch != 0)
+                sig += utf8::encode(ch);
+        }
+        sig += '\x1f';
+    }
+    if (sig != candidate_page_sig_) {
+        candidate_page_sig_ = std::move(sig);
+        candidate_window_ = 0;
+    }
+
+    struct winsize ws {};
+    int cols = 80;
+    if (ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+        cols = ws.ws_col;
+
+    std::vector<Candidate> shown;
+    if (!all.empty()) {
+        if (candidate_window_ > all.size() - 1)
+            candidate_window_ = all.size() - 1;
+        // Fit over the tail of the page, because the bar re-derives the count
+        // from exactly the list it is handed: both sides must see the same list
+        // or the drawn set and the selectable set would drift apart.
+        std::vector<Candidate> tail(all.begin() + candidate_window_, all.end());
+        int fit = ui::FitCandidateBar(cols, ime_snapshot_.mode, ime_snapshot_.buffer, tail, config_.max_candidates).count;
+        if (fit < 1)
+            fit = 1;
+        if (static_cast<size_t>(fit) >= all.size()) {
+            candidate_window_ = 0;
+            fit = static_cast<int>(all.size());
+        } else if (candidate_window_ > all.size() - static_cast<size_t>(fit)) {
+            candidate_window_ = all.size() - static_cast<size_t>(fit);  // keep a full window
+        }
+
+        // The window is driven by the user ('.'/','): a highlight that sits
+        // outside it must not drag it back, or paging would never advance.
+
+        shown.assign(all.begin() + candidate_window_, all.begin() + candidate_window_ + static_cast<size_t>(fit));
+        candidate_slots_ = fit;
+    } else {
+        candidate_window_ = 0;
+        candidate_slots_ = 0;
+    }
+
+    // Highlight the first visible candidate when the selection is off-window.
+    size_t sel = 0;
+    if (!shown.empty() && selected_candidate_ >= candidate_window_ &&
+        selected_candidate_ < candidate_window_ + shown.size())
+        sel = selected_candidate_ - candidate_window_;
+
+    renderer_.render_candidates(shown, sel, ime_snapshot_.buffer, ime_snapshot_.mode, config_.max_candidates);
 }
 
 void App::on_keyboard_data(const char* data, size_t len) {
@@ -314,12 +371,18 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 continue;
             }
             if (ch >= '1' && ch <= '9') {
-                // Select candidate
-                int idx = ch - '1';
-                auto candidates = ime_->select(idx);
-                if (!candidates.empty()) {
+                // Select the candidate in the visible slot: the slot index maps
+                // to rime's page through the window offset, so a narrow bar can
+                // never select something the user does not see.
+                int slot = ch - '1';
+                if (slot >= candidate_slots_) {
+                    spdlog::debug("Candidate slot {} beyond the {} shown", slot + 1, candidate_slots_);
+                    continue;
+                }
+                auto committed = ime_->select(static_cast<int>(candidate_window_) + slot);
+                if (!committed.empty()) {
                     std::string utf8;
-                    for (char32_t c : candidates) {
+                    for (char32_t c : committed) {
                         utf8 += utf8::encode(c);
                     }
                     pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
@@ -327,11 +390,11 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 render();
                 continue;
             } else if (ch == ' ') {
-                // Space selects first candidate
-                auto candidates = ime_->select(0);
-                if (!candidates.empty()) {
+                // Space selects the first visible candidate.
+                auto committed = ime_->select(static_cast<int>(candidate_window_));
+                if (!committed.empty()) {
                     std::string utf8;
-                    for (char32_t c : candidates) {
+                    for (char32_t c : committed) {
                         utf8 += utf8::encode(c);
                     }
                     pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
@@ -367,16 +430,29 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 }
                 continue;
             } else if (ch == ',' || ch == '<') {
-                // 上翻页（逗号/<）
+                // Previous window; one more step pages back through rime.
                 if (ime_->state() == ImeState::Selecting) {
-                    ime_->page_up();
+                    size_t step = static_cast<size_t>(std::max(1, candidate_slots_));
+                    if (candidate_window_ >= step) {
+                        candidate_window_ -= step;
+                    } else {
+                        ime_->page_up();
+                        // Ask for the tail: render clamps to the last full window.
+                        candidate_window_ = std::numeric_limits<size_t>::max();
+                    }
                     render();
                     continue;
                 }
             } else if (ch == '.' || ch == '>') {
-                // 下翻页（句号/>）
+                // Next window; one more step pages forward through rime.
                 if (ime_->state() == ImeState::Selecting) {
-                    ime_->page_down();
+                    size_t step = static_cast<size_t>(std::max(1, candidate_slots_));
+                    if (candidate_window_ + step < ime_snapshot_.candidates.size()) {
+                        candidate_window_ += step;
+                    } else {
+                        ime_->page_down();
+                        candidate_window_ = 0;
+                    }
                     render();
                     continue;
                 }

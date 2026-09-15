@@ -86,6 +86,15 @@ class App {
     EventLoop* event_loop_ = nullptr;
     // Pending lone-ESC timeout timer id; 0 = none armed.
     uint64_t esc_timer_id_ = 0;
+    // Candidate bar windowing. rime hands back one page of candidates (see
+    // menu/page_size in the schema); the bar can only show
+    // ui::FitCandidateBar().count of them on a narrow terminal, so the visible
+    // slice is shifted by this offset. Digit keys select inside the visible
+    // slice; '.'/',' shift by one slice and page through rime once the slice
+    // reaches the end of the page.
+    size_t candidate_window_ = 0;
+    int candidate_slots_ = 0;         // candidates the last draw really showed
+    std::string candidate_page_sig_;  // detects a new rime page / composition
 
     void on_language_change(const LanguageConfig& lang);
     // IME context snapshot. The PTY-output path repaints the status bar far more

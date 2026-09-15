@@ -27,8 +27,10 @@ class Renderer {
     // is closed, since render(Screen) is a no-op and the overlay's ESC[2J left
     // the terminal showing stale settings residue.
     void redraw_shell(const Screen& screen);
+    // max_items: upper bound on candidates drawn (the bar fits fewer on narrow
+    // terminals; the caller passes its own fit so display and selection agree).
     void render_candidates(const std::vector<Candidate>& candidates, size_t selected, const std::string& buffer,
-                           const std::string& mode = "EN");
+                           const std::string& mode = "EN", int max_items = 9);
 
     // Render settings panel
     void render_settings(ui::SettingsState& state);

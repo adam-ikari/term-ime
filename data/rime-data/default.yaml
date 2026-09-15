@@ -15,7 +15,7 @@ switcher:
   option_list_separator: '／'
 
 menu:
-  page_size: 5
+  page_size: 9
 
 ascii_composer:
   switch_key:

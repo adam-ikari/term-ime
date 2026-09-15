@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include "core/config.hpp"
+#include <cstdio>
+#include <fstream>
 
 class ConfigTest : public ::testing::Test {
    protected:
@@ -9,7 +11,7 @@ class ConfigTest : public ::testing::Test {
 TEST_F(ConfigTest, DefaultConfig) {
     AppConfig config;
     EXPECT_EQ(config.shell, "/bin/bash");
-    EXPECT_EQ(config.page_size, 5);
+    EXPECT_EQ(config.max_candidates, 9);
     EXPECT_EQ(config.log_level, "warn");
     EXPECT_TRUE(config.show_mode_indicator);
 }
@@ -57,12 +59,12 @@ TEST_F(ConfigTest, LanguageConfigFromJson) {
 TEST_F(ConfigTest, AppConfigToJson) {
     AppConfig config;
     config.shell = "/bin/zsh";
-    config.page_size = 10;
+    config.max_candidates = 8;
     config.log_level = "debug";
 
     json j = config.to_json();
     EXPECT_EQ(j["shell"], "/bin/zsh");
-    EXPECT_EQ(j["page_size"], 10);
+    EXPECT_EQ(j["max_candidates"], 8);
     EXPECT_EQ(j["log_level"], "debug");
 }
 
@@ -74,4 +76,21 @@ TEST_F(ConfigTest, RimeDataDirs) {
     config.rime_shared_data_dir = "/custom/rime-data";
     json j = config.to_json();
     EXPECT_EQ(j["rime_shared_data_dir"], "/custom/rime-data");
+}
+
+// The candidate cap is user-configurable, and configs written before the
+// rename (key "page_size") must keep working.
+TEST_F(ConfigTest, MaxCandidatesLoadsAndLegacyKeyStillWorks) {
+    const std::string path = "/tmp/term-ime-test-config.json";
+    {
+        std::ofstream out(path);
+        out << R"({"max_candidates": 3})";
+    }
+    EXPECT_EQ(AppConfig::load(path).max_candidates, 3);
+    {
+        std::ofstream out(path);
+        out << R"({"page_size": 2})";
+    }
+    EXPECT_EQ(AppConfig::load(path).max_candidates, 2);
+    std::remove(path.c_str());
 }

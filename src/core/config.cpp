@@ -38,7 +38,7 @@ json AppConfig::to_json() const {
 
     j["dict_path"] = dict_path;
     j["extra_dicts"] = extra_dicts;
-    j["page_size"] = page_size;
+    j["max_candidates"] = max_candidates;
 
     j["rime_shared_data_dir"] = rime_shared_data_dir;
     j["rime_user_data_dir"] = rime_user_data_dir;
@@ -70,7 +70,9 @@ AppConfig AppConfig::from_json(const json& j) {
 
     cfg.dict_path = j.value("dict_path", "data/pinyin.dict");
     cfg.extra_dicts = j.value("extra_dicts", std::vector<std::string>{});
-    cfg.page_size = j.value("page_size", 5);
+    // "page_size" is the pre-rename key; configs written by earlier versions
+    // still load.
+    cfg.max_candidates = j.value("max_candidates", j.value("page_size", 9));
 
     cfg.rime_shared_data_dir = j.value("rime_shared_data_dir", "");
     cfg.rime_user_data_dir = j.value("rime_user_data_dir", "");

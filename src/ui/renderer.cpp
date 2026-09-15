@@ -291,7 +291,7 @@ void Renderer::render_element(const ui::Element& element) {
 }
 
 void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_t selected, const std::string& buffer,
-                                 const std::string& mode) {
+                                 const std::string& mode, int max_items) {
     // Get terminal width
     struct winsize ws;
     if (ioctl(tty_fd_, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0) {
@@ -432,7 +432,8 @@ void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_
                                 .selected = selected,
                                 .buffer = buffer,
                                 .term_width = static_cast<int>(ws.ws_col),
-                                .scroll_offset = scroll_off});
+                                .scroll_offset = scroll_off,
+                                .max_items = max_items});
 
     render_element(element);
 }

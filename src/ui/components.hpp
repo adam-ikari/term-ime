@@ -28,6 +28,9 @@ struct CandidateItemProps {
     std::u32string text;
     bool selected = false;
     int scroll_offset = 0;  // Scroll offset in characters for overflow display
+    // Max display columns for the text; 0 = unlimited. Set by the bar so a wide
+    // candidate is cut with an ellipsis instead of overflowing the line.
+    int max_text_width = 0;
 };
 
 Element CandidateItem(const CandidateItemProps& props);
@@ -87,8 +90,24 @@ struct MainBarProps {
     std::string buffer;
     int term_width = 80;    // Terminal width in columns
     int scroll_offset = 0;  // Scroll offset in characters for overflow
+    int max_items = 9;  // Upper bound on candidates drawn (width may fit fewer)
 };
 
 Element MainBar(const MainBarProps& props);
+
+// ---- Candidate bar geometry ------------------------------------------------
+// One bar line is " [mode] " + " buffer " + N candidate items (" N.text "), so
+// how many candidates are visible depends on the terminal width, the preedit
+// length and the candidate texts. The renderer and App's key/paging logic both
+// use this function, so the visible set and the selectable set cannot disagree
+// (previously the bar silently hid candidates that the digit keys could still
+// reach, and rime's page size skipped them on page-down).
+struct CandidateBarFit {
+    int count = 1;      // candidates that fit on the line
+    int text_cols = 0;  // per-candidate text budget in columns; 0 = keep full text
+};
+
+CandidateBarFit FitCandidateBar(int term_width, const std::string& mode, const std::string& buffer,
+                                const std::vector<Candidate>& candidates, int max_items);
 
 }  // namespace ui
