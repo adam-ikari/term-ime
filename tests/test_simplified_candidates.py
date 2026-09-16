@@ -31,10 +31,13 @@ import time
 
 BIN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "term-ime")
 
-# Japanese shinjitai and variant forms that must never reach the candidate bar.
-# Deliberately excludes chars that are *also* correct simplified Chinese
-# (断/独/旧/浅/昼/国/学/万/与/体/会 …) — those are legitimate.
+# Variant / traditional forms that must never reach the candidate bar.
+# Populated two ways below: a hand-curated block (kokuji + zhuyin + a few common
+# traditional forms as a guard — their presence means the opencc chain failed to
+# load), then the union of every opencc variant-table key (data-driven).
 NON_SIMPLIFIED = set(
+    # Common traditional forms: present only if the opencc chain failed to load.
+    "過 國 長 學 關 門 時 為 對 開 關 業 話 說 見 來"
     "楽薬気実沢圧辺団従収効営豊発関対観転変続経顔頭帰広県領両勧権検桜済斎斉"
     "読認費単図雑仮伝仏応択線録錯帰撃撃蔵麹麺麽苧剋夥妳"
     # Japanese kokuji pruned from luna_pinyin.dict.yaml (2026-09-15): coined in
@@ -46,6 +49,33 @@ NON_SIMPLIFIED = set(
     "鎹雫鞆颪鮗鯥鯰鯱鯳鰯鱈鳰鴫鶎鶫麿"
     # Bopomofo / zhuyin symbols (dead entries: the schemas' alphabet is pinyin).
     "ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ"
+)
+
+
+def _table_keys(fname: str) -> set:
+    """Every variant key shipped in an opencc table must never survive in a
+    candidate: the chain converts them to their standard form. Data-driven so a
+    re-generated table (e.g. after re-vendoring the dictionary) is covered
+    automatically."""
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data", "rime-data", "opencc", fname,
+    )
+    keys = set()
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+            if "\t" in line:
+                keys.add(line.split("\t")[0])
+    return keys
+
+
+NON_SIMPLIFIED |= (
+    _table_keys("variants.txt")
+    | _table_keys("variants_jp.txt")
+    | _table_keys("variants_ext.txt")
 )
 
 # Every syllable that previously exposed one of the above.

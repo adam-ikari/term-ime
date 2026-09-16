@@ -34,6 +34,12 @@
         "type": "text",
         "file": "variants.txt"
       }
+    },
+    {
+      "dict": {
+        "type": "text",
+        "file": "variants_ext.txt"
+      }
     }
   ]
 }
