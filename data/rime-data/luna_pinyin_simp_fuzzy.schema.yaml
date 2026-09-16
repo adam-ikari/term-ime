@@ -1,7 +1,7 @@
 # Rime schema
 # encoding: utf-8
 # 朙月拼音·简化字版·模糊音
-# luna_pinyin_simp 加上模糊音（n/l、zh/z、r/l、r/y、hu/f、en-eng、in-ing）。
+# luna_pinyin_simp 加上模糊音（n/l、zh/z、r/l、r/y、hu/f、en-eng/in-ing、an-ang/ian-iang/uan-uang）。
 # 设置面板的「模糊音」开关在这份 schema 与 luna_pinyin_simp（精确拼音）之间切换，
 # 因此切换不需要重部署——两份 schema 各有一份自己的 prism。
 
@@ -82,6 +82,9 @@ speller:
     - derive/^f([ao])/hu$1/
     - derive/([ei])n$/$1ng/
     - derive/([ei])ng$/$1n/
+    # an/ang（一条规则同时覆盖 ian/iang、uan/uang、üan/üang）
+    - derive/an$/ang/
+    - derive/ang$/an/
 
 translator:
   dictionary: luna_pinyin
