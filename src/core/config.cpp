@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <spdlog/spdlog.h>
+#include <algorithm>
 
 namespace fs = std::filesystem;
 
@@ -71,9 +72,18 @@ AppConfig AppConfig::from_json(const json& j) {
 
     cfg.dict_path = j.value("dict_path", "data/pinyin.dict");
     cfg.extra_dicts = j.value("extra_dicts", std::vector<std::string>{});
-    // "page_size" is the pre-rename key; configs written by earlier versions
-    // still load.
-    cfg.max_candidates = j.value("max_candidates", j.value("page_size", 9));
+    // Clamp the candidate cap to the single-digit selector keys [1,9] that
+    // parse_key indexes ("123456789"); an out-of-range value is UB there. Read
+    // it type-safely so a malformed value (e.g. a string) sanitizes to the
+    // default instead of throwing and discarding the whole file. "page_size" is
+    // the pre-rename key; configs written by earlier versions still load.
+    int cap = 9;
+    if (j.contains("max_candidates") && j["max_candidates"].is_number_integer()) {
+        cap = j["max_candidates"].get<int>();
+    } else if (j.contains("page_size") && j["page_size"].is_number_integer()) {
+        cap = j["page_size"].get<int>();
+    }
+    cfg.max_candidates = std::max(1, std::min(9, cap));
     cfg.fuzzy_pinyin = j.value("fuzzy_pinyin", false);
 
     cfg.rime_shared_data_dir = j.value("rime_shared_data_dir", "");

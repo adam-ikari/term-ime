@@ -109,3 +109,31 @@ TEST_F(ConfigTest, FuzzyPinyinRoundTrip) {
     EXPECT_TRUE(AppConfig::load(path).fuzzy_pinyin);
     std::remove(path.c_str());
 }
+
+// M1: config is never trusted blindly. An out-of-range cap is clamped to the
+// single-digit selector range [1,9], and a malformed (non-integer) cap falls
+// back to the default WITHOUT discarding the rest of the file (previously a bad
+// type threw and reset everything to defaults).
+TEST_F(ConfigTest, MaxCandidatesIsClampedAndTypeSafe) {
+    const std::string path = "/tmp/term-ime-test-clamp.json";
+    auto load_cap = [&](const std::string& body) {
+        {
+            std::ofstream out(path);
+            out << body;
+        }
+        return AppConfig::load(path);
+    };
+
+    EXPECT_EQ(load_cap(R"({"max_candidates": 20})").max_candidates, 9);
+    EXPECT_EQ(load_cap(R"({"max_candidates": 0})").max_candidates, 1);
+    EXPECT_EQ(load_cap(R"({"max_candidates": -5})").max_candidates, 1);
+    EXPECT_EQ(load_cap(R"({"page_size": 99})").max_candidates, 9);  // legacy key too
+    EXPECT_EQ(load_cap(R"({"max_candidates": 3})").max_candidates, 3);  // in range kept
+
+    // A string cap is malformed: default to 9, and the sibling field survives.
+    AppConfig survived = load_cap(R"({"max_candidates": "lots", "shell": "/bin/zsh"})");
+    EXPECT_EQ(survived.max_candidates, 9);
+    EXPECT_EQ(survived.shell, "/bin/zsh");
+
+    std::remove(path.c_str());
+}
