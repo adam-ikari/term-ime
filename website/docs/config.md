@@ -14,8 +14,10 @@ sidebar_position: 3
     {"id": "zh-Hans", "name": "简体中文", "enabled": true}
   ],
   "active_language": "zh-Hans",
+  "ui_language": "zh-CN",
   "max_candidates": 9,
   "fuzzy_pinyin": true,
+  "log_level": "warn"
 }
 ```
 
@@ -25,6 +27,7 @@ sidebar_position: 3
 |------|------|--------|------|
 | `languages` | array | `[{zh-Hans}]` | 可用语言列表 |
 | `active_language` | string | `zh-Hans` | 当前激活的语言 |
+| `ui_language` | string | `zh-CN` | 界面显示语言 |
 | `max_candidates` | int | `9` | 每页候选词数量上限(1-9,越界自动钳制) |
 | `fuzzy_pinyin` | bool | `true` | 模糊音开关(n/l、zh/z、r/l、r/y、hu/f、en-eng、an-ang) |
 | `log_level` | string | `warn` | 日志级别: `debug`, `info`, `warn`, `error` |
