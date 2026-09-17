@@ -76,6 +76,6 @@ jobs:
           files: |
             dist/term-ime-linux-x86_64.tar.gz
             dist/term-ime-linux-x86_64.tar.gz.sha256
-            website/public/install.sh
+            website/static/install.sh
           generate_release_notes: true
           draft: false
