@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-16T05:03:10.611Z._
+_Auto-generated. Last updated 2026-09-17T15:26:40.613Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | <current best understanding — replace this with the real content>
@@ -10,5 +10,7 @@ _Auto-generated. Last updated 2026-09-16T05:03:10.611Z._
 - [fuzzy-pinyin-toggle](pages/fuzzy-pinyin-toggle.md) — category: decision | tags: [rime, config, settings, schema] | ## 模糊音组的落点（2026-09-16）
 - [opencc-chain-for-simplified](pages/opencc-chain-for-simplified.md) — category: decision | tags: [rime, opencc, i18n, schema] | ## variants_ext.txt（2026-09-16）
 - [parser-stream-state-contract](pages/parser-stream-state-contract.md) — category: concept | tags: [parser, utf8, csi, osc] | `Parser` 的输入是**任意切分的字节流**——PTY 的 read 边界与转义序列边界无关。
+- [passthrough-query-architecture](pages/passthrough-query-architecture.md) — category: decision | tags: [terminal, parser, architecture, query] | ## 事实
+- [sgr-color-support](pages/sgr-color-support.md) — category: decision | tags: [terminal, parser, renderer, sgr] | <current best understanding — replace this with the real content>
 - [startup-readiness-window](pages/startup-readiness-window.md) — category: decision | tags: [rime, startup, pty, testing] | ## 已观测事实
 - [status-bar-owns-last-row](pages/status-bar-owns-last-row.md) — category: decision | tags: [terminal, layout, resize, renderer] | 状态栏（Status bar）固定渲染在终端**最后一行**，属于 UI 保留区，不属于 shell/PTY 的绘制区。
