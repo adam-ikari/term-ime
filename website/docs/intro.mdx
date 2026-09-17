@@ -2,46 +2,24 @@
 sidebar_position: 1
 ---
 
-# Tutorial Intro
+# term-ime
 
-Let's discover **Docusaurus in less than 5 minutes**.
+在 Linux TTY 里直接打中文的虚拟终端。内置拼音输入法,不依赖桌面环境、图形 IME 框架或额外运行时——单文件静态二进制,拷贝即用。
 
-## Getting Started
+## 为谁
 
-Get started by **creating a new site**.
+- TTY 常驻用户、服务器运维
+- 极简桌面、无 GUI 的嵌入式 / 修复环境
+- 任何「没有桌面输入法,但又想打中文」的终端
 
-Or **try Docusaurus immediately** with **[docusaurus.new](https://docusaurus.new)**.
+## 核心特性
 
-### What you'll need
+- **PTY 虚拟终端 + VT/ANSI 解析**:完整支持 SGR 颜色(16 色、256 色、24bit 真彩),前景/背景/加亮/反显;ED/EL 擦除(清屏、清行各 mode)
+- **librime 拼音**:简体中文,模糊音可开关(n/l、zh/z、r/l、r/y、hu/f、en-eng、an-ang)
+- **自适应候选栏 + 状态栏**:按终端宽度换行;方向键 / `PgUp` / `PgDn` / `,` `.` 翻页
+- **设置面板**:`Ctrl+A S` 打开;可调界面语言(zh-CN / en)、候选词数量、模糊音
+- **完全静态单文件,零运行时依赖**
 
-- [Node.js](https://nodejs.org/en/download/) version 20.0 or above:
-  - When installing Node.js, you are recommended to check all checkboxes related to dependencies.
+## 下一步
 
-## Generate a new site
-
-Generate a new Docusaurus site using the **classic template**.
-
-The classic template will automatically be added to your project after you run the command:
-
-```bash
-npm init docusaurus@latest my-website classic
-```
-
-You can type this command into Command Prompt, Powershell, Terminal, or any other integrated terminal of your code editor.
-
-The command also installs all necessary dependencies you need to run Docusaurus.
-
-## Start your site
-
-Run the development server:
-
-```bash
-cd my-website
-npm run start
-```
-
-The `cd` command changes the directory you're working with. In order to work with your newly created Docusaurus site, you'll need to navigate the terminal there.
-
-The `npm run start` command builds your website locally and serves it through a development server, ready for you to view at http://localhost:3000/.
-
-Open `docs/intro.md` (this page) and edit some lines: the site **reloads automatically** and displays your changes.
+→ [快速开始](/docs/quickstart)

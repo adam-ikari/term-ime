@@ -41,7 +41,10 @@ make build
     {"id": "zh-Hans", "name": "简体中文", "enabled": true}
   ],
   "active_language": "zh-Hans",
-  "ui_language": "zh-CN"
+  "ui_language": "zh-CN",
+  "max_candidates": 9,
+  "fuzzy_pinyin": true,
+  "log_level": "warn"
 }
 ```
 
