@@ -268,16 +268,46 @@ void Parser::apply_sgr() {
         const int n = args[i];
         if (n < 0)
             continue;  // malformed code: skipped, pen unchanged
-        // 38/48 introduce 256-color (5;n) or truecolor (2;r;g;b). This project
-        // models 16 colors only, so the whole form is dropped — the sub-
+
+        // 38/48 introduce 256-color (5;n) or truecolor (2;r;g;b). The sub-
         // arguments must be consumed here or "5" would read as a bg lift.
         if (n == 38 || n == 48) {
-            if (i + 1 < args.size() && args[i + 1] == 2)
+            const bool is_fg = (n == 38);
+            auto& ext = is_fg ? pen_.fg_extended : pen_.bg_extended;
+            auto& tc = is_fg ? pen_.fg_truecolor : pen_.bg_truecolor;
+            auto& idx = is_fg ? pen_.fg_index : pen_.bg_index;
+            auto& rgb = is_fg ? pen_.fg_rgb : pen_.bg_rgb;
+            auto& plain = is_fg ? pen_.fg : pen_.bg;
+            auto& lift = is_fg ? pen_.bright : pen_.bg_bright;
+            // Sub-argument clamped to [0,255]; missing or malformed means 0.
+            auto clamp8 = [&](size_t pos) -> uint8_t {
+                if (pos < args.size() && args[pos] >= 0) {
+                    return static_cast<uint8_t>(args[pos] > 255 ? 255 : args[pos]);
+                }
+                return 0;
+            };
+            if (i + 1 < args.size() && args[i + 1] == 2) {
+                // Truecolor: 38;2;r;g;b. Missing components default to 0.
+                ext = true;
+                tc = true;
+                rgb = Rgb{clamp8(i + 2), clamp8(i + 3), clamp8(i + 4)};
                 i += 4;
-            else if (i + 1 < args.size() && args[i + 1] == 5)
+            } else if (i + 1 < args.size() && args[i + 1] == 5) {
+                // 256-color: 38;5;n. Missing index defaults to 0.
+                ext = true;
+                tc = false;
+                idx = clamp8(i + 2);
                 i += 2;
-            else
+            } else if (i + 1 < args.size()) {
+                i += 1;  // unknown sub-form: ignored, pen unchanged
+            } else {
+                // Bare 38/48 (no sub-arguments): restore the default like 39/49.
                 i += 1;
+                plain = is_fg ? 7 : 0;
+                lift = false;
+                ext = false;
+                tc = false;
+            }
             continue;
         }
         switch (n) {
@@ -305,24 +335,36 @@ void Parser::apply_sgr() {
         case 39:
             pen_.fg = 7;
             pen_.bright = false;
+            pen_.fg_extended = false;
+            pen_.fg_truecolor = false;
             break;
         case 49:
             pen_.bg = 0;
             pen_.bg_bright = false;
+            pen_.bg_extended = false;
+            pen_.bg_truecolor = false;
             break;
         default:
             if (n >= 30 && n <= 37) {
                 pen_.fg = static_cast<uint8_t>(n - 30);
                 pen_.bright = false;
+                pen_.fg_extended = false;
+                pen_.fg_truecolor = false;
             } else if (n >= 90 && n <= 97) {
                 pen_.fg = static_cast<uint8_t>(n - 90);
                 pen_.bright = true;
+                pen_.fg_extended = false;
+                pen_.fg_truecolor = false;
             } else if (n >= 40 && n <= 47) {
                 pen_.bg = static_cast<uint8_t>(n - 40);
                 pen_.bg_bright = false;
+                pen_.bg_extended = false;
+                pen_.bg_truecolor = false;
             } else if (n >= 100 && n <= 107) {
                 pen_.bg = static_cast<uint8_t>(n - 100);
                 pen_.bg_bright = true;
+                pen_.bg_extended = false;
+                pen_.bg_truecolor = false;
             }
             // Any other code: ignored.
             break;

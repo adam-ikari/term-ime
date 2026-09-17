@@ -289,6 +289,115 @@ TEST_F(Utf8Test, SgrEmptyFormAndTruecolorAreIgnored) {
     EXPECT_EQ(screen.get(0, 2).bg_bright, false);
 }
 
+// ---- Parser: SGR extended colors (256-color / 24bit truecolor) ----
+TEST_F(Utf8Test, Sgr256ColorForeground) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[38;5;196mA");
+    EXPECT_EQ(screen.get(0, 0).ch, U'A');
+    EXPECT_EQ(screen.get(0, 0).fg_extended, true);
+    EXPECT_EQ(screen.get(0, 0).fg_truecolor, false);
+    EXPECT_EQ(screen.get(0, 0).fg_index, 196);
+    // Extended colors leave the 16-color fields untouched.
+    EXPECT_EQ(screen.get(0, 0).fg, 7);
+    EXPECT_EQ(screen.get(0, 0).bright, false);
+}
+
+TEST_F(Utf8Test, SgrTruecolorForeground) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[38;2;10;20;30mB");
+    EXPECT_EQ(screen.get(0, 0).ch, U'B');
+    EXPECT_EQ(screen.get(0, 0).fg_extended, true);
+    EXPECT_EQ(screen.get(0, 0).fg_truecolor, true);
+    EXPECT_EQ(screen.get(0, 0).fg_rgb.r, 10);
+    EXPECT_EQ(screen.get(0, 0).fg_rgb.g, 20);
+    EXPECT_EQ(screen.get(0, 0).fg_rgb.b, 30);
+}
+
+TEST_F(Utf8Test, Sgr256ColorBackground) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[48;5;236mC");
+    EXPECT_EQ(screen.get(0, 0).ch, U'C');
+    EXPECT_EQ(screen.get(0, 0).bg_extended, true);
+    EXPECT_EQ(screen.get(0, 0).bg_truecolor, false);
+    EXPECT_EQ(screen.get(0, 0).bg_index, 236);
+}
+
+TEST_F(Utf8Test, SgrTruecolorBackground) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[48;2;1;2;3mD");
+    EXPECT_EQ(screen.get(0, 0).ch, U'D');
+    EXPECT_EQ(screen.get(0, 0).bg_extended, true);
+    EXPECT_EQ(screen.get(0, 0).bg_truecolor, true);
+    EXPECT_EQ(screen.get(0, 0).bg_rgb.r, 1);
+    EXPECT_EQ(screen.get(0, 0).bg_rgb.g, 2);
+    EXPECT_EQ(screen.get(0, 0).bg_rgb.b, 3);
+}
+
+TEST_F(Utf8Test, SgrResetTurnsOffExtendedForeground) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    // Red bg, then truecolor fg {1,2,3}, then 39: the reset turns the extended
+    // foreground back to the default and leaves the background untouched.
+    feed(parser, "\x1b[41;38;2;1;2;3;39mE");
+    EXPECT_EQ(screen.get(0, 0).ch, U'E');
+    EXPECT_EQ(screen.get(0, 0).fg_extended, false);
+    EXPECT_EQ(screen.get(0, 0).fg, 7);  // default fg back
+    EXPECT_EQ(screen.get(0, 0).bright, false);
+    EXPECT_EQ(screen.get(0, 0).bg, 1);  // bg kept across the fg reset
+}
+
+TEST_F(Utf8Test, SgrExtendedMissingParamsDefault) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[38;5mF");  // 38;5 without an index: defaults to 0
+    EXPECT_EQ(screen.get(0, 0).ch, U'F');
+    EXPECT_EQ(screen.get(0, 0).fg_extended, true);
+    EXPECT_EQ(screen.get(0, 0).fg_index, 0);
+
+    feed(parser, "\x1b[38;2;1;2mG");  // 38;2 missing blue: defaults to 0
+    EXPECT_EQ(screen.get(0, 1).ch, U'G');
+    EXPECT_EQ(screen.get(0, 1).fg_truecolor, true);
+    EXPECT_EQ(screen.get(0, 1).fg_rgb.r, 1);
+    EXPECT_EQ(screen.get(0, 1).fg_rgb.g, 2);
+    EXPECT_EQ(screen.get(0, 1).fg_rgb.b, 0);
+}
+
+TEST_F(Utf8Test, Sgr16ColorThen256Color) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[32;38;5;21mF");
+    EXPECT_EQ(screen.get(0, 0).ch, U'F');
+    EXPECT_EQ(screen.get(0, 0).fg_extended, true);
+    EXPECT_EQ(screen.get(0, 0).fg_truecolor, false);
+    EXPECT_EQ(screen.get(0, 0).fg_index, 21);
+    EXPECT_EQ(screen.get(0, 0).fg, 2);  // 16-color field keeps the earlier value
+
+    // A later 16-color code wins back over the extended foreground.
+    feed(parser, "\x1b[33mG");
+    EXPECT_EQ(screen.get(0, 1).ch, U'G');
+    EXPECT_EQ(screen.get(0, 1).fg_extended, false);
+    EXPECT_EQ(screen.get(0, 1).fg, 3);
+}
+
+TEST_F(Utf8Test, EraseDisplayCarriesExtendedColors) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "XXXXXXXXXX");
+    feed(parser, "\x1b[48;2;1;2;3m");  // truecolor bg
+    feed(parser, "\x1b[2;1H");
+    feed(parser, "\x1b[1J");
+    EXPECT_EQ(screen.get(0, 0).ch, U' ');
+    EXPECT_EQ(screen.get(0, 0).bg_extended, true);
+    EXPECT_EQ(screen.get(0, 0).bg_truecolor, true);
+    EXPECT_EQ(screen.get(0, 0).bg_rgb.r, 1);
+    EXPECT_EQ(screen.get(0, 0).bg_rgb.g, 2);
+    EXPECT_EQ(screen.get(0, 0).bg_rgb.b, 3);
+}
+
 // ---- Parser: ED / EL erase ----
 TEST_F(Utf8Test, EraseDisplayKeepsCursorRule) {
     Screen screen(3, 10);

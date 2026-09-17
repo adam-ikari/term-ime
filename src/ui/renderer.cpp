@@ -212,18 +212,31 @@ void Renderer::redraw_shell(const Screen& screen) {
     int rows = std::min(screen.rows(), static_cast<int>(ws.ws_row) - 1);
     int cols = std::min(screen.cols(), static_cast<int>(ws.ws_col));
     // Rendered attributes of one cell: everything that maps to an SGR sequence.
+    // Extended colors join the 16-color fields so "same color, same SGR head".
     struct Attr {
-        uint8_t fg;
-        uint8_t bg;
-        bool bright;
-        bool bg_bright;
-        bool reverse;
+        uint8_t fg = 7;
+        uint8_t bg = 0;
+        bool bright = false;
+        bool bg_bright = false;
+        bool reverse = false;
+        bool fg_extended = false;
+        bool bg_extended = false;
+        bool fg_truecolor = false;
+        bool bg_truecolor = false;
+        uint8_t fg_index = 0;
+        uint8_t bg_index = 0;
+        Rgb fg_rgb{0, 0, 0};
+        Rgb bg_rgb{0, 0, 0};
         bool operator==(const Attr& o) const {
-            return fg == o.fg && bg == o.bg && bright == o.bright && bg_bright == o.bg_bright && reverse == o.reverse;
+            return fg == o.fg && bg == o.bg && bright == o.bright && bg_bright == o.bg_bright && reverse == o.reverse &&
+                   fg_extended == o.fg_extended && bg_extended == o.bg_extended && fg_truecolor == o.fg_truecolor &&
+                   bg_truecolor == o.bg_truecolor && fg_index == o.fg_index && bg_index == o.bg_index &&
+                   fg_rgb.r == o.fg_rgb.r && fg_rgb.g == o.fg_rgb.g && fg_rgb.b == o.fg_rgb.b &&
+                   bg_rgb.r == o.bg_rgb.r && bg_rgb.g == o.bg_rgb.g && bg_rgb.b == o.bg_rgb.b;
         }
     };
-    const Attr kDefault{7, 0, false, false, false};
-    // Full SGR select for an attribute set (the palette is 16 colors only).
+    const Attr kDefault{};
+    // Full SGR select for an attribute set (16-color, 256-color and truecolor).
     auto sgr_for = [](const Attr& a) {
         std::string s = "\x1b[";
         bool first = true;
@@ -235,8 +248,36 @@ void Renderer::redraw_shell(const Screen& screen) {
         };
         if (a.reverse)
             add(7);
-        add(a.bright ? 90 + a.fg : 30 + a.fg);
-        add(a.bg_bright ? 100 + a.bg : 40 + a.bg);
+        if (a.fg_extended) {
+            if (a.fg_truecolor) {
+                add(38);
+                add(2);
+                add(a.fg_rgb.r);
+                add(a.fg_rgb.g);
+                add(a.fg_rgb.b);
+            } else {
+                add(38);
+                add(5);
+                add(a.fg_index);
+            }
+        } else {
+            add(a.bright ? 90 + a.fg : 30 + a.fg);
+        }
+        if (a.bg_extended) {
+            if (a.bg_truecolor) {
+                add(48);
+                add(2);
+                add(a.bg_rgb.r);
+                add(a.bg_rgb.g);
+                add(a.bg_rgb.b);
+            } else {
+                add(48);
+                add(5);
+                add(a.bg_index);
+            }
+        } else {
+            add(a.bg_bright ? 100 + a.bg : 40 + a.bg);
+        }
         s += 'm';
         return s;
     };
@@ -250,7 +291,9 @@ void Renderer::redraw_shell(const Screen& screen) {
         Attr cur = kDefault;
         for (int c = 0; c < cols; ++c) {
             Cell cell = screen.get(r, c);
-            Attr a{cell.fg, cell.bg, cell.bright, cell.bg_bright, cell.reverse};
+            Attr a{cell.fg,          cell.bg,          cell.bright,       cell.bg_bright,    cell.reverse,
+                   cell.fg_extended, cell.bg_extended, cell.fg_truecolor, cell.bg_truecolor, cell.fg_index,
+                   cell.bg_index,    cell.fg_rgb,      cell.bg_rgb};
             if (!(a == cur)) {
                 // Consecutive cells sharing attributes emit one SGR head only.
                 line += (a == kDefault) ? std::string("\x1b[0m") : sgr_for(a);

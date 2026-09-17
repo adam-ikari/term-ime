@@ -16,6 +16,14 @@ void Screen::put(char32_t ch, int row, int col, const Pen& pen) {
         cell.bright = pen.bright;
         cell.bg_bright = pen.bg_bright;
         cell.reverse = pen.reverse;
+        cell.fg_extended = pen.fg_extended;
+        cell.bg_extended = pen.bg_extended;
+        cell.fg_truecolor = pen.fg_truecolor;
+        cell.bg_truecolor = pen.bg_truecolor;
+        cell.fg_index = pen.fg_index;
+        cell.bg_index = pen.bg_index;
+        cell.fg_rgb = pen.fg_rgb;
+        cell.bg_rgb = pen.bg_rgb;
         // Use utf8proc for proper width detection (CJK, emojis, etc.)
         cell.wide = (utf8::width(ch) == 2);
     }
@@ -74,6 +82,14 @@ Cell blank_cell(const Pen& pen) {
     cell.bright = pen.bright;
     cell.bg_bright = pen.bg_bright;
     cell.reverse = pen.reverse;
+    cell.fg_extended = pen.fg_extended;
+    cell.bg_extended = pen.bg_extended;
+    cell.fg_truecolor = pen.fg_truecolor;
+    cell.bg_truecolor = pen.bg_truecolor;
+    cell.fg_index = pen.fg_index;
+    cell.bg_index = pen.bg_index;
+    cell.fg_rgb = pen.fg_rgb;
+    cell.bg_rgb = pen.bg_rgb;
     cell.wide = false;
     return cell;
 }
