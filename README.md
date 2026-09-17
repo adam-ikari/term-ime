@@ -140,7 +140,7 @@ src/
 ├── terminal/
 │   ├── pty.hpp/cpp        # PTY 管理
 │   ├── screen.hpp/cpp     # 屏幕缓冲
-│   └── parser.hpp/cpp     # 转义序列解析
+│   └── parser.hpp/cpp     # 转义序列解析(CSI 光标/SGR 颜色/ED/EL 擦除)
 ├── ui/
 │   └── renderer.hpp/cpp   # FTXUI 终端渲染
 └── util/
@@ -206,7 +206,9 @@ cd build && ctest --output-on-failure
 - [x] 进入/退出时清屏
 - [x] 单元测试框架
 - [x] CI/CD 自动构建
-- [ ] 更多转义序列支持
+- [x] SGR 16 色支持(前景/背景/加亮/反显)
+- [x] ED/EL 擦除(清屏/清行)
+- [ ] 更多转义序列支持(如 SGR 自查询、OSC 透传)
 - [ ] 主题切换
 
 ## 许可证
