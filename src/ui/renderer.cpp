@@ -211,17 +211,57 @@ void Renderer::redraw_shell(const Screen& screen) {
     bar_skip_count_ = 0;
     int rows = std::min(screen.rows(), static_cast<int>(ws.ws_row) - 1);
     int cols = std::min(screen.cols(), static_cast<int>(ws.ws_col));
+    // Rendered attributes of one cell: everything that maps to an SGR sequence.
+    struct Attr {
+        uint8_t fg;
+        uint8_t bg;
+        bool bright;
+        bool bg_bright;
+        bool reverse;
+        bool operator==(const Attr& o) const {
+            return fg == o.fg && bg == o.bg && bright == o.bright && bg_bright == o.bg_bright && reverse == o.reverse;
+        }
+    };
+    const Attr kDefault{7, 0, false, false, false};
+    // Full SGR select for an attribute set (the palette is 16 colors only).
+    auto sgr_for = [](const Attr& a) {
+        std::string s = "\x1b[";
+        bool first = true;
+        auto add = [&](int code) {
+            if (!first)
+                s += ';';
+            first = false;
+            s += std::to_string(code);
+        };
+        if (a.reverse)
+            add(7);
+        add(a.bright ? 90 + a.fg : 30 + a.fg);
+        add(a.bg_bright ? 100 + a.bg : 40 + a.bg);
+        s += 'm';
+        return s;
+    };
     for (int r = 0; r < rows; ++r) {
-        printf("\x1b[%d;1H", r + 1);
         std::string line;
-        line.reserve(cols);
+        line.reserve(cols + 16);
+        line += "\x1b[";
+        line += std::to_string(r + 1);
+        line += ";1H";
+        line += "\x1b[0m";  // start each row at the default pen
+        Attr cur = kDefault;
         for (int c = 0; c < cols; ++c) {
             Cell cell = screen.get(r, c);
+            Attr a{cell.fg, cell.bg, cell.bright, cell.bg_bright, cell.reverse};
+            if (!(a == cur)) {
+                // Consecutive cells sharing attributes emit one SGR head only.
+                line += (a == kDefault) ? std::string("\x1b[0m") : sgr_for(a);
+                cur = a;
+            }
             if (cell.ch == 0)
                 line.push_back(' ');
             else
                 line += utf8::encode(cell.ch);
         }
+        line += "\x1b[0m";  // never let a row's color bleed past its end
         fwrite(line.data(), 1, line.size(), stdout);
     }
     // Move the shell cursor back to where the Screen thinks it is (clamped to

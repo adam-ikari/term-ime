@@ -2,6 +2,25 @@
 #include "../util/utf8.hpp"
 #include <cctype>
 #include <utility>
+#include <vector>
+
+namespace {
+// Parse a decimal parameter substring; empty or out-of-range strings map to
+// `def` (the terminal default), so "ESC[H" and malformed numbers stay safe.
+int parse_param(const std::string& s, int def) {
+    if (s.empty())
+        return def;
+    try {
+        size_t used = 0;
+        int v = std::stoi(s, &used);
+        if (used != s.size() || v < 0 || v > 1000)
+            return def;
+        return v;
+    } catch (const std::exception&) {
+        return def;
+    }
+}
+}  // namespace
 
 Parser::Parser(Screen& screen) : screen_(screen) {}
 
@@ -85,7 +104,7 @@ void Parser::emit_char(char32_t ch) {
     }
 
     screen_.move_cursor(row, col);
-    screen_.put(ch, row, col);
+    screen_.put(ch, row, col, pen_);
     if (width <= 0) {
         return;  // combining mark: occupies the cell without advancing
     }
@@ -195,30 +214,118 @@ void Parser::handle_csi(char c) {
                 // Malformed CSI parameter, ignore
             }
         }
+        wrap_pending_ = false;  // explicit positioning cancels deferred wrap
         screen_.move_cursor(row - 1, col - 1);
         break;
     }
     case 'A':  // Cursor up
+        wrap_pending_ = false;
         screen_.move_cursor(screen_.cursor_row() - 1, screen_.cursor_col());
         break;
     case 'B':  // Cursor down
+        wrap_pending_ = false;
         screen_.move_cursor(screen_.cursor_row() + 1, screen_.cursor_col());
         break;
     case 'C':  // Cursor forward
+        wrap_pending_ = false;
         screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() + 1);
         break;
     case 'D':  // Cursor back
+        wrap_pending_ = false;
         screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() - 1);
         break;
-    case 'J':  // Erase display
-        if (csi_params_ == "2") {
-            screen_.clear();
-        }
+    case 'J': {  // Erase display
+        int mode = parse_param(csi_params_, 0);
+        if (mode == 5)
+            mode = 2;  // no scrollback in this project: 5 behaves like 2
+        screen_.erase_display(mode, pen_);
         break;
+    }
     case 'K':  // Erase line
-        screen_.clear_line();
+        screen_.erase_line(parse_param(csi_params_, 0), pen_);
         break;
-    case 'm':  // SGR (colors) - ignore for now
+    case 'm':  // SGR
+        apply_sgr();
         break;
+    }
+}
+
+// Split the ';'-separated SGR parameters and apply them to `pen_`.
+void Parser::apply_sgr() {
+    std::vector<int> args;
+    size_t start = 0;
+    for (;;) {
+        const size_t sep = csi_params_.find(';', start);
+        const std::string field = csi_params_.substr(start, sep == std::string::npos ? std::string::npos : sep - start);
+        // An empty field means 0, so "ESC[m" and "ESC[;m" reset like "ESC[0m".
+        args.push_back(field.empty() ? 0 : parse_param(field, -1));
+        if (sep == std::string::npos)
+            break;
+        start = sep + 1;
+    }
+
+    for (size_t i = 0; i < args.size(); ++i) {
+        const int n = args[i];
+        if (n < 0)
+            continue;  // malformed code: skipped, pen unchanged
+        // 38/48 introduce 256-color (5;n) or truecolor (2;r;g;b). This project
+        // models 16 colors only, so the whole form is dropped — the sub-
+        // arguments must be consumed here or "5" would read as a bg lift.
+        if (n == 38 || n == 48) {
+            if (i + 1 < args.size() && args[i + 1] == 2)
+                i += 4;
+            else if (i + 1 < args.size() && args[i + 1] == 5)
+                i += 2;
+            else
+                i += 1;
+            continue;
+        }
+        switch (n) {
+        case 0:
+            pen_ = Pen{};
+            break;
+        case 1:
+            pen_.bright = true;
+            break;
+        case 22:
+            pen_.bright = false;
+            break;
+        case 5:
+            pen_.bg_bright = true;
+            break;
+        case 25:
+            pen_.bg_bright = false;
+            break;
+        case 7:
+            pen_.reverse = true;
+            break;
+        case 27:
+            pen_.reverse = false;
+            break;
+        case 39:
+            pen_.fg = 7;
+            pen_.bright = false;
+            break;
+        case 49:
+            pen_.bg = 0;
+            pen_.bg_bright = false;
+            break;
+        default:
+            if (n >= 30 && n <= 37) {
+                pen_.fg = static_cast<uint8_t>(n - 30);
+                pen_.bright = false;
+            } else if (n >= 90 && n <= 97) {
+                pen_.fg = static_cast<uint8_t>(n - 90);
+                pen_.bright = true;
+            } else if (n >= 40 && n <= 47) {
+                pen_.bg = static_cast<uint8_t>(n - 40);
+                pen_.bg_bright = false;
+            } else if (n >= 100 && n <= 107) {
+                pen_.bg = static_cast<uint8_t>(n - 100);
+                pen_.bg_bright = true;
+            }
+            // Any other code: ignored.
+            break;
+        }
     }
 }

@@ -22,6 +22,8 @@ class Parser {
     // Tail of a UTF-8 sequence split across two feed() calls. Bounded by the
     // longest UTF-8 sequence (4 bytes) minus one.
     std::string pending_;
+    // Current SGR pen applied to every emitted character; updated by CSI 'm'.
+    Pen pen_;
     // Cursor parked on the right margin by deferred auto-wrap: the wrap itself
     // happens when the next printable glyph arrives.
     bool wrap_pending_ = false;
@@ -29,6 +31,7 @@ class Parser {
     void handle_char(char c);
     void handle_csi(char c);
     void emit_char(char32_t ch);
+    void apply_sgr();
 
     // Row below `row`, scrolling the screen when already on the last row.
     int next_row(int row);

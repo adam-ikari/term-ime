@@ -214,3 +214,129 @@ TEST_F(Utf8Test, ScreenResizePreservesOverlap) {
     EXPECT_EQ(screen.cursor_row(), 1);
     EXPECT_EQ(screen.cursor_col(), 2);
 }
+
+// ---- Parser: SGR pen (16 colors) ----
+TEST_F(Utf8Test, SgrForegroundAndReset) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[31mX");
+    EXPECT_EQ(screen.get(0, 0).ch, U'X');
+    EXPECT_EQ(screen.get(0, 0).fg, 1);
+    EXPECT_EQ(screen.get(0, 0).bright, false);
+
+    feed(parser, "\x1b[0mY");
+    EXPECT_EQ(screen.get(0, 1).ch, U'Y');
+    EXPECT_EQ(screen.get(0, 1).fg, 7);  // default pen after reset
+}
+
+TEST_F(Utf8Test, SgrBoldAndBackground) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[1mA");
+    EXPECT_EQ(screen.get(0, 0).ch, U'A');
+    EXPECT_EQ(screen.get(0, 0).bright, true);
+    EXPECT_EQ(screen.get(0, 0).fg, 7);  // bold lifts, it does not recolor
+
+    feed(parser, "\x1b[22;42mB");
+    EXPECT_EQ(screen.get(0, 1).ch, U'B');
+    EXPECT_EQ(screen.get(0, 1).bright, false);
+    EXPECT_EQ(screen.get(0, 1).bg, 2);
+}
+
+TEST_F(Utf8Test, SgrBrightPaletteAndReverse) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[90mX");  // bright black fg
+    EXPECT_EQ(screen.get(0, 0).fg, 0);
+    EXPECT_EQ(screen.get(0, 0).bright, true);
+
+    feed(parser, "\x1b[0m\x1b[7mR");  // reverse video
+    EXPECT_EQ(screen.get(0, 1).ch, U'R');
+    EXPECT_EQ(screen.get(0, 1).reverse, true);
+
+    feed(parser, "\x1b[27m\x1b[104mS");  // bright blue bg
+    EXPECT_EQ(screen.get(0, 2).reverse, false);
+    EXPECT_EQ(screen.get(0, 2).bg, 4);
+    EXPECT_EQ(screen.get(0, 2).bg_bright, true);
+
+    feed(parser, "\x1b[49mT");  // bg back to default
+    EXPECT_EQ(screen.get(0, 3).bg, 0);
+    EXPECT_EQ(screen.get(0, 3).bg_bright, false);
+}
+
+TEST_F(Utf8Test, SgrMultipleParametersCombine) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[31;42;1mX");  // red fg, green bg, bright
+    EXPECT_EQ(screen.get(0, 0).fg, 1);
+    EXPECT_EQ(screen.get(0, 0).bg, 2);
+    EXPECT_EQ(screen.get(0, 0).bright, true);
+}
+
+TEST_F(Utf8Test, SgrEmptyFormAndTruecolorAreIgnored) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[31mA");
+    feed(parser, "\x1b[mB");  // empty SGR means reset
+    EXPECT_EQ(screen.get(0, 0).fg, 1);
+    EXPECT_EQ(screen.get(0, 1).fg, 7);
+
+    // 38;5;196 must not leak its sub-arguments into the 16-color pen.
+    feed(parser, "\x1b[38;5;196;48;2;1;2;3mC");
+    EXPECT_EQ(screen.get(0, 2).ch, U'C');
+    EXPECT_EQ(screen.get(0, 2).fg, 7);
+    EXPECT_EQ(screen.get(0, 2).bg, 0);
+    EXPECT_EQ(screen.get(0, 2).bg_bright, false);
+}
+
+// ---- Parser: ED / EL erase ----
+TEST_F(Utf8Test, EraseDisplayKeepsCursorRule) {
+    Screen screen(3, 10);
+    Parser parser(screen);
+    feed(parser, "AAAAAA");
+    feed(parser, "\x1b[2;3H");                     // cursor at (1, 2)
+    feed(parser, "\x1b[0J");                       // ED 0: cursor to end of screen
+    EXPECT_EQ(row_text(screen, 0), "AAAAAA    ");  // above cursor untouched
+    EXPECT_EQ(row_text(screen, 1), "          ");
+    EXPECT_EQ(row_text(screen, 2), "          ");
+
+    feed(parser, "BBBBBB");  // resumes writing at the erased (1, 2)
+    EXPECT_EQ(row_text(screen, 1), "  BBBBBB  ");
+
+    feed(parser, "\x1b[2J");  // ED 2: whole screen
+    EXPECT_EQ(row_text(screen, 0), "          ");
+    EXPECT_EQ(row_text(screen, 1), "          ");
+    EXPECT_EQ(row_text(screen, 2), "          ");
+}
+
+TEST_F(Utf8Test, EraseDisplayColoredByPen) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "XXXXXXXXXX");
+    feed(parser, "\x1b[44;1m");  // blue bg, bold
+    feed(parser, "\x1b[2;1H");   // cursor at (1, 0)
+    feed(parser, "\x1b[1J");     // ED 1: start of screen to cursor
+    // Erased cells carry the active pen, not the default one.
+    EXPECT_EQ(screen.get(0, 0).ch, U' ');
+    EXPECT_EQ(screen.get(0, 0).bg, 4);
+    EXPECT_EQ(screen.get(0, 0).bright, true);
+    EXPECT_EQ(screen.get(0, 9).ch, U' ');
+    EXPECT_EQ(screen.get(0, 9).bg, 4);
+    EXPECT_EQ(screen.get(1, 0).ch, U' ');  // cursor cell itself erased
+    EXPECT_EQ(screen.get(1, 0).bg, 4);
+}
+
+TEST_F(Utf8Test, EraseLineModes) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "1234567890");
+    feed(parser, "\x1b[2;1Habcdefghij");
+    feed(parser, "\x1b[1;4H\x1b[0K");  // EL 0: cursor to end of line
+    EXPECT_EQ(row_text(screen, 0), "123       ");
+    EXPECT_EQ(row_text(screen, 1), "abcdefghij");
+    feed(parser, "\x1b[2;4H\x1b[1K");  // EL 1: start of line to cursor
+    EXPECT_EQ(row_text(screen, 1), "    efghij");
+    feed(parser, "\x1b[2K");  // EL 2: whole line
+    EXPECT_EQ(row_text(screen, 1), "          ");
+    EXPECT_EQ(row_text(screen, 0), "123       ");  // other line untouched
+}

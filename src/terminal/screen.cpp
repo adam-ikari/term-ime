@@ -7,11 +7,17 @@ Screen::Screen(int rows, int cols) {
     resize(rows, cols);
 }
 
-void Screen::put(char32_t ch, int row, int col) {
+void Screen::put(char32_t ch, int row, int col, const Pen& pen) {
     if (row >= 0 && row < rows_ && col >= 0 && col < cols_) {
-        grid_[row][col].ch = ch;
+        auto& cell = grid_[row][col];
+        cell.ch = ch;
+        cell.fg = pen.fg;
+        cell.bg = pen.bg;
+        cell.bright = pen.bright;
+        cell.bg_bright = pen.bg_bright;
+        cell.reverse = pen.reverse;
         // Use utf8proc for proper width detection (CJK, emojis, etc.)
-        grid_[row][col].wide = (utf8::width(ch) == 2);
+        cell.wide = (utf8::width(ch) == 2);
     }
 }
 
@@ -53,6 +59,67 @@ void Screen::clear_line() {
     if (cursor_row_ >= 0 && cursor_row_ < rows_) {
         for (auto& cell : grid_[cursor_row_]) {
             cell = Cell{};
+        }
+    }
+}
+
+namespace {
+// A blank cell carrying `pen`'s attributes (ED/EL keep the active colors so a
+// colored erase paints a uniformly colored region instead of default bg).
+Cell blank_cell(const Pen& pen) {
+    Cell cell;
+    cell.ch = U' ';
+    cell.fg = pen.fg;
+    cell.bg = pen.bg;
+    cell.bright = pen.bright;
+    cell.bg_bright = pen.bg_bright;
+    cell.reverse = pen.reverse;
+    cell.wide = false;
+    return cell;
+}
+}  // namespace
+
+void Screen::erase_line(int mode, const Pen& pen) {
+    if (cursor_row_ < 0 || cursor_row_ >= rows_) {
+        return;
+    }
+    const Cell blank = blank_cell(pen);
+    int first = 0, last = cols_ - 1;
+    switch (mode) {
+    case 0:
+        first = cursor_col_;
+        break;
+    case 1:
+        last = cursor_col_;
+        break;
+    default:  // 2 (and anything else) erases the whole line
+        break;
+    }
+    for (int c = std::max(0, first); c <= std::min(last, cols_ - 1); ++c) {
+        grid_[cursor_row_][c] = blank;
+    }
+}
+
+void Screen::erase_display(int mode, const Pen& pen) {
+    const Cell blank = blank_cell(pen);
+    int first_row = 0, first_col = 0, last_row = rows_ - 1, last_col = cols_ - 1;
+    switch (mode) {
+    case 0:
+        first_row = cursor_row_;
+        first_col = cursor_col_;
+        break;
+    case 1:
+        last_row = cursor_row_;
+        last_col = cursor_col_;
+        break;
+    default:  // 2 and 5: whole screen (no scrollback in this project)
+        break;
+    }
+    for (int r = std::max(0, first_row); r <= std::min(last_row, rows_ - 1); ++r) {
+        const int c0 = (r == first_row) ? std::max(0, first_col) : 0;
+        const int c1 = (r == last_row) ? std::min(last_col, cols_ - 1) : cols_ - 1;
+        for (int c = c0; c <= c1; ++c) {
+            grid_[r][c] = blank;
         }
     }
 }
