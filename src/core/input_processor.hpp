@@ -55,10 +55,19 @@ struct Machine {
             }
             return true;
         };
-        const auto is_param = [](const Byte& e) {
-            return (e.value >= 0x20 && e.value <= 0x2f) || (e.value >= 0x30 && e.value <= 0x3f);
-        };
         const auto is_space = [](const Byte& e) { return e.value == ' '; };
+        const auto can_extend = [](const Byte& e) {
+            const uint8_t v = e.value;
+            // Control bytes (0x00-0x1F, 0x7F) never extend a sequence.
+            if (v < 0x20 || v == 0x7f)
+                return false;
+            const auto& buf = *e.buffer;
+            // SS3 (ESC O) has no parameter/intermediate bytes: only its own
+            // finals extend it, so a stray letter must not be buffered here.
+            if (buf.size() >= 2 && buf[1] == 'O')
+                return false;
+            return true;
+        };
 
         // Actions
         const auto forward_byte = [](const Byte& e) {
@@ -129,10 +138,12 @@ struct Machine {
 
             // EscapeCSI state
             state<EscapeCSI> + event<Byte>[is_final] / complete_escape = state<Normal>,
-            state<EscapeCSI> + event<Byte> / buffer_byte,
-            // Any other byte cannot extend the sequence: end it here rather than
-            // buffering forever (which would swallow the keys that follow).
-            state<EscapeCSI> + event<Byte> / complete_escape = state<Normal>,
+            state<EscapeCSI> + event<Byte>[can_extend] / buffer_byte,
+            // A byte that can neither terminate nor extend the sequence — a
+            // control byte (Ctrl+C/D/Z…) or, after ESC O, a letter outside the
+            // SS3 final set — ends it now. Forward the byte on its own so the
+            // keypress is not swallowed; the malformed prefix is dropped.
+            state<EscapeCSI> + event<Byte> / forward_byte = state<Normal>,
 
             // Prefix state
             state<Prefix> + event<Byte>[is_space] / toggle_mode = state<Normal>,

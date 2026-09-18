@@ -321,10 +321,6 @@ void App::on_keyboard_data(const char* data, size_t len) {
         return;
     }
 
-    // Set when ESC is consumed by the app itself (composition cancel) instead
-    // of being forwarded as part of a sequence (defect 10).
-    bool consumed_escape = false;
-
     // Process each byte through InputProcessor state machine
     for (size_t i = 0; i < len; ++i) {
         uint8_t byte = static_cast<uint8_t>(data[i]);
@@ -375,6 +371,18 @@ void App::on_keyboard_data(const char* data, size_t len) {
 
         // If IME is composing, intercept all input except selection keys
         if (ime_->state() == ImeState::Composing || ime_->state() == ImeState::Selecting) {
+            // Ctrl+C / Ctrl+D / Ctrl+Z must still reach the shell while a
+            // composition is in progress: cancel the pinyin and pass the byte
+            // straight through (it is a plain control byte, not an escape).
+            if (byte == 0x03 || byte == 0x04 || byte == 0x1a) {
+                if (ime_->state() != ImeState::Inactive) {
+                    ime_->cancel();
+                }
+                selected_candidate_ = 0;
+                pty_.write(std::vector<uint8_t>{byte});
+                render();
+                continue;
+            }
             // Arrow keys and PageUp/PageDown page through the candidates while
             // composing (same grouping as ','/'.'), so the whole page stays
             if (is_escape_sequence && input_result.forward) {
@@ -491,8 +499,15 @@ void App::on_keyboard_data(const char* data, size_t len) {
             continue;
         }
 
-        // Not composing - check if should start composing
-        if (ime_->mode() == ImeMode::Chinese && byte >= 'a' && byte <= 'z' && !input_processor_.in_escape()) {
+        // Not composing - check if should start composing. A byte that just
+        // completed an escape sequence (e.g. the trailing 'c' of a DA reply
+        // ESC[?1;2c) is not a pinyin keystroke even though it is a lowercase
+        // letter: the SM is back in Normal by the time this byte is examined,
+        // so in_escape() alone cannot tell — the forwarded result beginning
+        // with ESC is the reliable signal. The sequence is forwarded below.
+        bool completed_escape = input_result.forward && !input_result.data.empty() && input_result.data[0] == 0x1b;
+        if (ime_->mode() == ImeMode::Chinese && byte >= 'a' && byte <= 'z' && !completed_escape &&
+            !input_processor_.in_escape()) {
             bool accepted = ime_->input(static_cast<char>(byte));
             selected_candidate_ = 0;
             if (accepted) {
@@ -509,14 +524,6 @@ void App::on_keyboard_data(const char* data, size_t len) {
         }
     }
 
-    // The ESC below was consumed by the app, but the state machine is still
-    // parked in Escape/EscapeCSI because no sequence byte followed it in this
-    // batch. Clear that residue so the next key is an independent key rather
-    // than the tail of a bogus escape sequence (defect 10). A genuine sequence
-    // (ESC[A etc.) completes inside the batch and is left untouched.
-    if (consumed_escape && input_processor_.in_escape()) {
-        input_processor_.reset();
-    }
     // A lone ESC (no sequence byte followed it in this batch) cancels the
     // composition. A completed sequence (ESC[C …) was handled as candidate
     // paging above and leaves the state machine in Normal, so it cannot land
@@ -535,7 +542,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
     // the ESC is forwarded to the shell as an independent keypress. If the
     // user's next key completes the sequence first, the timer is cancelled at
     // the top of the next on_keyboard_data call.
-    if (event_loop_ && !consumed_escape && !settings_state_.visible && input_processor_.in_escape()) {
+    if (event_loop_ && !settings_state_.visible && input_processor_.in_escape()) {
         esc_timer_id_ = event_loop_->set_timer(
             [this]() {
                 spdlog::debug("Orphaned-ESC timeout: forwarding lone ESC");

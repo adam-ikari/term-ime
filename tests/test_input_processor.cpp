@@ -248,3 +248,59 @@ TEST(InputProcessorTest, CtrlA_SpaceAfterOtherBytes_StillToggles) {
     EXPECT_TRUE(r.toggle_mode);
     EXPECT_FALSE(r.forward);
 }
+
+// ---- H4 regression: an escape final byte must not be mistaken for pinyin ----
+// app.cpp decides "this byte just completed an ESC sequence" by checking
+// forward && data[0] == 0x1b (the SM is back in Normal before the byte is
+// examined, so in_escape() alone cannot tell). A DA reply ESC[?1;2c ends with
+// lowercase 'c' and must arrive as one whole forwarded result so the IME never
+// eats the final letter as a pinyin keystroke.
+TEST(InputProcessorTest, DaReplyEscapeForwardsWhole) {
+    InputProcessor p;
+    auto rs = feed(p, {0x1b, '[', '?', '1', ';', '2', 'c'});
+    // Only the final byte completes the sequence; the prefix bytes buffer.
+    for (size_t i = 0; i + 1 < rs.size(); ++i) {
+        EXPECT_FALSE(rs[i].forward);
+    }
+    const auto& r = rs.back();
+    EXPECT_TRUE(r.forward);
+    ASSERT_EQ(r.data.size(), 7u);
+    EXPECT_EQ(r.data[0], 0x1b);  // the app-side "completed an escape" signal
+    EXPECT_EQ(r.data[1], '[');
+    EXPECT_EQ(r.data[6], 'c');
+    EXPECT_FALSE(p.in_escape());
+}
+
+// ---- M1 regression: a control byte cannot be swallowed by a half-open CSI ----
+// ESC[ + Ctrl+C used to park the byte in EscapeCSI (the unguarded buffer_byte
+// transition matched first) until a later final flushed it out, swallowing the
+// Ctrl+C. It must end the sequence and be forwarded on its own.
+TEST(InputProcessorTest, ControlByteEndsHalfOpenCsi) {
+    InputProcessor p;
+    auto rs = feed(p, {0x1b, '[', 0x03, 'x'});
+    EXPECT_FALSE(rs[0].forward);
+    EXPECT_FALSE(rs[1].forward);
+    // Ctrl+C is not swallowed: forwarded alone, sequence ended.
+    EXPECT_TRUE(rs[2].forward);
+    ASSERT_EQ(rs[2].data.size(), 1u);
+    EXPECT_EQ(rs[2].data[0], 0x03);
+    EXPECT_FALSE(p.in_escape());
+    // The next key is an independent key, not a CSI tail.
+    EXPECT_TRUE(rs[3].forward);
+    ASSERT_EQ(rs[3].data.size(), 1u);
+    EXPECT_EQ(rs[3].data[0], 'x');
+}
+
+// ---- M2 regression: ESC O + non-SS3 final forwards the byte on its own ----
+// vim's application cursor mode sends ESC O A-D/F/H/P-S; a plain letter after
+// ESC O (here 'x') used to hang in EscapeCSI and swallow the key.
+TEST(InputProcessorTest, EscO_NonSsfinalForwardsKeyIndependently) {
+    InputProcessor p;
+    auto rs = feed(p, {0x1b, 'O', 'x'});
+    EXPECT_FALSE(rs[0].forward);
+    EXPECT_FALSE(rs[1].forward);
+    EXPECT_TRUE(rs[2].forward);
+    ASSERT_EQ(rs[2].data.size(), 1u);
+    EXPECT_EQ(rs[2].data[0], 'x');  // forwarded alone, not glued to ESC O
+    EXPECT_FALSE(p.in_escape());
+}
