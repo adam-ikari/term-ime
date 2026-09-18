@@ -1,8 +1,10 @@
 #include "rime_engine.hpp"
 #include "../util/utf8.hpp"
 #include <spdlog/spdlog.h>
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 
 // Bundled rime-data dir (set by CMake when USE_BUNDLED_DEPS sources are
 // built). Empty string when building against system rime-data.
@@ -88,6 +90,8 @@ bool RimeIme::initialize() {
         }
     }
     traits.user_data_dir = user_dir.c_str();
+    resolved_shared_dir_ = shared_dir;
+    resolved_user_dir_ = user_dir;
 
     traits.distribution_name = "term-ime";
     traits.distribution_code_name = "term-ime";
@@ -150,6 +154,9 @@ bool RimeIme::initialize() {
         rime_life_.reset();  // finalize() now; no session to destroy
         return false;
     }
+    // Materialise any per-combination fuzzy schema (a strict subset of groups
+    // enabled) now that rime is up, before the caller selects a schema.
+    ensure_fuzzy_schema();
     return true;
 }
 
@@ -337,25 +344,152 @@ std::string RimeIme::get_current_schema() {
     return "";
 }
 
-std::string RimeIme::fuzzy_variant(const std::string& schema_id) const {
-    // Bundled schemas that ship a fuzzy twin. Anything else keeps its id, so the
-    // toggle simply has no effect on it.
-    static const std::pair<const char*, const char*> kVariants[] = {
-        {"luna_pinyin_simp", "luna_pinyin_simp_fuzzy"},
-    };
-    if (!fuzzy_ || schema_id.empty())
-        return schema_id;
-    for (const auto& variant : kVariants) {
-        if (schema_id == variant.first)
-            return variant.second;
+std::string RimeIme::fuzzy_signature() const {
+    // All-on and all-off use the bundled schemas directly; only a strict subset
+    // needs a generated per-combination schema, keyed by its enabled groups.
+    static const std::vector<std::string> kAll = {"zh_z", "n_l", "r", "hu_f", "nose"};
+    if (fuzzy_groups_.empty() || fuzzy_groups_ == kAll)
+        return "";
+    std::string sig;
+    for (const auto& g : kAll) {
+        if (std::find(fuzzy_groups_.begin(), fuzzy_groups_.end(), g) != fuzzy_groups_.end()) {
+            if (!sig.empty())
+                sig += "_";
+            sig += g;
+        }
     }
-    return schema_id;
+    return sig;
 }
 
-void RimeIme::set_fuzzy_pinyin(bool on) {
-    // Only records the preference: the caller re-selects the schema through
-    // fuzzy_variant(), which loads the other prism without any redeploy.
-    fuzzy_ = on;
+void RimeIme::ensure_fuzzy_schema() {
+    // Called after rime is initialized: materialise the per-combination schema
+    // (template pruned to the enabled groups) and deploy it when its prism is
+    // missing. All-on/all-off use bundled schemas and need nothing here.
+    const std::string sig = fuzzy_signature();
+    if (sig.empty() || !rime_ || !rime_->deploy_schema)
+        return;
+    if (resolved_shared_dir_.empty() || resolved_user_dir_.empty())
+        return;
+
+    const std::string schema_id = "luna_pinyin_simp_fuzzy_" + sig;
+    const std::filesystem::path out = std::filesystem::path(resolved_user_dir_) / (schema_id + ".schema.yaml");
+    const std::filesystem::path staging =
+        std::filesystem::path(resolved_user_dir_) / "build" / (schema_id + ".prism.bin");
+
+    // Re-generate when the template changed (mtime newer than our copy).
+    std::error_code ec;
+    if (std::filesystem::exists(out, ec)) {
+        const auto out_mtime = std::filesystem::last_write_time(out, ec);
+        const auto tpl_mtime = std::filesystem::last_write_time(
+            std::filesystem::path(resolved_shared_dir_) / "luna_pinyin_simp_fuzzy.schema.yaml", ec);
+        if (!ec && out_mtime >= tpl_mtime && std::filesystem::exists(staging, ec)) {
+            return;  // already generated and compiled
+        }
+    }
+
+    // Prune the template: keep the enabled groups' rule blocks.
+    std::ifstream in(std::filesystem::path(resolved_shared_dir_) / "luna_pinyin_simp_fuzzy.schema.yaml");
+    if (!in)
+        return;
+    std::string line;
+    std::string body;
+    std::string block;     // current # BEGIN fuzzy:<block> .. # END fuzzy:<block> body
+    std::string block_id;  // block id being collected (zh_z/n_l/r_l/r_y/hu_f/en_eng/an_ang)
+    bool in_block = false;
+    bool keep_block = false;
+    auto flush_block = [&]() {
+        if (!block.empty() && keep_block)
+            body += block;
+        block.clear();
+        block_id.clear();
+        keep_block = false;
+    };
+    // The settings toggles group several rule blocks: "r" covers r_l+r_y,
+    // "nose" covers en_eng+an_ang. Map block id -> toggle group id.
+    auto group_of = [](const std::string& bid) -> const char* {
+        if (bid == "r_l" || bid == "r_y")
+            return "r";
+        if (bid == "en_eng" || bid == "an_ang")
+            return "nose";
+        return nullptr;  // zh_z/n_l/hu_f use their own id; unknown -> not a block
+    };
+    auto toggle_of = [&](const std::string& bid) -> std::string {
+        if (const char* g = group_of(bid))
+            return g;
+        return bid;  // zh_z / n_l / hu_f
+    };
+    while (std::getline(in, line)) {
+        if (!in_block) {
+            const auto pos = line.find("# BEGIN fuzzy:");
+            if (pos != std::string::npos) {
+                const std::string id = line.substr(pos + 14, line.find_first_of(" \t", pos + 14) - (pos + 14));
+                // Only recognised block ids open a block; a comment that merely
+                // mentions the marker text must not (it would swallow the block).
+                if (!id.empty() && (group_of(id) != nullptr || id == "zh_z" || id == "n_l" || id == "hu_f")) {
+                    in_block = true;
+                    block = line + "\n";
+                    block_id = id;
+                    const std::string toggle = toggle_of(id);
+                    keep_block = std::find(fuzzy_groups_.begin(), fuzzy_groups_.end(), toggle) != fuzzy_groups_.end();
+                    continue;
+                }
+            }
+            body += line + "\n";
+        } else if (line.find("# END fuzzy:") != std::string::npos) {
+            block += line + "\n";
+            flush_block();
+            in_block = false;
+        } else {
+            block += line + "\n";
+        }
+    }
+    flush_block();
+    if (in_block)
+        body += block;  // unterminated block: keep it verbatim
+
+    // Point the generated schema at its own id/prism.
+    const std::string old_id = "luna_pinyin_simp_fuzzy";
+    size_t at = 0;
+    while ((at = body.find(old_id, at)) != std::string::npos) {
+        body.replace(at, old_id.size(), schema_id);
+        at += schema_id.size();
+    }
+
+    std::error_code mkdir_ec;
+    std::filesystem::create_directories(resolved_user_dir_, mkdir_ec);
+    std::ofstream out_file(out);
+    if (!out_file) {
+        spdlog::warn("Rime: cannot write generated schema {}", out.string());
+        return;
+    }
+    out_file << body;
+    spdlog::info("Rime: wrote generated fuzzy schema {}", out.string());
+
+    // Deploy when the prism is missing (or the schema changed).
+    if (!std::filesystem::exists(staging, ec)) {
+        spdlog::info("Rime: deploying generated schema {}", out.string());
+        rime_->deploy_schema(out.string().c_str());
+    }
+}
+
+std::string RimeIme::fuzzy_variant(const std::string& schema_id) const {
+    // Only the bundled simplified schema has a fuzzy twin; other schemas keep
+    // their id, so the toggles simply have no effect on them.
+    if (schema_id != "luna_pinyin_simp")
+        return schema_id;
+    const std::string sig = fuzzy_signature();
+    if (sig.empty())
+        return fuzzy_groups_.empty() ? schema_id : "luna_pinyin_simp_fuzzy";
+    return "luna_pinyin_simp_fuzzy_" + sig;
+}
+
+void RimeIme::set_fuzzy_groups(const std::vector<std::string>& groups) {
+    fuzzy_groups_ = groups;
+    if (rime_ && rime_life_ && session_) {
+        // Live engine: materialise any generated schema now; the caller
+        // re-selects through fuzzy_variant() afterwards.
+        ensure_fuzzy_schema();
+    }
 }
 
 void RimeIme::update_state() {

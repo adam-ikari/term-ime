@@ -2,6 +2,7 @@
 #include "components.hpp"
 #include "../util/i18n.hpp"
 #include <ftxui/dom/elements.hpp>
+#include <algorithm>
 
 namespace ui {
 
@@ -222,16 +223,29 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     max_candidates.display_value = max_candidates.value;
     state.items.push_back(max_candidates);
 
-    // Fuzzy pinyin (n/l, zh/z, en/eng …). Toggling it redeploys the schema.
-    SettingsItem fuzzy;
-    fuzzy.label = I18n::t("settings.fuzzy_pinyin");
-    fuzzy.key = "fuzzy_pinyin";
-    fuzzy.options = {"off", "on"};
-    fuzzy.display_options = {I18n::t("option.off"), I18n::t("option.on")};
-    fuzzy.selected_index = config.fuzzy_pinyin ? 1 : 0;
-    fuzzy.value = fuzzy.options[fuzzy.selected_index];
-    fuzzy.display_value = fuzzy.display_options[fuzzy.selected_index];
-    state.items.push_back(fuzzy);
+    // Fuzzy pinyin groups — one toggle per group (平翘舌/n/l/r系/h/f/前后鼻音).
+    // Empty selection = precise spelling; the engine maps the group set to a
+    // bundled or generated schema (see RimeIme::fuzzy_variant).
+    struct {
+        const char* id;
+        const char* i18n;
+    } kFuzzyGroups[] = {
+        {"zh_z", "settings.fuzzy.zh_z"}, {"n_l", "settings.fuzzy.n_l"},   {"r", "settings.fuzzy.r"},
+        {"hu_f", "settings.fuzzy.hu_f"}, {"nose", "settings.fuzzy.nose"},
+    };
+    for (const auto& g : kFuzzyGroups) {
+        const bool on =
+            std::find(config.fuzzy_groups.begin(), config.fuzzy_groups.end(), g.id) != config.fuzzy_groups.end();
+        SettingsItem fuzzy;
+        fuzzy.label = I18n::t(g.i18n);
+        fuzzy.key = std::string("fuzzy_") + g.id;
+        fuzzy.options = {"off", "on"};
+        fuzzy.display_options = {I18n::t("option.off"), I18n::t("option.on")};
+        fuzzy.selected_index = on ? 1 : 0;
+        fuzzy.value = fuzzy.options[fuzzy.selected_index];
+        fuzzy.display_value = fuzzy.display_options[fuzzy.selected_index];
+        state.items.push_back(fuzzy);
+    }
 
     state.focus_index = 0;
 }

@@ -25,7 +25,11 @@
   "settings.title": "Settings",
   "settings.ui_language": "UI Language",
   "settings.max_candidates": "Candidates",
-  "settings.fuzzy_pinyin": "Fuzzy pinyin",
+  "settings.fuzzy.zh_z": "Fuzzy zh/z",
+  "settings.fuzzy.n_l": "Fuzzy n/l",
+  "settings.fuzzy.r": "Fuzzy r",
+  "settings.fuzzy.hu_f": "Fuzzy h/f",
+  "settings.fuzzy.nose": "Fuzzy -n/-ng",
   "option.off": "Off",
   "option.on": "On",
   "settings.close": "Close"

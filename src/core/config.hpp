@@ -36,10 +36,16 @@ struct AppConfig {
     // shown adapts to the terminal width — see ui::FitCandidateBar.
     int max_candidates = 9;
 
-    // Fuzzy pinyin (n/l, zh/z, r/l, r/y, hu/f, en-eng/in-ing). On by default to
-    // preserve the schema's historical behaviour; the schema itself is precise,
-    // so turning this off gives exact spelling.
-    bool fuzzy_pinyin = true;
+    // Fuzzy pinyin groups enabled. Each is one settings toggle:
+    //   zh_z 平翘舌 (zh/ch/sh ↔ z/c/s)
+    //   n_l  n/l 互换
+    //   r    r/l、r/y（r 系）
+    //   hu_f h/f（hu ↔ f）
+    //   nose 前后鼻音 (en/eng、in/ing、an/ang)
+    // Rules live in the bundled luna_pinyin_simp_fuzzy.schema.yaml. Empty =
+    // precise spelling; all five = the bundled all-on fuzzy schema; any other
+    // subset is materialised as a per-combination schema at startup (RimeIme).
+    std::vector<std::string> fuzzy_groups = {"zh_z", "n_l", "r", "hu_f", "nose"};
 
     // Rime data directories (optional)
     std::string rime_shared_data_dir;  // System rime-data directory

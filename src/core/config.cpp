@@ -40,7 +40,7 @@ json AppConfig::to_json() const {
     j["dict_path"] = dict_path;
     j["extra_dicts"] = extra_dicts;
     j["max_candidates"] = max_candidates;
-    j["fuzzy_pinyin"] = fuzzy_pinyin;
+    j["fuzzy_groups"] = fuzzy_groups;
 
     j["rime_shared_data_dir"] = rime_shared_data_dir;
     j["rime_user_data_dir"] = rime_user_data_dir;
@@ -84,7 +84,13 @@ AppConfig AppConfig::from_json(const json& j) {
         cap = j["page_size"].get<int>();
     }
     cfg.max_candidates = std::max(1, std::min(9, cap));
-    cfg.fuzzy_pinyin = j.value("fuzzy_pinyin", false);
+    if (j.contains("fuzzy_groups") && j["fuzzy_groups"].is_array()) {
+        cfg.fuzzy_groups = j["fuzzy_groups"].get<std::vector<std::string>>();
+    } else if (j.contains("fuzzy_pinyin")) {
+        // Legacy bool key: true = all groups, false = precise spelling.
+        static const std::vector<std::string> kAllFuzzy = {"zh_z", "n_l", "r", "hu_f", "nose"};
+        cfg.fuzzy_groups = j.value("fuzzy_pinyin", true) ? kAllFuzzy : std::vector<std::string>{};
+    }
 
     cfg.rime_shared_data_dir = j.value("rime_shared_data_dir", "");
     cfg.rime_user_data_dir = j.value("rime_user_data_dir", "");

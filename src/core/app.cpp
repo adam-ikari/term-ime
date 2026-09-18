@@ -2,6 +2,7 @@
 #include "event_loop.hpp"
 #include "util/i18n.hpp"
 #include <spdlog/spdlog.h>
+#include <algorithm>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <cerrno>
@@ -110,9 +111,10 @@ bool App::init(const AppConfig& config, EventLoop* event_loop) {
         show_startup_hint(I18n::t("status.initializing"));
 
         ime_ = std::make_unique<RimeIme>();
-        // Only records the preference: the schema selection below picks the
-        // fuzzy twin when it is on.
-        ime_->set_fuzzy_pinyin(config_.fuzzy_pinyin);
+        // Record the fuzzy groups before initialize(): the engine materialises
+        // any per-combination schema during init, then the schema selection
+        // below picks the right twin.
+        ime_->set_fuzzy_groups(config_.fuzzy_groups);
         if (!ime_->initialize()) {
             spdlog::warn("Failed to initialize Rime IME, continuing without IME");
         } else {
@@ -687,15 +689,25 @@ void App::on_settings_change(const std::string& key, const std::string& value) {
         config_.max_candidates = std::max(1, std::min(9, requested));
         candidate_window_ = 0;
         spdlog::info("Candidate cap set to {}", config_.max_candidates);
-    } else if (key == "fuzzy_pinyin") {
-        config_.fuzzy_pinyin = (value == "on");
+    } else if (key.rfind("fuzzy_", 0) == 0) {
+        // One of the per-group fuzzy toggles: fuzzy_zh_z / fuzzy_n_l / fuzzy_r /
+        // fuzzy_hu_f / fuzzy_nose. The engine maps the resulting group set to a
+        // bundled or generated schema (see RimeIme::fuzzy_variant).
+        const std::string group = key.substr(6);
+        auto& groups = config_.fuzzy_groups;
+        auto it = std::find(groups.begin(), groups.end(), group);
+        const bool on = (value == "on");
+        if (on && it == groups.end()) {
+            groups.push_back(group);
+        } else if (!on && it != groups.end()) {
+            groups.erase(it);
+        }
         if (ime_) {
-            ime_->set_fuzzy_pinyin(config_.fuzzy_pinyin);
-            // Switching schema loads the other prism; nothing is redeployed.
+            ime_->set_fuzzy_groups(groups);
             ime_->select_schema(ime_->fuzzy_variant(language_manager_.current().schema));
         }
         candidate_window_ = 0;
-        spdlog::info("Fuzzy pinyin {}", config_.fuzzy_pinyin ? "enabled" : "disabled");
+        spdlog::info("Fuzzy group {} {}", group, on ? "on" : "off");
     }
 
     render();

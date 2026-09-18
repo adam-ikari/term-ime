@@ -179,22 +179,23 @@ def test_settings_panel():
         print(f"  Candidates row focused: {cand_focused}, ui row unfocused: {ui_unfocused}")
         results.append(("Navigate j", cand_focused and ui_unfocused))
 
-        # Test 4: Arrow navigation. Down walks on to the fuzzy row and then the
-        # Close item; up walks back to the candidates row.
+        # Test 4: Arrow navigation. Down walks on to the first fuzzy row (平翘舌),
+        # then across the five fuzzy rows to Close; up walks back to the
+        # candidates row.
         print("\n[Test 4] Navigate with arrow keys")
         drain(master_fd)
-        send(master_fd, b"\x1b[B")  # ESC [ B (down arrow)
-        ok, buf = poll_until(master_fd, b"", row_focus_re('模糊音'), timeout=5.0)
+        send(master_fd, b"\x1b[B")  # down -> first fuzzy row (平翘舌)
+        ok, buf = poll_until(master_fd, b"", row_focus_re('模糊音 平翘舌'), timeout=5.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:150])}")
-        fuzzy_focused = ok and bool(row_focus_re('模糊音').search(screen))
+        fuzzy_focused = ok and bool(row_focus_re('模糊音 平翘舌').search(screen))
         drain(master_fd)
-        send(master_fd, b"\x1b[B")  # down again -> Close
+        send(master_fd, b"\x1b[B" * 5)  # across the 5 fuzzy rows -> Close
         ok, buf = poll_until(master_fd, b"", r'>\s*关闭\s*<', timeout=5.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         close_focused = ok and bool(re.search(r'>\s*关闭\s*<', screen))
         drain(master_fd)
-        send(master_fd, b"\x1b[A\x1b[A")  # up twice -> candidates row
+        send(master_fd, b"\x1b[A" * 6)  # up six -> candidates row
         ok, buf = poll_until(master_fd, b"", row_focus_re('候选词数量'), timeout=5.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         back_ok = ok and bool(row_focus_re('候选词数量').search(screen))

@@ -35,11 +35,14 @@ class RimeIme : public ImeEngine {
 
     // Initialize rime engine
     bool initialize();
-    // Fuzzy pinyin (n/l, zh/z, r/l, r/y, hu/f, en-eng, in-ing). Implemented by
-    // switching to the bundled <schema>_fuzzy variant — no redeploy involved.
-    void set_fuzzy_pinyin(bool on);
-    bool fuzzy_pinyin() const { return fuzzy_; }
-    // The fuzzy twin of a bundled schema id, or the id itself when there is none.
+    // Fuzzy pinyin groups (each a settings toggle):
+    //   zh_z 平翘舌 | n_l | r (r/l、r/y) | hu_f | nose (前后鼻音 en/eng、an/ang)
+    // All groups on → the bundled all-on fuzzy schema; a subset → a generated
+    // per-combination schema (luna_pinyin_simp_fuzzy_<sig>); none → precise.
+    void set_fuzzy_groups(const std::vector<std::string>& groups);
+    const std::vector<std::string>& fuzzy_groups() const { return fuzzy_groups_; }
+    // The fuzzy schema id for the configured groups: the bundled all-on twin,
+    // a generated per-combination twin, or `schema_id` itself when precise.
     std::string fuzzy_variant(const std::string& schema_id) const;
 
    private:
@@ -58,7 +61,17 @@ class RimeIme : public ImeEngine {
     ImeMode mode_ = ImeMode::English;  // 默认英文模式，不影响终端正常使用
     std::string shared_data_dir_;
     std::string user_data_dir_;
-    bool fuzzy_ = false;
+    // Resolved at initialize(): rime's actual data dirs (XDG fallbacks applied).
+    std::string resolved_shared_dir_;
+    std::string resolved_user_dir_;
+    std::vector<std::string> fuzzy_groups_ = {"zh_z", "n_l", "r", "hu_f", "nose"};
+
+    // The per-combination schema id suffix, e.g. "zh_z_n_l" — empty when all
+    // groups are on or all off (those use the bundled schemas directly).
+    std::string fuzzy_signature() const;
+    // Write the per-combination schema (template pruned to the enabled groups)
+    // into the user data dir and deploy it when its prism is missing.
+    void ensure_fuzzy_schema();
 
     void update_state();
     std::u32string utf8_to_utf32(const std::string& utf8) const;

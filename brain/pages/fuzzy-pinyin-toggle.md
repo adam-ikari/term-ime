@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [rime, config, settings, schema]
 created: "2026-09-15T08:07:37"
-updated: "2026-09-16T01:33:30"
+updated: "2026-09-18T09:38:19"
 ---
 
 <!-- compiled_truth -->
@@ -58,4 +58,10 @@ qian 有枪、wan 有网；面板切「关」→ 全部消失且精确读音仍�
   kind: decision
   summary: "模糊音开关（设置面板 + fuzzy_pinyin 配置，默认开）= 在 luna_pinyin_simp（精确）与 luna_pinyin_simp_fuzzy（模糊）间切 schema。模糊规则写在 fuzzy schema 的 speller/algebra 里。"
   source: "2026-09-16 补 an/ang"
+  affects: [fuzzy-pinyin-toggle]
+
+- time: 2026-09-18T09:38:19
+  kind: decision
+  summary: "细化:5组独立开关(平翘舌/n_l/r系/h_f/前后鼻音),部分开启时合成 per-combination schema"
+  source: "2026-09-18 模糊音细化"
   affects: [fuzzy-pinyin-toggle]

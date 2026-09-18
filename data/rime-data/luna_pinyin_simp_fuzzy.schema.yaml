@@ -65,13 +65,23 @@ speller:
     - derive/iong$/ion/
     # 模糊音，与 data/rime-data/pinyin.yaml 的
     # zh_z_bufen / n_l_bufen / r_l_bufen / r_y_bufen / hu_f_buhun / en_eng_bufen 等价
+    # 各组规则由标记行裁剪，RimeIme 按配置生成部分开启的组合。
+    # BEGIN fuzzy:zh_z
     - derive/^([zcs])h/$1/
     - derive/^([zcs])([^h])/$1h$2/
+    # END fuzzy:zh_z
+    # BEGIN fuzzy:n_l
     - derive/^n/l/
     - derive/^l/n/
+    # END fuzzy:n_l
+    # BEGIN fuzzy:r_l
     - derive/^r/l/
+    # END fuzzy:r_l
+    # BEGIN fuzzy:r_y
     - derive/^ren/yin/
     - derive/^r/y/
+    # END fuzzy:r_y
+    # BEGIN fuzzy:hu_f
     - derive/^hu$/fu/
     - derive/^hong$/feng/
     - derive/^hu([in])$/fe$1/
@@ -80,11 +90,15 @@ speller:
     - derive/^feng$/hong/
     - derive/^fe([in])$/hu$1/
     - derive/^f([ao])/hu$1/
+    # END fuzzy:hu_f
+    # BEGIN fuzzy:en_eng
     - derive/([ei])n$/$1ng/
     - derive/([ei])ng$/$1n/
-    # an/ang（一条规则同时覆盖 ian/iang、uan/uang、üan/üang）
+    # END fuzzy:en_eng
+    # BEGIN fuzzy:an_ang
     - derive/an$/ang/
     - derive/ang$/an/
+    # END fuzzy:an_ang
 
 translator:
   dictionary: luna_pinyin
