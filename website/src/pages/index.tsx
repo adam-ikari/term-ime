@@ -69,6 +69,7 @@ function HomepageHeader() {
 function Features() {
   const features = [
     {title: '拼音输入', desc: '中文拼音输入法，逐字候选，数字键选词，流畅的 TTY 打字体验。'},
+    {title: '模糊音', desc: '平翘舌、n/l、r 系、h/f、前后鼻音 5 类模糊音，可在设置面板或配置文件中逐类单独开关，默认全开。'},
     {title: '零依赖', desc: '完全静态链接单文件，下载即用，无需安装任何系统库。'},
     {title: '自包含构建', desc: 'libuv、librime 全部源码内置，仅需标准构建工具链。'},
     {title: '完整中文支持', desc: 'UTF-8 编解码，CJK 宽字符正确对齐，候选词智能排序。'},
