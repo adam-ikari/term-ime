@@ -134,6 +134,17 @@ void Parser::handle_char(char c) {
             if (screen_.cursor_col() > 0) {
                 screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() - 1);
             }
+        } else if (c == '\t') {
+            // Tab advances to the next 8-column stop; skipped columns stay
+            // blank (a real terminal shows whitespace). Clamped at the right
+            // margin, parking there defers the wrap to the next glyph exactly
+            // like a character written in the last column.
+            const int col = screen_.cursor_col();
+            int next = ((col / 8) + 1) * 8;
+            if (next > screen_.cols() - 1)
+                next = screen_.cols() - 1;
+            wrap_pending_ = (next == screen_.cols() - 1);
+            screen_.move_cursor(screen_.cursor_row(), next);
         } else if (static_cast<unsigned char>(c) >= 0x20) {
             emit_char(static_cast<char32_t>(c));
         }
@@ -177,7 +188,10 @@ void Parser::handle_csi(char c) {
     if (byte >= 0x30 && byte <= 0x3F) {
         // Parameter bytes, including the private prefixes '?', '>', '!', '<'.
         if (std::isdigit(byte) || c == ';') {
-            csi_params_ += c;
+            // Cap the buffer: a hostile/huge CSI must not grow memory
+            // unboundedly; once over the cap the tail is dropped.
+            if (csi_params_.size() < 4096)
+                csi_params_ += c;
         } else {
             csi_private_ = true;
         }
@@ -218,21 +232,40 @@ void Parser::handle_csi(char c) {
         screen_.move_cursor(row - 1, col - 1);
         break;
     }
-    case 'A':  // Cursor up
+    case 'A':  // Cursor up (CUU): n rows, clamped at the top margin
         wrap_pending_ = false;
-        screen_.move_cursor(screen_.cursor_row() - 1, screen_.cursor_col());
+        screen_.move_cursor(screen_.cursor_row() - parse_param(csi_params_, 1), screen_.cursor_col());
         break;
-    case 'B':  // Cursor down
+    case 'B':  // Cursor down (CUD): n rows, clamped at the bottom margin
         wrap_pending_ = false;
-        screen_.move_cursor(screen_.cursor_row() + 1, screen_.cursor_col());
+        screen_.move_cursor(screen_.cursor_row() + parse_param(csi_params_, 1), screen_.cursor_col());
         break;
-    case 'C':  // Cursor forward
+    case 'C':  // Cursor forward (CUF): n columns, clamped at the right margin
         wrap_pending_ = false;
-        screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() + 1);
+        screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() + parse_param(csi_params_, 1));
         break;
-    case 'D':  // Cursor back
+    case 'D':  // Cursor back (CUB): n columns, clamped at the left margin
         wrap_pending_ = false;
-        screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() - 1);
+        screen_.move_cursor(screen_.cursor_row(), screen_.cursor_col() - parse_param(csi_params_, 1));
+        break;
+    case 'G':  // Cursor horizontal absolute (CHA): column n, row unchanged
+        wrap_pending_ = false;
+        screen_.move_cursor(screen_.cursor_row(), parse_param(csi_params_, 1) - 1);
+        break;
+    case 'd':  // Cursor vertical absolute (VPA): row n, column unchanged
+        wrap_pending_ = false;
+        screen_.move_cursor(parse_param(csi_params_, 1) - 1, screen_.cursor_col());
+        break;
+    case 'X':  // Erase character (ECH): n blank cells right of the cursor
+        screen_.erase_cells(screen_.cursor_row(), screen_.cursor_col(), parse_param(csi_params_, 1), pen_);
+        break;
+    case 's':  // Save cursor (SCOSC)
+        saved_row_ = screen_.cursor_row();
+        saved_col_ = screen_.cursor_col();
+        break;
+    case 'u':  // Restore cursor (SCORC)
+        wrap_pending_ = false;
+        screen_.move_cursor(saved_row_, saved_col_);
         break;
     case 'J': {  // Erase display
         int mode = parse_param(csi_params_, 0);

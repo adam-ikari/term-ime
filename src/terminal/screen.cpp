@@ -26,6 +26,14 @@ void Screen::put(char32_t ch, int row, int col, const Pen& pen) {
         cell.bg_rgb = pen.bg_rgb;
         // Use utf8proc for proper width detection (CJK, emojis, etc.)
         cell.wide = (utf8::width(ch) == 2);
+        if (cell.wide && col + 1 < cols_) {
+            // Right half of a double-width glyph: same pen, empty char, wide
+            // marker. The renderer sees ch == 0 && wide and skips the cell
+            // instead of shifting the rest of the row; never written past
+            // the right margin.
+            grid_[row][col + 1] = cell;
+            grid_[row][col + 1].ch = 0;
+        }
     }
 }
 
@@ -113,6 +121,17 @@ void Screen::erase_line(int mode, const Pen& pen) {
     }
     for (int c = std::max(0, first); c <= std::min(last, cols_ - 1); ++c) {
         grid_[cursor_row_][c] = blank;
+    }
+}
+
+void Screen::erase_cells(int row, int col, int count, const Pen& pen) {
+    if (row < 0 || row >= rows_ || col < 0 || col >= cols_ || count <= 0) {
+        return;
+    }
+    const Cell blank = blank_cell(pen);
+    const int last = std::min(col + count - 1, cols_ - 1);
+    for (int c = col; c <= last; ++c) {
+        grid_[row][c] = blank;
     }
 }
 

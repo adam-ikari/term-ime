@@ -75,6 +75,9 @@ class Screen {
     // select the erased region, filled using `pen`.
     void erase_display(int mode, const Pen& pen);
     void erase_line(int mode, const Pen& pen);
+    // Erase characters (ECH): `count` blank cells starting at (row, col),
+    // filled using `pen` like ED/EL; clamped to the right margin.
+    void erase_cells(int row, int col, int count, const Pen& pen);
 
     int rows() const;
     int cols() const;

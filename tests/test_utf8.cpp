@@ -449,3 +449,99 @@ TEST_F(Utf8Test, EraseLineModes) {
     EXPECT_EQ(row_text(screen, 1), "          ");
     EXPECT_EQ(row_text(screen, 0), "123       ");  // other line untouched
 }
+
+// ---- Parser: parameterized cursor movement ----
+TEST_F(Utf8Test, CursorMoveWithCounts) {
+    Screen screen(5, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[2B");  // down 2
+    EXPECT_EQ(screen.cursor_row(), 2);
+    EXPECT_EQ(screen.cursor_col(), 0);
+    feed(parser, "\x1b[5C");  // right 5
+    EXPECT_EQ(screen.cursor_col(), 5);
+    feed(parser, "\x1b[2A");  // up 2
+    EXPECT_EQ(screen.cursor_row(), 0);
+    feed(parser, "\x1b[3D");  // left 3
+    EXPECT_EQ(screen.cursor_col(), 2);
+}
+
+TEST_F(Utf8Test, CursorMoveClampsAtMargins) {
+    Screen screen(3, 5);
+    Parser parser(screen);
+    feed(parser, "\x1b[50A");  // up far past the top
+    EXPECT_EQ(screen.cursor_row(), 0);
+    feed(parser, "\x1b[50B");  // down far past the bottom
+    EXPECT_EQ(screen.cursor_row(), 2);
+    feed(parser, "\x1b[50D");  // left far past the left margin
+    EXPECT_EQ(screen.cursor_col(), 0);
+    feed(parser, "\x1b[50C");  // right far past the right margin
+    EXPECT_EQ(screen.cursor_col(), 4);
+}
+
+TEST_F(Utf8Test, ChaAndVpa) {
+    Screen screen(5, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[7G");  // CHA: column 7 (0-based 6)
+    EXPECT_EQ(screen.cursor_col(), 6);
+    EXPECT_EQ(screen.cursor_row(), 0);
+    feed(parser, "\x1b[3d");  // VPA: row 3 (0-based 2)
+    EXPECT_EQ(screen.cursor_row(), 2);
+    EXPECT_EQ(screen.cursor_col(), 6);
+}
+
+TEST_F(Utf8Test, EchErasesNCellsRightOfCursor) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "abcdef");
+    feed(parser, "\x1b[1;2H");  // cursor at (0, 1)
+    feed(parser, "\x1b[2X");    // ECH 2
+    EXPECT_EQ(row_text(screen, 0), "a  def    ");
+    feed(parser, "\x1b[8X");  // ECH past the right margin: clamps
+    EXPECT_EQ(row_text(screen, 0), "a         ");
+    EXPECT_EQ(screen.cursor_col(), 1);  // ECH leaves the cursor in place
+}
+
+TEST_F(Utf8Test, SaveAndRestoreCursor) {
+    Screen screen(5, 10);
+    Parser parser(screen);
+    feed(parser, "abc\x1b[s");  // save at (0, 3)
+    feed(parser, "\x1b[2;3H");  // move away
+    EXPECT_EQ(screen.cursor_row(), 1);
+    EXPECT_EQ(screen.cursor_col(), 2);
+    feed(parser, "\x1b[u");  // restore to (0, 3)
+    EXPECT_EQ(screen.cursor_row(), 0);
+    EXPECT_EQ(screen.cursor_col(), 3);
+}
+
+// ---- Parser: Tab advances to the next 8-column stop ----
+TEST_F(Utf8Test, TabAdvancesToTabStop) {
+    Screen screen(3, 10);
+    Parser parser(screen);
+    feed(parser, "a\tb");  // 'a' at col 0, tab to col 8, 'b' at col 8
+    EXPECT_EQ(screen.get(0, 0).ch, U'a');
+    EXPECT_EQ(screen.get(0, 8).ch, U'b');
+    EXPECT_EQ(screen.get(0, 1).ch, U' ');  // skipped columns stay blank
+    EXPECT_EQ(screen.cursor_col(), 9);
+}
+
+// ---- Screen: wide character right half is marked ----
+TEST_F(Utf8Test, WideCharMarksRightHalf) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, utf8::encode(U'中'));
+    EXPECT_EQ(screen.get(0, 0).ch, U'中');
+    EXPECT_EQ(screen.get(0, 0).wide, true);
+    EXPECT_EQ(screen.get(0, 1).ch, 0);  // right half: empty char, wide marker
+    EXPECT_EQ(screen.get(0, 1).wide, true);
+    EXPECT_EQ(screen.cursor_col(), 2);
+}
+
+TEST_F(Utf8Test, WideCharRightHalfClearedByErase) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, utf8::encode(U'中'));
+    feed(parser, "\x1b[2K");  // erase line clears both halves
+    EXPECT_EQ(screen.get(0, 0).wide, false);
+    EXPECT_EQ(screen.get(0, 1).wide, false);
+    EXPECT_EQ(screen.get(0, 1).ch, U' ');
+}

@@ -24,6 +24,9 @@ class Parser {
     std::string pending_;
     // Current SGR pen applied to every emitted character; updated by CSI 'm'.
     Pen pen_;
+    // Cursor position captured by CSI 's' and restored by CSI 'u'.
+    int saved_row_ = 0;
+    int saved_col_ = 0;
     // Cursor parked on the right margin by deferred auto-wrap: the wrap itself
     // happens when the next printable glyph arrives.
     bool wrap_pending_ = false;
