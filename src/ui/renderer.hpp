@@ -59,6 +59,14 @@ class Renderer {
     // bar is restored on the next frame instead of vanishing for up to 16 bytes
     // (EN-mode "status bar disappears" bug).
     bool bar_dirty_ = false;
+    // Tracked shell cursor row (1-based), updated while scanning forwarded
+    // bytes. The bar-dirty scan uses it to detect relative moves (CSI A/B) and
+    // from-cursor erases (J=1 / K=1) that land on the status-bar row.
+    int cur_row_ = 1;
+    // A CSI sequence (ESC [, optional parameters, no final byte) cut off at the
+    // end of a forward_output() chunk, carried into the next call so a sequence
+    // split across chunks is still scanned for bar-clobbering.
+    std::string pending_csi_;
 
     void render_element(const ui::Element& element);
 };

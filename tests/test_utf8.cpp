@@ -545,3 +545,30 @@ TEST_F(Utf8Test, WideCharRightHalfClearedByErase) {
     EXPECT_EQ(screen.get(0, 1).wide, false);
     EXPECT_EQ(screen.get(0, 1).ch, U' ');
 }
+
+// Contract shared with the renderer: the left half of a wide glyph carries the
+// character (wide=true), the right half is ch==0 && wide=true. redraw_shell()
+// skips the right half based on exactly these flags.
+TEST_F(Utf8Test, WideCharRowHalvesHaveRightShapes) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, utf8::encode(U'中'));
+    feed(parser, "AB");
+    feed(parser, utf8::encode(U'文'));
+    feed(parser, "cd");  // wraps to row 1
+    // Left halves carry the glyph; right halves are empty with wide=true.
+    EXPECT_EQ(screen.get(0, 0).ch, U'中');
+    EXPECT_EQ(screen.get(0, 0).wide, true);
+    EXPECT_EQ(screen.get(0, 1).ch, 0);
+    EXPECT_EQ(screen.get(0, 1).wide, true);
+    EXPECT_EQ(screen.get(0, 2).ch, U'A');
+    EXPECT_EQ(screen.get(0, 2).wide, false);
+    EXPECT_EQ(screen.get(0, 4).ch, U'文');
+    EXPECT_EQ(screen.get(0, 4).wide, true);
+    EXPECT_EQ(screen.get(0, 5).ch, 0);
+    EXPECT_EQ(screen.get(0, 5).wide, true);
+    EXPECT_EQ(screen.get(0, 6).ch, U'c');
+    EXPECT_EQ(screen.get(0, 7).ch, U'd');
+    EXPECT_EQ(screen.get(0, 8).ch, U' ');
+    EXPECT_EQ(screen.get(0, 8).wide, false);
+}

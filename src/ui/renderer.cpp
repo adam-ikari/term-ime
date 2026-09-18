@@ -132,58 +132,100 @@ void Renderer::forward_output(const char* data, size_t len) {
     // Scan for sequences that can erase/overwrite the status bar (which lives
     // on the last row, outside the scroll region). The scroll region (DECSTBM)
     // keeps normal shell scrolling off that row, but a shell `clear` (ESC[2J),
-    // a line/scroll erase (ESC[J / ESC[K / ESC[<n>J / ESC[<n>K), or an absolute
-    // cursor move onto the last row will clobber it. When any such sequence is
-    // seen, flag the bar dirty so render_candidates() repaints it next frame
-    // instead of skipping via the dedup (which otherwise hides it for up to 16
-    // PTY bytes — the EN-mode "status bar disappears" bug).
+    // a line/scroll erase (ESC[J / ESC[K / ESC[<n>J / ESC[<n>K), or a cursor
+    // move onto the last row (absolute H/f, relative A/B) will clobber it.
+    // When any such sequence is seen, flag the bar dirty so render_candidates()
+    // repaints it next frame instead of skipping via the dedup (which otherwise
+    // hides it for up to 16 PTY bytes — the EN-mode "status bar disappears" bug).
+    // A CSI cut off by a chunk boundary is stitched back via pending_csi_.
     struct winsize ws;
     int last_row = 0;
     if (ioctl(tty_fd_, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) {
         last_row = ws.ws_row;
     }
-    for (size_t i = 0; i < len; ++i) {
-        uint8_t c = static_cast<uint8_t>(data[i]);
+    std::string scan;
+    scan.reserve(pending_csi_.size() + len);
+    scan += pending_csi_;
+    scan.append(data, len);
+    pending_csi_.clear();
+    for (size_t i = 0; i < scan.size(); ++i) {
+        uint8_t c = static_cast<uint8_t>(scan[i]);
+        // LF inside the scroll region (rows 1..last_row-1) advances the tracked
+        // cursor row, keeping the relative-move check below accurate.
+        if (c == '\n' && last_row > 0 && cur_row_ < last_row - 1) {
+            ++cur_row_;
+            continue;
+        }
         if (c != 0x1b)  // ESC
             continue;
-        // Need at least ESC [ ... <final byte>. Final bytes: @A-Z[\]^_`a-z{|}~
         size_t j = i + 1;
-        if (j >= len || data[j] != '[')
-            continue;
+        if (j >= scan.size()) {
+            // Chunk ends on a lone ESC — likely the start of a split sequence.
+            pending_csi_ = scan.substr(i);
+            break;
+        }
+        if (scan[j] != '[')
+            continue;  // not CSI (OSC, charset select, stray ESC)
         // Walk parameters (digits, ';', '?') to the final byte.
         size_t k = j + 1;
-        while (k < len) {
-            uint8_t p = static_cast<uint8_t>(data[k]);
+        while (k < scan.size()) {
+            uint8_t p = static_cast<uint8_t>(scan[k]);
             if ((p >= '0' && p <= '9') || p == ';' || p == '?') {
                 ++k;
                 continue;
             }
             break;
         }
-        if (k >= len)
+        if (k >= scan.size()) {
+            // CSI not complete in this chunk: carry the bytes so the final byte
+            // (arriving in a later chunk) is still scanned.
+            pending_csi_ = scan.substr(i);
             break;
-        uint8_t final = static_cast<uint8_t>(data[k]);
-        std::string params(data + j + 1, data + k);
+        }
+        uint8_t final = static_cast<uint8_t>(scan[k]);
+        std::string params(scan.data() + j + 1, k - (j + 1));
+        // First numeric parameter; missing or empty means the CSI default (1).
+        auto nparam = [&]() {
+            int n = 0;
+            bool any = false;
+            for (char p : params) {
+                if (p < '0' || p > '9')
+                    break;
+                n = n * 10 + (p - '0');
+                any = true;
+            }
+            return any ? n : 1;
+        };
         // Full-screen / line erases wipe the bar regardless of row.
         if ((final == 'J' && (params.empty() || params == "0" || params == "2" || params == "3")) ||
             (final == 'K' && (params.empty() || params == "0" || params == "2"))) {
             bar_dirty_ = true;
-            break;
+            continue;
         }
-        // Absolute cursor positioning onto the last row: CSI <row> ; <col> H
-        // or CSI <row> ; <col> f — if <row> == last_row, the shell is writing
-        // on the status bar row.
+        // From-start erases (J=1 / K=1) reach the bar only when the cursor is
+        // already sitting on the bar row.
+        if (params == "1" && (final == 'J' || final == 'K') && last_row > 0 && cur_row_ == last_row) {
+            bar_dirty_ = true;
+            continue;
+        }
+        // Absolute cursor positioning: CSI <row> ; <col> H / f — a row equal to
+        // last_row means the shell is about to write on the status-bar row.
         if ((final == 'H' || final == 'f') && last_row > 0) {
-            // parse leading row number
-            int row = 0;
-            size_t p = 0;
-            while (p < params.size() && params[p] >= '0' && params[p] <= '9') {
-                row = row * 10 + (params[p] - '0');
-                ++p;
-            }
-            if (row == last_row) {
+            cur_row_ = nparam();
+            if (cur_row_ == last_row) {
                 bar_dirty_ = true;
-                break;
+                continue;
+            }
+        }
+        // Relative vertical moves (CUU/CUD): the scroll region constrains
+        // scrolling, not cursor motion, so a move onto the bar row clobbers it.
+        if ((final == 'A' || final == 'B') && last_row > 0) {
+            int n = nparam();
+            cur_row_ = (final == 'A') ? (cur_row_ - n < 1 ? 1 : cur_row_ - n)
+                                      : (cur_row_ + n > last_row ? last_row : cur_row_ + n);
+            if (cur_row_ == last_row) {
+                bar_dirty_ = true;
+                continue;
             }
         }
     }
@@ -197,10 +239,10 @@ void Renderer::redraw_shell(const Screen& screen) {
         ws.ws_row = 24;
         ws.ws_col = 80;
     }
-    // Save cursor, clear the scroll region (the shell area, rows 1..row-1),
-    // repaint each cell from the Screen grid, then restore cursor. The status
-    // bar (last row) is repainted separately by render_candidates().
-    printf("\x1b[s");     // save cursor
+    // Clear the scroll region (the shell area, rows 1..row-1), repaint each
+    // cell from the Screen grid, then move the cursor to where the Screen
+    // thinks it is. The status bar (last row) is repainted separately by
+    // render_candidates().
     printf("\x1b[1;1H");  // home within scroll region
     printf("\x1b[2J");    // clear (scroll region is set, but 2J clears whole screen)
     // The 2J above also wiped the status-bar row (the bar is not part of the
@@ -299,10 +341,17 @@ void Renderer::redraw_shell(const Screen& screen) {
                 line += (a == kDefault) ? std::string("\x1b[0m") : sgr_for(a);
                 cur = a;
             }
-            if (cell.ch == 0)
+            if (cell.ch == 0) {
                 line.push_back(' ');
-            else
+            } else {
                 line += utf8::encode(cell.ch);
+                // A wide glyph spans two grid columns: the left half carries the
+                // character (wide=true), the right half is ch==0 && wide=true.
+                // Skip the right half so the glyph is not followed by a stray
+                // space (which would misalign everything after it).
+                if (cell.wide)
+                    ++c;
+            }
         }
         line += "\x1b[0m";  // never let a row's color bleed past its end
         fwrite(line.data(), 1, line.size(), stdout);
@@ -316,7 +365,11 @@ void Renderer::redraw_shell(const Screen& screen) {
     if (cc < 0)
         cc = 0;
     printf("\x1b[%d;%dH", cr + 1, cc + 1);
-    printf("\x1b[u");  // restore cursor (redundant with explicit move, kept for safety)
+    cur_row_ = cr + 1;
+    // Re-show the cursor: a fullscreen overlay (or forwarded shell sequence)
+    // may have sent ?25l, and without this the cursor stays invisible after
+    // the repaint.
+    printf("\x1b[?25h");
     fflush(stdout);
 }
 
@@ -381,8 +434,11 @@ void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_
     } else {
         // IME active: always repaint (candidate bar changes), and invalidate the
         // inactive signature so the next inactive state forces a fresh draw.
+        // Also consume any pending bar_dirty_ (the repaint below restores the
+        // bar) so it does not linger and force a redundant draw later.
         last_bar_sig_.clear();
         bar_skip_count_ = 0;
+        bar_dirty_ = false;
     }
 
     // 使用 JSX 风格组件构建 UI
