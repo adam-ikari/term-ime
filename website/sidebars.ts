@@ -5,6 +5,7 @@ const sidebars: SidebarsConfig = {
     'intro',
     'quickstart',
     'shortcuts',
+    'fuzzy',
     'config',
   ],
 };
