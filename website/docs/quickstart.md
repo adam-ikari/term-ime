@@ -43,7 +43,7 @@ make build
   "active_language": "zh-Hans",
   "ui_language": "zh-CN",
   "max_candidates": 9,
-  "fuzzy_pinyin": true,
+  "fuzzy_groups": ["zh_z", "n_l", "r", "hu_f", "nose"],
   "log_level": "warn"
 }
 ```
