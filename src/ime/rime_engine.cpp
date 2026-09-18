@@ -247,8 +247,13 @@ std::u32string RimeIme::select(int index) {
     if (!rime_ || !session_)
         return U"";
 
-    // Select candidate by number
-    char key = '1' + index;
+    // librime's digit keys select the candidates of the current page: '1'-'9'
+    // for candidates 0-8 and '0' for candidate 9 (default select_keys
+    // "1234567890"). Past index 9 there is no single-digit key; refuse rather
+    // than synthesize an invalid one ('1'+9 is ':', which selects nothing).
+    if (index < 0 || index > 9)
+        return U"";
+    char key = (index == 9) ? '0' : static_cast<char>('1' + index);
     rime_->process_key(session_, key, 0);
 
     // Get committed text

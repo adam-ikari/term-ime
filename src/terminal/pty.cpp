@@ -99,7 +99,12 @@ bool Pty::write(const std::vector<uint8_t>& data) {
     // master_fd_ is O_NONBLOCK: a single write() may accept only part of the
     // buffer (large paste, long CJK commit) or return EAGAIN. Loop until every
     // byte is handed to the kernel; dropping the tail silently lost input.
+    // Callers run on the event-loop thread, so the EAGAIN poll() retries are
+    // bounded by a total budget: a slave buffer that never drains (shell not
+    // reading) must not freeze the loop forever.
     constexpr int kPollTimeoutMs = 1000;
+    constexpr int kMaxBlockMs = 100;
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kMaxBlockMs);
     size_t written = 0;
     while (written < data.size()) {
         ssize_t n = ::write(master_fd_, data.data() + written, data.size() - written);
@@ -111,10 +116,18 @@ bool Pty::write(const std::vector<uint8_t>& data) {
             continue;
         }
         if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            auto now = std::chrono::steady_clock::now();
+            if (now >= deadline) {
+                spdlog::warn("pty write: blocked >{}ms, dropping {} of {} bytes", kMaxBlockMs, data.size() - written,
+                             data.size());
+                return false;
+            }
             struct pollfd pfd {};
             pfd.fd = master_fd_;
             pfd.events = POLLOUT;
-            int pr = poll(&pfd, 1, kPollTimeoutMs);
+            auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
+            int poll_timeout = remaining < 1 ? 1 : static_cast<int>(remaining);
+            int pr = poll(&pfd, 1, poll_timeout);
             if (pr < 0) {
                 if (errno == EINTR) {
                     continue;
