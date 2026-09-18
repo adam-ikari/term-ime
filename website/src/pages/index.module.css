@@ -48,28 +48,28 @@
   margin-bottom: 20px;
 }
 
-.buttonPrimary {
+.heroBanner .buttonPrimary {
   background: #00ff9c;
   color: #0c0c0c;
   border: none;
   font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
 }
-.buttonPrimary:hover {
+.heroBanner .buttonPrimary:hover {
   background: #00ff9c;
   opacity: 0.9;
   color: #0c0c0c;
 }
 
-.buttonSecondary {
-  background: #1a1a1a;
+.heroBanner .buttonSecondary {
+  background: rgba(255, 255, 255, 0.09);
   color: #ffffff;
-  border: 1px solid #555;
+  border: 1px solid #8a8a8a;
   font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
 }
-.buttonSecondary:hover {
+.heroBanner .buttonSecondary:hover {
   border-color: #00ff9c;
   color: #00ff9c;
-  background: #1a1a1a;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .scenario {
