@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""模糊音开关的契约测试。
+"""模糊音 5 组独立开关的契约测试（跑真实二进制，PTY + 一次性 HOME）。
 
-设置面板的「模糊音」开关在 luna_pinyin_simp（精确）与 luna_pinyin_simp_fuzzy
-（模糊）两份 schema 之间切换——不是改配置、不是重部署，所以切换是即时的。
-
-模糊音各组必须真的跨组出候选（南方口音的常见混淆）：n/l、zh/z、en/eng、an/ang、
-ian/iang、uan/uang。关掉后必须回到精确拼音。
-
-跑真实二进制（PTY + 一次性 HOME），检验部署后的 schema 与编译好的 prism。
+契约（见 brain/pages/fuzzy-pinyin-toggle.md）：
+- 每组可独立开关：zh_z 平翘舌 / n_l / r 系 / hu_f / nose 前后鼻音
+- 组开 → 对应的「模糊音专属字」出现在候选里；组关 → 消失
+- 全关 = 精确拼音
+- 部分开启时引擎合成 per-combination schema（luna_pinyin_simp_fuzzy_<sig>）
 """
 import fcntl
+import json
 import os
 import pty
 import re
@@ -23,26 +22,23 @@ import time
 
 BIN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "term-ime")
 
-# (音节, 该音节只在*模糊音*下才会出现的字, 说明)
-FUZZY_ONLY = [
-    ("la", "那", "n/l"),
-    ("fen", "风", "en/eng"),
-    ("fan", "方", "an/ang"),
-    ("lan", "狼", "an/ang"),
-    ("lang", "蓝", "ang/an"),
-    ("qian", "枪", "ian/iang"),
-    ("wan", "网", "uan/uang"),
-]
-
-# (音节, 精确拼音下必须有的字) —— 确保关掉模糊音后回到正常
-PRECISE = [
-    ("la", "啦"),
-    ("fan", "饭"),
-    ("lan", "蓝"),
-]
-
 ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
 OSC = re.compile(r"\x1b\][^\x07]*\x07")
+
+# (音节, 该字只在*该组*模糊音开启时出现, 所属组) —— 每组一个专属探针字
+GROUP_PROBES = [
+    ("la", "那", "n_l"),      # n/l 互换
+    ("zi", "之", "zh_z"),     # z→zh
+    ("fan", "方", "nose"),    # an/ang
+    ("fen", "风", "nose"),    # en/eng
+]
+
+RESULTS = []
+
+
+def check(name, ok, detail=""):
+    RESULTS.append((name, bool(ok)))
+    print("  [%s] %-48s %s" % ("PASS" if ok else "FAIL", name, detail[:70]), flush=True)
 
 
 def strip_ansi(data: bytes) -> str:
@@ -50,8 +46,10 @@ def strip_ansi(data: bytes) -> str:
 
 
 class Session:
-    def __init__(self) -> None:
-        self.home = tempfile.mkdtemp(prefix="fuzzy-")
+    """以指定 fuzzy_groups 配置启动一个一次性 app 实例。"""
+
+    def __init__(self, groups) -> None:
+        self.home = tempfile.mkdtemp(prefix="fg-")
         env = dict(os.environ)
         env.update(
             HOME=self.home,
@@ -60,6 +58,10 @@ class Session:
             SHELL="/bin/sh",
             TERM="xterm-256color",
         )
+        cfg_dir = os.path.join(self.home, ".config", "term-ime")
+        os.makedirs(cfg_dir, exist_ok=True)
+        with open(os.path.join(cfg_dir, "config.json"), "w") as f:
+            json.dump({"fuzzy_groups": groups}, f)
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
             try:
@@ -80,7 +82,7 @@ class Session:
             try:
                 chunk = os.read(self.fd, 65536)
             except BlockingIOError:
-                continue  # non-blocking fd reported readable but had nothing yet
+                continue
             except OSError:
                 break
             if not chunk:
@@ -136,24 +138,6 @@ class Session:
         time.sleep(0.35)
         return "".join(collected)
 
-    def toggle_fuzzy(self, key: bytes, want_label: str) -> bool:
-        """Open settings, focus the 模糊音 row, press `key` (h=关, l=开), close."""
-        self.read(0.4)
-        self.send(b"\x01s")
-        if not self.wait_for(r"模糊音", seconds=10.0):
-            return False
-        self.read(0.3)
-        self.send(b"jj")  # ui_language -> candidates -> fuzzy
-        self.wait_for(r"模糊音: \[[关开]\]", seconds=6.0)
-        self.read(0.3)
-        self.send(key)
-        ok = self.wait_for(r"模糊音: \[" + want_label + r"\]", seconds=20.0)
-        self.read(0.4)
-        self.send(b"\x1b")
-        time.sleep(0.9)
-        self.read(0.5)
-        return ok
-
     def close(self) -> None:
         try:
             os.kill(self.pid, 9)
@@ -163,54 +147,54 @@ class Session:
         shutil.rmtree(self.home, ignore_errors=True)
 
 
-def main() -> int:
-    session = Session()
-    results = []
+def run_group_case(groups, label):
+    """以指定组集合启动，逐组探针：开→候选含专属字，关→不含。"""
+    s = Session(groups)
     try:
-        if not session.wait_for(r"\[EN\]|\[拼\]"):
-            print("  [FAIL] app did not become ready")
-            return 1
-        session.send(b"\x01 ")  # Chinese mode
-        session.wait_for(r"\[拼\]", seconds=8.0)
-
-        print("模糊音默认开（config fuzzy_pinyin 默认 true）:")
-        for pinyin, char, group in FUZZY_ONLY:
-            got = session.candidates(pinyin)
-            ok = char in got
-            results.append((f"on: {pinyin}->{char} ({group})", ok))
-            print("  [%s] %-6s offers %s  (%s)" % ("PASS" if ok else "FAIL", pinyin, char, group))
-
-        print("关掉模糊音:")
-        toggled = session.toggle_fuzzy(b"h", "关")
-        results.append(("toggle off works", toggled))
-        print("  [%s] 面板开关切到 关" % ("PASS" if toggled else "FAIL"))
-        for pinyin, char, group in FUZZY_ONLY:
-            got = session.candidates(pinyin)
-            ok = char not in got
-            results.append((f"off: {pinyin} no {char}", ok))
-            print("  [%s] %-6s no %s  (%s)" % ("PASS" if ok else "FAIL", pinyin, char, group))
-        for pinyin, char in PRECISE:
-            got = session.candidates(pinyin)
-            ok = char in got
-            results.append((f"off: {pinyin} keeps {char}", ok))
-            print("  [%s] %-6s keeps %s" % ("PASS" if ok else "FAIL", pinyin, char))
-
-        print("再打开:")
-        toggled = session.toggle_fuzzy(b"l", "开")
-        results.append(("toggle on works", toggled))
-        got = session.candidates("fan")
-        ok = "方" in got
-        results.append(("on again: fan->方", ok))
-        print("  [%s] toggle back + fan offers 方" % ("PASS" if toggled and ok else "FAIL"))
+        if not s.wait_for(r"\[EN\]|\[拼\]"):
+            check(f"{label}: ready", False)
+            return
+        s.send(b"\x01 ")
+        s.wait_for(r"\[拼\]", seconds=8.0)
+        for pinyin, char, group in GROUP_PROBES:
+            got = s.candidates(pinyin)
+            expect = group in groups
+            ok = (char in got) == expect
+            word = "has" if expect else "lacks"
+            check(f"{label}: {group} {'ON ' if expect else 'OFF'} {pinyin} {word} {char}", ok, got[:40])
     finally:
-        session.close()
+        s.close()
 
-    passed = sum(1 for _, ok in results if ok)
-    print("\n%d/%d checks passed" % (passed, len(results)))
-    for name, ok in results:
+
+def main() -> int:
+    # 全开：每组探针字都该出现
+    run_group_case(["zh_z", "n_l", "r", "hu_f", "nose"], "all-on")
+    # 全关：精确拼音
+    run_group_case([], "precise")
+    # 只开 n_l：n_l 探针在，其他组探针不在
+    run_group_case(["n_l"], "n_l-only")
+    # 只开 zh_z：反向验证
+    run_group_case(["zh_z"], "zh_z-only")
+
+    # 动态组合 schema 物化：部分开启时用户目录应有生成的 schema + prism
+    s = Session(["n_l", "nose"])
+    try:
+        ok = s.wait_for(r"\[EN\]|\[拼\]")
+        check("subset: ready", ok)
+        udir = os.path.join(s.home, ".local", "share", "term-ime")
+        gen_schema = os.path.join(udir, "luna_pinyin_simp_fuzzy_n_l_nose.schema.yaml")
+        gen_prism = os.path.join(udir, "build", "luna_pinyin_simp_fuzzy_n_l_nose.prism.bin")
+        check("subset: generated schema written", os.path.exists(gen_schema), gen_schema)
+        check("subset: prism deployed", os.path.exists(gen_prism), gen_prism)
+    finally:
+        s.close()
+
+    passed = sum(1 for _, ok in RESULTS if ok)
+    print("\n===== %d/%d PASS =====" % (passed, len(RESULTS)))
+    for name, ok in RESULTS:
         if not ok:
-            print("FAILED:", name)
-    return 0 if passed == len(results) else 1
+            print("  FAILED:", name)
+    return 0 if passed == len(RESULTS) else 1
 
 
 if __name__ == "__main__":

@@ -45,6 +45,65 @@ jobs:
         echo ">> Running test-settings"
         ./test-settings
 
+  e2e:
+    # Python PTY end-to-end layer: drives the REAL binary through a pseudo-
+    # terminal (input state machine, settings panel, per-group fuzzy toggles,
+    # simplified-candidate guarantee). Needs a TTY-capable runner — the GitHub
+    # ubuntu runner has a working /dev/ptmx, so no extra deps beyond python3.
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake pkg-config
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --config Release -j$(nproc)
+
+    - name: Run python e2e tests
+      run: |
+        set -o pipefail
+        echo ">> test_settings_panel_e2e"
+        python3 tests/test_settings_panel_e2e.py
+        echo ">> test_settings_e2e"
+        python3 tests/test_settings_e2e.py
+        echo ">> test_e2e"
+        python3 tests/test_e2e.py
+        echo ">> test_simplified_candidates"
+        python3 tests/test_simplified_candidates.py
+        echo ">> test_fuzzy_pinyin (per-group toggles)"
+        python3 tests/test_fuzzy_pinyin.py
+
+  website:
+    # The docs are user-facing: a broken build (bad mdx, broken links) must
+    # fail CI, not silently rot the published site.
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: npm
+        cache-dependency-path: website/package-lock.json
+
+    - name: Build website
+      working-directory: website
+      run: |
+        npm ci
+        npm run build
+
   lint:
     runs-on: ubuntu-latest
 
