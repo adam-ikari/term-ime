@@ -94,6 +94,8 @@ const config: Config = {
   ],
 
   themeConfig: {
+    // 页面 <title> 模板：docs 页标题 + 品牌词。避免默认模板重复整条 site title。
+    titleTemplate: '%s | term-ime',
     image: 'img/og-image.png',
     colorMode: {
       defaultMode: 'dark',
