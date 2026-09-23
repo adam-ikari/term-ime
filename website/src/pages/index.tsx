@@ -4,8 +4,65 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
+import Head from '@docusaurus/Head';
 
 import styles from './index.module.css';
+
+// AI-SEO: structured data for search engines / AI answer engines (JSON-LD).
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      name: 'term-ime',
+      applicationCategory: 'UtilityApplication',
+      operatingSystem: 'Linux / Unix (TTY, no desktop required)',
+      description:
+        '在终端里直接输入中文的输入法：输入法引擎库（term-ime-lib，封装 librime）+ TUI 输入法组件（候选栏/状态栏/设置面板）。无桌面依赖，静态单文件。',
+      url: 'https://adam-ikari.github.io/term-ime/',
+      license: 'https://opensource.org/licenses/MIT',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      aggregateRating: undefined,
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: '什么是 TTY 输入法 / 终端中文输入法？',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'TTY 输入法是在没有桌面环境的纯终端（Linux TTY、SSH、Docker、WSL）里输入中文的输入法。term-ime 直接读写终端，不需要 X、Wayland、D-Bus 或任何桌面输入法框架。',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'term-ime 可以作为输入法库嵌入其他程序吗？',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: '可以。term-ime-lib 是一个独立的静态库，通过极小的 ImeEngine C++ 接口封装 librime，任何 TUI 程序、编辑器插件或终端模拟器都能嵌入获得中文拼音输入能力。',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'term-ime 的 TUI 输入法组件包含什么？',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: '候选栏（宽度自适应、去重重绘）、状态栏（独占最后一行）、设置面板（全屏覆盖层，含模糊音 5 组独立开关、候选数量、界面语言）。通过 term-terminal 库复用，带完整 SGR 颜色和 CJK 宽字符对齐。',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'term-ime 支持模糊音吗？',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: '支持，且按组独立开关：平翘舌（zh/z）、n/l、r 系、h/f、前后鼻音（en/eng、in/ing、an/ang）。可在设置面板或配置文件（fuzzy_groups）中逐类配置，默认全开。',
+          },
+        },
+      ],
+    },
+  ],
+};
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -70,10 +127,10 @@ function Features() {
   const features = [
     {title: '拼音输入', desc: '中文拼音输入法，逐字候选，数字键选词，流畅的 TTY 打字体验。'},
     {title: '模糊音', desc: '平翘舌、n/l、r 系、h/f、前后鼻音 5 类模糊音，可在设置面板或配置文件中逐类单独开关，默认全开。'},
+    {title: '输入法库', desc: 'term-ime-lib 封装 librime 的 ImeEngine 接口，可嵌入任何 TUI 程序、编辑器插件、终端模拟器。'},
+    {title: 'TUI 组件', desc: '候选栏（宽度自适应）、状态栏、设置面板，作为 term-terminal 库复用，自带 SGR 颜色与 CJK 对齐。'},
     {title: '零依赖', desc: '完全静态链接单文件，下载即用，无需安装任何系统库。'},
     {title: '自包含构建', desc: 'libuv、librime 全部源码内置，仅需标准构建工具链。'},
-    {title: '完整中文支持', desc: 'UTF-8 编解码，CJK 宽字符正确对齐，候选词智能排序。'},
-    {title: '终端 UI', desc: '候选栏、状态栏、设置面板，256色终端配色，清爽显示。'},
   ];
 
   return (
@@ -121,13 +178,15 @@ function UseCases() {
     </section>
   );
 }
-
 export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout
       title={siteConfig.title}
       description="在终端里直接输入中文。SSH 远程服务器、Docker 容器、WSL、国产操作系统均可使用。无需桌面环境，无需 D-Bus，无需 X。">
+      <Head>
+        <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
+      </Head>
       <HomepageHeader />
       <main>
         <Features />

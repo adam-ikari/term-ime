@@ -6,6 +6,8 @@ const sidebars: SidebarsConfig = {
     'quickstart',
     'shortcuts',
     'fuzzy',
+    'library',
+    'tui-component',
     'config',
   ],
 };

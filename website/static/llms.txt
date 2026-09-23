@@ -1,0 +1,31 @@
+# term-ime
+
+> 在终端里直接输入中文——TTY/TUI 环境的中文输入法。输入法引擎库 + TUI 输入法组件，封装 librime 拼音，无桌面依赖，单文件静态二进制。
+
+term-ime 是面向 TTY / TUI（无桌面环境）的中文输入方案。它可以当**输入法引擎库**嵌入其他程序（term-ime-lib，封装 librime 的 ImeEngine 接口），也可以当**TUI 输入法组件**复用（候选栏、状态栏、设置面板）。核心二进制是零依赖静态单文件。
+
+## 文档
+
+- [快速开始 — 安装与使用](https://adam-ikari.github.io/term-ime/docs/quickstart)
+- [输入法库 — ImeEngine 接口与嵌入](https://adam-ikari.github.io/term-ime/docs/library)
+- [TUI 输入法组件 — 候选栏/状态栏/设置面板](https://adam-ikari.github.io/term-ime/docs/tui-component)
+- [快捷键](https://adam-ikari.github.io/term-ime/docs/shortcuts)
+- [模糊音 — 5 组独立开关](https://adam-ikari.github.io/term-ime/docs/fuzzy)
+- [配置](https://adam-ikari.github.io/term-ime/docs/config)
+
+## 关键事实
+
+- 输入法引擎：封装 librime（Rime 输入法框架），拼音 + 简化字（OpenCC 链式转换，含日文新字体/异体字过滤）
+- 模糊音：平翘舌 zh/z、n/l、r 系、h/f、前后鼻音 5 组独立开关
+- 候选栏：按终端宽度自适应，方向键 / PgUp / PgDn 翻页
+- 渲染：SGR 16/256/24bit 颜色，CJK 宽字符对齐
+- 依赖：零运行时依赖，静态单文件
+- 授权：MIT
+
+## 集成入口（给 AI/开发者）
+
+- IME 引擎接口：`src/ime/engine.hpp`（ImeEngine 抽象类：input/state/candidates/select/backspace/cancel/page_up/page_down）
+- Rime 实现：`src/ime/rime_engine.hpp`（RimeIme，select_schema / set_fuzzy_groups / initialize）
+- TUI 组件：`src/ui/renderer.hpp`（render_candidates / render_settings / redraw_shell）、`src/ui/settings.hpp`（SettingsState / settings_handle_key / settings_init）
+- CMake 库目标：`term-ime-lib`（IME 引擎）、`term-terminal`（PTY+渲染+组件）、`term-core`
+- 配置：`~/.config/term-ime/config.json`（语言、模糊音组、候选数量、界面语言）

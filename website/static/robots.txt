@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://adam-ikari.github.io/term-ime/sitemap.xml
