@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'term-ime',
-  tagline: '在终端里直接输入中文——不管有没有桌面环境',
+  tagline: '不装 X、不装 Wayland、不碰 D-Bus——一个静态单文件，把 librime 拼音带进任何 TTY',
   favicon: 'img/favicon.svg',
 
   url: 'https://adam-ikari.github.io',
@@ -20,7 +20,7 @@ const config: Config = {
   headTags: [
     {
       tagName: 'meta',
-      attributes: {name: 'description', content: 'term-ime：TTY/TUI 环境的中文输入法。输入法引擎库 + TUI 输入法组件，封装 librime 拼音，无桌面依赖，单文件静态二进制。'},
+      attributes: {name: 'description', content: 'SSH 上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音 + 候选栏/状态栏 TUI 组件，完全静态单文件，一条命令安装。'},
     },
     {
       tagName: 'meta',
@@ -28,11 +28,11 @@ const config: Config = {
     },
     {
       tagName: 'meta',
-      attributes: {property: 'og:title', content: 'term-ime — 终端里的中文输入法'},
+      attributes: {property: 'og:title', content: 'term-ime — SSH 上，终于能打中文了'},
     },
     {
       tagName: 'meta',
-      attributes: {property: 'og:description', content: '在 TTY/TUI 环境直接输入中文：输入法引擎库 + 候选栏/状态栏 TUI 组件，封装 librime，无桌面依赖。'},
+      attributes: {property: 'og:description', content: '不装 X、不装 Wayland、不碰 D-Bus：一个静态单文件的终端中文输入法，封装 librime 拼音，SSH / Docker / WSL / 信创控制台通用。'},
     },
     {
       tagName: 'meta',
@@ -52,11 +52,11 @@ const config: Config = {
     },
     {
       tagName: 'meta',
-      attributes: {name: 'twitter:title', content: 'term-ime — 终端里的中文输入法'},
+      attributes: {name: 'twitter:title', content: 'term-ime — SSH 上，终于能打中文了'},
     },
     {
       tagName: 'meta',
-      attributes: {name: 'twitter:description', content: 'TTY/TUI 中文输入法：输入法引擎库 + TUI 输入法组件，封装 librime。'},
+      attributes: {name: 'twitter:description', content: '无 X、无 Wayland、无 D-Bus 的终端中文输入法：librime 拼音 + TUI 组件，完全静态单文件。'},
     },
     {
       tagName: 'meta',

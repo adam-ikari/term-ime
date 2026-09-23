@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face {
+    font-family: 'MapleMonoNF';
+    src: url('static/fonts/MapleMono-NF-CN-Regular.woff2') format('woff2');
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: 'MapleMonoNF';
+    src: url('static/fonts/MapleMono-NF-CN-Bold.woff2') format('woff2');
+    font-weight: 700;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    position: relative;
+    font-family: 'MapleMonoNF', 'Noto Sans CJK SC', sans-serif;
+    color: #eafff5;
+    background:
+      radial-gradient(800px 420px at 80% 10%, rgba(0,255,156,.16), transparent 70%),
+      linear-gradient(135deg, #0a0f0c 0%, #0c1a14 55%, #0a0f0c 100%);
+    padding: 56px 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,156,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,156,.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(700px 420px at 25% 40%, #000 20%, transparent 85%);
+  }
+  .row { position: relative; display: flex; justify-content: space-between; align-items: flex-start; gap: 48px; }
+  .left { max-width: 700px; }
+  .badges { display: flex; gap: 10px; margin-bottom: 22px; }
+  .brand {
+    background: #00ff9c; color: #06110c; font-weight: 700; font-size: 19px;
+    letter-spacing: 1px; padding: 5px 15px; border-radius: 5px;
+  }
+  .badge {
+    border: 1px solid #2b4a3d; color: #9fe8cd; background: rgba(0,255,156,.06);
+    font-size: 19px; padding: 5px 15px; border-radius: 5px;
+  }
+  h1 {
+    font-size: 64px; font-weight: 700; letter-spacing: -2px; line-height: 1.16;
+    color: #ffffff; margin-bottom: 20px;
+  }
+  h1 em { font-style: normal; color: #00ff9c; }
+  .sub { font-size: 25px; line-height: 1.55; color: #b9c7c0; max-width: 660px; }
+  .term {
+    width: 360px; background: #07100c; border: 1px solid #2b4438; border-radius: 10px;
+    overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 50px rgba(0,255,156,.09);
+    flex-shrink: 0; margin-top: 6px;
+  }
+  .chrome {
+    display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px;
+    background: #16211c; border-bottom: 1px solid #2b4438;
+  }
+  .dot { width: 13px; height: 13px; border-radius: 50%; }
+  .d1 { background: #ff5f56; } .d2 { background: #ffbd2e; } .d3 { background: #27c93f; }
+  .t { margin-left: auto; margin-right: auto; color: #7f918a; font-size: 16px; }
+  .inner { padding: 20px 20px 0; font-size: 20px; line-height: 1.7; }
+  .dim { color: #5d6f68; }
+  .line { color: #eafff5; min-height: 1.7em; }
+  .cur { display: inline-block; width: 12px; height: 22px; background: #00ff9c; vertical-align: text-bottom; }
+  .bar {
+    display: flex; align-items: center; gap: 6px; margin: 14px -20px 0;
+    padding: 8px 14px; background: #0d3b26; border-top: 1px solid #1a5c3c;
+    font-size: 18px; white-space: nowrap; overflow: hidden;
+  }
+  .mode { color: #8ff0c6; }
+  .py { color: #39d0ff; }
+  .sel { color: #06110c; background: #00ff9c; font-weight: 700; border-radius: 3px; padding: 1px 6px; }
+  .cand { color: #ffd700; }
+  .install {
+    position: relative; display: flex; flex-direction: column; gap: 8px;
+    background: rgba(0,0,0,.45); border: 1px solid #2f5c48; border-radius: 8px;
+    padding: 16px 24px; color: #d7ffe9;
+    white-space: nowrap;
+  }
+  .cmd { font-size: 21px; }
+  .p { color: #00ff9c; }
+  .url { color: #7f918a; font-size: 17px; letter-spacing: 1px; text-align: right; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="left">
+      <div class="badges">
+        <span class="brand">term-ime</span>
+        <span class="badge">零依赖 · 单文件静态</span>
+        <span class="badge">librime 拼音</span>
+        <span class="badge">MIT</span>
+      </div>
+      <h1>SSH 上，<br /><em>终于能打中文了</em></h1>
+      <div class="sub">不装 X，不装 Wayland，不碰 D-Bus —— 一个完全静态的单文件二进制，把 librime 拼音带进任何 TTY。</div>
+    </div>
+
+    <div class="term">
+      <div class="chrome">
+        <span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span>
+        <span class="t">root@prod-01 — ssh</span>
+      </div>
+      <div class="inner">
+        <div class="dim">$ vim 部署说明.md</div>
+        <div class="line">你好世界<span class="cur"></span></div>
+        <div class="dim">~</div>
+        <div class="bar">
+          <span class="mode">[拼]</span>
+          <span class="py"> shijie </span>
+          <span class="sel">1.世界</span>
+          <span class="cand"> 2.视界 3.事迹</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="install">
+    <span class="cmd"><span class="p">$ </span>curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash</span>
+    <span class="url">adam-ikari.github.io/term-ime</span>
+  </div>
+</body>
+</html>

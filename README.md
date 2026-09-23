@@ -1,4 +1,11 @@
-# TTY 中文输入虚拟终端 (term-ime)
+# term-ime — SSH 上，终于能打中文了
+
+> 不装 X、不装 Wayland、不碰 D-Bus：一个完全静态的单文件二进制，把 librime 拼音带进 SSH、Docker、WSL 和信创机器（麒麟 / UOS）的纯终端。
+
+```bash
+# 一键安装，免 sudo；网站：https://adam-ikari.github.io/term-ime/
+curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash
+```
 
 在 Linux TTY 环境中运行的虚拟终端，内置多语言输入法支持。
 
@@ -41,7 +48,7 @@ yaml-cpp / leveldb / marisa / opencc 都从 `deps/librime/deps/` 内置源码静
 sudo apt-get install -y build-essential cmake pkg-config
 
 # 克隆仓库（包含子模块）
-git clone --recursive https://github.com/user/term-ime.git
+git clone --recursive https://github.com/adam-ikari/term-ime.git
 cd term-ime
 
 # 构建（产出完全静态链接的二进制）
