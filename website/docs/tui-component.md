@@ -20,7 +20,7 @@ void render_candidates(const std::vector<Candidate>& candidates,
 
 在终端**最后一行**绘制候选栏（`mode` + 拼音串 + 数字编号候选）。核心契约：
 
-- **按宽度自适应**：只显示能完整放下的候选，放不下的不显示——`max_items` 是上限，窄终端自动少显示
+- **按宽度自适应**：只显示能完整放下的候选，放不下的不显示；`max_items` 是上限，窄终端自动少显示
 - **显示的集合 = 可选的集合**：显示与 `select()` 的索引严格对齐，不会出现"显示了却选不中"
 - **去重重绘**：IME 空闲时连续绘制是 no-op（有 `BAR_FORCE_REDRAW_EVERY` 兜底），避免 shell 输出驱动的高频重绘刷屏
 

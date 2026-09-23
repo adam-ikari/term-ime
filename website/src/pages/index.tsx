@@ -22,7 +22,7 @@ const structuredData = {
       applicationCategory: 'UtilityApplication',
       operatingSystem: 'Linux / Unix (TTY, no desktop required)',
       description:
-        '终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。输入法引擎库（term-ime-lib，封装 librime）+ TUI 输入法组件（候选栏/状态栏/设置面板），完全静态单文件。',
+        '终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。输入法引擎库（term-ime-lib，封装 librime）加 TUI 输入法组件（候选栏/状态栏/设置面板），静态单文件。',
       url: SITE_URL,
       license: 'https://opensource.org/licenses/MIT',
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -44,7 +44,7 @@ const structuredData = {
           name: 'term-ime 可以作为输入法库嵌入其他程序吗？',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: '可以。term-ime-lib 是一个独立的静态库，通过极小的 ImeEngine C++ 接口封装 librime，任何 TUI 程序、编辑器插件或终端模拟器都能嵌入获得中文拼音输入能力。',
+            text: '可以。term-ime-lib 是独立静态库，通过很小的 ImeEngine C++ 接口封装 librime，任何 TUI 程序、编辑器插件或终端模拟器都能嵌入获得中文拼音输入。',
           },
         },
         {
@@ -259,8 +259,8 @@ function Hero() {
               终端上，终于能打中文了
             </Heading>
             <p className={styles.heroTagline}>
-              不装 X，不装 Wayland，不碰 D-Bus。一个完全静态的单文件二进制，
-              把 librime 拼音带进 SSH、Docker、WSL 和信创机器的纯终端。
+              不装 X、Wayland、D-Bus，一个静态单文件丢进去就能用。SSH、Docker、
+              WSL，或者一台没装桌面的 Linux server。
             </p>
 
             <div className={styles.installBox}>
@@ -325,7 +325,7 @@ function Hero() {
             'SSH 生产机',
             'Docker 容器',
             'WSL',
-            '麒麟 V10 / UOS 控制台',
+            '无桌面的 Linux server',
             '纯 TTY',
             'CI 交互调试',
           ].map((c) => (
@@ -346,8 +346,8 @@ function Pains() {
       desc: '想在 commit message、配置注释里写句话，只能切回桌面打好再粘过来，剪贴板还常常被终端搞乱。',
     },
     {
-      title: '信创机器一个汉字都打不出',
-      desc: '麒麟 V10 / UOS / 方德 Server 最小化安装，控制台连输入法框架都没有，全靠拼音字母硬凑。',
+      title: '最小化安装的 server 打不出中文',
+      desc: '没装桌面，控制台连输入法框架都没有，想写句中文注释只能拿拼音字母硬凑。',
     },
     {
       title: '容器里配输入法是场噩梦',
@@ -415,8 +415,7 @@ function Compare() {
           </table>
         </div>
         <p className={styles.tableNote}>
-          term-ime 直接读写终端字符流，不经过任何图形输入法框架 ——
-          所以它在没有桌面的地方照样工作。
+          term-ime 直接读写终端字符流，不经过图形输入法框架，没桌面的机器照样能用。
         </p>
       </div>
     </section>
@@ -491,7 +490,7 @@ function Features() {
   const features = [
     {
       title: 'librime 拼音',
-      desc: '跑的是正经 Rime 引擎，词库与候选排序和桌面版同源，不是玩具级的逐字匹配。',
+      desc: '正经 Rime 引擎，词库和候选排序跟桌面版同源，不是简单的逐字匹配。',
     },
     {
       title: '5 组模糊音',
@@ -503,7 +502,7 @@ function Features() {
     },
     {
       title: '自适应候选栏',
-      desc: '按终端宽度只显示放得下的候选，绝无半截词；逗号、句号成组翻页。',
+      desc: '按终端宽度只显示放得下的候选，不会露半截词；逗号、句号成组翻页。',
     },
     {
       title: '状态栏 + 设置面板',
@@ -511,14 +510,14 @@ function Features() {
     },
     {
       title: '中文不把界面撑歪',
-      desc: 'CJK 宽字符右半格对齐、SGR 16 色、ED/EL 擦除，中文和颜色都规规矩矩。',
+      desc: 'CJK 宽字符右半格对齐、SGR 16 色、ED/EL 擦除，中文和颜色都不会错位。',
     },
   ];
   return (
     <section className={clsx(styles.section, styles.sectionAlt)}>
       <div className="container">
         <Heading as="h2" className={styles.sectionTitle}>
-          它做对了哪些事
+          几个关键点
         </Heading>
         <div className={styles.featureGrid}>
           {features.map((f) => (
@@ -540,7 +539,7 @@ function Embed() {
     {
       title: 'term-ime-lib',
       subtitle: '输入法引擎库',
-      desc: '极小的 ImeEngine C++ 接口封装 librime。TUI 程序、编辑器插件、终端模拟器嵌入它就能获得拼音输入能力。',
+      desc: '很小的 ImeEngine C++ 接口封装 librime。TUI 程序、编辑器插件、终端模拟器嵌进来就能打拼音。',
       to: '/docs/library',
       linkLabel: '输入法库文档',
     },
@@ -684,7 +683,7 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title={siteConfig.title}
-      description="终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音 + 候选栏/状态栏 TUI 组件，完全静态单文件，一条命令安装。">
+      description="终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音加候选栏/状态栏 TUI 组件，静态单文件，一条命令安装。">
       <Head>
         <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
       </Head>

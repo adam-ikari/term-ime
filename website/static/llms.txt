@@ -1,8 +1,8 @@
 # term-ime
 
-> 终端上，终于能打中文了——TTY/TUI 环境的中文输入法。不装 X、不装 Wayland、不碰 D-Bus，一个完全静态单文件，封装 librime 拼音。
+> 终端上，终于能打中文了。TTY/TUI 环境的中文输入法，不装 X、不装 Wayland、不碰 D-Bus，一个静态单文件，封装 librime 拼音。
 
-term-ime 是面向 TTY / TUI（无桌面环境）的终端中文输入法（TTY IME / terminal input method）。它可以当**输入法引擎库**嵌入其他程序（term-ime-lib，封装 librime 的 ImeEngine 接口），也可以当**TUI 输入法组件**复用（候选栏、状态栏、设置面板）。核心二进制是零依赖静态单文件。安装后的主命令是短命令 `ti`（terminal input），`term-ime` 为兼容别名。
+term-ime 是面向 TTY / TUI（无桌面环境）的终端中文输入法（TTY IME / terminal input method）。它可以当输入法引擎库嵌入其他程序（term-ime-lib，封装 librime 的 ImeEngine 接口），也可以当 TUI 输入法组件复用（候选栏、状态栏、设置面板）。核心二进制是零依赖静态单文件。安装后的主命令是短命令 `ti`（terminal input），`term-ime` 为兼容别名。
 
 ## 文档
 
@@ -13,7 +13,7 @@ term-ime 是面向 TTY / TUI（无桌面环境）的终端中文输入法（TTY 
 - [模糊音 — 5 组独立开关](https://adam-ikari.github.io/term-ime/docs/fuzzy)
 - [配置](https://adam-ikari.github.io/term-ime/docs/config)
 
-## 关键事实
+## 要点
 
 - 输入法引擎：封装 librime（Rime 输入法框架），拼音 + 简化字（OpenCC 链式转换，含日文新字体/异体字过滤）
 - 模糊音：平翘舌 zh/z、n/l、r 系、h/f、前后鼻音 5 组独立开关

@@ -6,7 +6,7 @@ const config: Config = {
   // title 出现在每个页面的 <title> 与 og:site_name。必须含品牌词 term-ime：
   // 否则搜 "term-ime" 时标题不匹配，Google 会把它当成拼写错误改写成 term-time。
   title: 'term-ime — Linux TTY 终端输入法',
-  tagline: '不装 X、不装 Wayland、不碰 D-Bus——一个静态单文件，把 librime 拼音带进任何 TTY',
+  tagline: '不装 X、Wayland、D-Bus，一个静态单文件把 librime 拼音带进任何 TTY',
   favicon: 'img/favicon.svg',
 
   url: 'https://adam-ikari.github.io',
@@ -22,7 +22,7 @@ const config: Config = {
   headTags: [
     {
       tagName: 'meta',
-      attributes: {name: 'description', content: '终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音 + 候选栏/状态栏 TUI 组件，完全静态单文件，一条命令安装。'},
+      attributes: {name: 'description', content: '终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音加候选栏/状态栏 TUI 组件，静态单文件，一条命令安装。'},
     },
     {
       tagName: 'meta',
@@ -34,7 +34,7 @@ const config: Config = {
     },
     {
       tagName: 'meta',
-      attributes: {property: 'og:description', content: '不装 X、不装 Wayland、不碰 D-Bus：一个静态单文件的终端中文输入法，封装 librime 拼音，SSH / Docker / WSL / 信创控制台通用。'},
+      attributes: {property: 'og:description', content: '不装 X、不装 Wayland、不碰 D-Bus：静态单文件的终端中文输入法，封装 librime 拼音，SSH / Docker / WSL / 无桌面 Linux server 通用。'},
     },
     {
       tagName: 'meta',
@@ -58,7 +58,7 @@ const config: Config = {
     },
     {
       tagName: 'meta',
-      attributes: {name: 'twitter:description', content: '无 X、无 Wayland、无 D-Bus 的终端中文输入法：librime 拼音 + TUI 组件，完全静态单文件。'},
+      attributes: {name: 'twitter:description', content: '无 X、无 Wayland、无 D-Bus 的终端中文输入法：librime 拼音加 TUI 组件，静态单文件。'},
     },
     {
       tagName: 'meta',

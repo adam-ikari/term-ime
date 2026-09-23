@@ -4,7 +4,7 @@ sidebar_position: 5
 
 # 输入法库（term-ime-lib）
 
-term-ime 的 IME 引擎是一个**独立、可复用的静态库**：`term-ime-lib`。它封装 librime（Rime 输入法框架），对外暴露一个极小的 C++ 接口——任何程序（TUI、游戏、终端模拟器、编辑器插件）都能嵌入它，获得完整的中文拼音输入能力，而不必自己碰 Rime API。
+term-ime 的 IME 引擎是独立静态库 `term-ime-lib`。它封装 librime（Rime 输入法框架），对外只暴露一个很小的 C++ 接口。TUI 程序、游戏、终端模拟器、编辑器插件都能嵌进来获得中文拼音输入，不用自己碰 Rime API。
 
 ## 库结构
 
@@ -42,7 +42,7 @@ class ImeEngine {
 
 `RimeIme`（`src/ime/rime_engine.hpp`）是其 librime 实现。状态机约定：
 
-- **English 模式**下 `input()` 直接返回 `false`——IME 完全旁路，按键原样交给宿主
+- **English 模式**下 `input()` 直接返回 `false`，IME 完全旁路，按键原样交给宿主
 - 组合态：`state() == Composing`（输拼音中）→ `Selecting`（有候选可选）
 - `select(i)` 上屏后若拼音串已空，内部自动清空组合，宿主可直接回到空闲态
 
@@ -92,8 +92,8 @@ target_link_libraries(your_app PRIVATE term-ime-lib)
 
 ## Rime 专属能力
 
-- `select_schema(id)` / `get_schema_list()` / `get_current_schema()`——schema 级控制
-- `set_fuzzy_groups(...)`——模糊音按组开关；部分开启时自动合成 per-combination schema 并部署
+- `select_schema(id)` / `get_schema_list()` / `get_current_schema()`：schema 级控制
+- `set_fuzzy_groups(...)`：模糊音按组开关；部分开启时自动合成 per-combination schema 并部署
 - 简化字保证：OpenCC 链式转换（繁→简 + 日文新字体 + 异体字），候选里不会出现「楽/薬/妳」这类非简体字
 
 ## 测试
