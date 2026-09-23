@@ -544,6 +544,26 @@ thead .colWin {
   background: transparent;
 }
 
+/* 真实终端反馈：与命令区分隔，左侧绿线表示“输出” */
+.stepOut {
+  margin: 0;
+  padding: 12px 14px;
+  background: #0a120e;
+  border-top: 1px solid #1c2a24;
+  border-left: 2px solid #1f6b4a;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: #7fd6a8;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.stepOut code {
+  color: inherit;
+  background: transparent;
+}
+
 /* 移动端：三条命令改为纵向时间线（序号在左、内容在右），
    代码块换行而不是横向滚动，避免小屏上被截断。 */
 @media (max-width: 700px) {
@@ -597,6 +617,16 @@ thead .colWin {
     border: 1px solid #26332e;
     border-radius: 6px;
     font-size: 12px;
+  }
+
+  .stepOut {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow-x: visible;
+    border: 1px solid #26332e;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    font-size: 11.5px;
   }
 }
 

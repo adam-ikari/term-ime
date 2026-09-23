@@ -428,17 +428,25 @@ function QuickStart() {
     {
       title: '安装',
       copy: INSTALL_CMD,
-      code: `# 免 sudo，装到 ~/.local/bin\n${INSTALL_CMD}`,
+      code: `# 免 sudo，装到 ~/.local/bin；静态单文件，零依赖\n${INSTALL_CMD}`,
+      out: `>> Installing term-ime v1.1.0
+>> Verifying checksum
+>> Installed: ~/.local/bin/ti (alias: term-ime)
+>> Run: ti`,
     },
     {
       title: '运行',
       copy: 'ti',
-      code: `# 短命令 ti（term-ime 为兼容别名）；需要真实 TTY 或支持 alternate screen 的终端\nti`,
+      code: `# 短命令 ti（term-ime 为兼容别名）；需真实 TTY 或支持 alternate screen 的终端\nti`,
+      out: `~/project on master ................. with you@host at 16:07:19
+>
+ [EN]              ^A Space 切换 | ^A S 设置`,
     },
     {
       title: '打字',
       copy: '',
       code: `# Ctrl+A 然后 Space 切中英文\n# 输拼音 nihao，按 1 或空格上屏「你好」`,
+      out: `> [拼]  ni hao  1.你好  2.逆号  3.你  4.拟  5.尼  6.泥  7.呢`,
     },
   ];
   return (
@@ -464,13 +472,16 @@ function QuickStart() {
               <pre className={styles.stepCode}>
                 <code>{s.code}</code>
               </pre>
+              <pre className={styles.stepOut}>
+                <code>{s.out}</code>
+              </pre>
             </div>
           ))}
         </div>
-        <p className={styles.tableNote}>
-          完整说明见 <Link to="/docs/quickstart">快速开始</Link>，
-          快捷键见 <Link to="/docs/shortcuts">快捷键</Link>。
-        </p>
+      <p className={styles.tableNote}>
+        完整说明见 <Link to="/docs/quickstart">快速开始</Link>，
+        快捷键见 <Link to="/docs/shortcuts">快捷键</Link>。
+      </p>
       </div>
     </section>
   );
