@@ -22,7 +22,7 @@ const structuredData = {
       applicationCategory: 'UtilityApplication',
       operatingSystem: 'Linux / Unix (TTY, no desktop required)',
       description:
-        'SSH 上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。输入法引擎库（term-ime-lib，封装 librime）+ TUI 输入法组件（候选栏/状态栏/设置面板），完全静态单文件。',
+        '终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。输入法引擎库（term-ime-lib，封装 librime）+ TUI 输入法组件（候选栏/状态栏/设置面板），完全静态单文件。',
       url: SITE_URL,
       license: 'https://opensource.org/licenses/MIT',
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -69,6 +69,14 @@ const structuredData = {
           acceptedAnswer: {
             '@type': 'Answer',
             text: 'install.sh 只发布 linux-x86_64 预编译包。ARM64、LoongArch、SW64 等架构从源码编译，构建只需要 gcc / cmake 工具链，不需要任何第三方系统库。',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'term-ime 的运行命令是什么？',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: '安装后主命令是短命令 ti（terminal input），并保留 term-ime 作为兼容别名，二者等价。注意项目名是 term-ime（不是 term-time）：它是 Linux TTY 终端中文输入法，基于 librime 拼音。',
           },
         },
       ],
@@ -248,7 +256,7 @@ function Hero() {
               <span className={styles.badge}>MIT</span>
             </div>
             <Heading as="h1" className={styles.heroTitle}>
-              SSH 上，终于能打中文了
+              终端上，终于能打中文了
             </Heading>
             <p className={styles.heroTagline}>
               不装 X，不装 Wayland，不碰 D-Bus。一个完全静态的单文件二进制，
@@ -334,7 +342,7 @@ function Hero() {
 function Pains() {
   const pains = [
     {
-      title: 'SSH 上写不了中文',
+      title: '终端上写不了中文',
       desc: '想在 commit message、配置注释里写句话，只能切回桌面打好再粘过来，剪贴板还常常被终端搞乱。',
     },
     {
@@ -424,8 +432,8 @@ function QuickStart() {
     },
     {
       title: '运行',
-      copy: 'term-ime',
-      code: `# 需要真实 TTY 或支持 alternate screen 的终端\nterm-ime`,
+      copy: 'ti',
+      code: `# 短命令 ti（term-ime 为兼容别名）；需要真实 TTY 或支持 alternate screen 的终端\nti`,
     },
     {
       title: '打字',
@@ -665,7 +673,7 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title={siteConfig.title}
-      description="SSH 上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音 + 候选栏/状态栏 TUI 组件，完全静态单文件，一条命令安装。">
+      description="终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音 + 候选栏/状态栏 TUI 组件，完全静态单文件，一条命令安装。">
       <Head>
         <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
       </Head>

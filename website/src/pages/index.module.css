@@ -30,6 +30,12 @@
   gap: 48px;
   align-items: center;
 }
+/* grid 子项默认 min-width:auto：中文标题的 min-content 会把列撑破容器，
+   再被 .hero 的 overflow:hidden 静默裁掉右侧。显式归零让列可收缩。 */
+.heroInner > * {
+  min-width: 0;
+}
+
 
 @media (max-width: 900px) {
   .heroInner {
@@ -46,7 +52,7 @@
 }
 
 .brandBadge {
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -57,7 +63,7 @@
 }
 
 .badge {
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 12px;
   color: #9fe8cd;
   border: 1px solid #2b4a3d;
@@ -100,7 +106,7 @@
   flex: 1;
   display: block;
   padding: 13px 14px;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 13px;
   line-height: 1.5;
   color: #d7ffe9;
@@ -118,7 +124,7 @@
   border-left: 1px solid #2f5c48;
   background: rgba(0, 255, 156, 0.1);
   color: #00ff9c;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 13px;
   padding: 0 16px;
   cursor: pointer;
@@ -150,7 +156,7 @@
   color: #06110c;
   border: none;
   font-weight: 600;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
 }
 .hero .buttonPrimary:hover {
   background: #4dffc0;
@@ -162,7 +168,7 @@
   background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
   border: 1px solid #557066;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
 }
 .hero .buttonSecondary:hover {
   background: rgba(255, 255, 255, 0.12);
@@ -187,7 +193,7 @@
 }
 
 .statValue {
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 26px;
   font-weight: 700;
   color: #00ff9c;
@@ -244,12 +250,12 @@
   margin: 0 auto;
   color: #7f918a;
   font-size: 12px;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
 }
 
 .demoInner {
   padding: 16px 16px 0;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 14px;
   line-height: 1.7;
   min-height: 148px;
@@ -368,7 +374,7 @@
   font-weight: 700;
   letter-spacing: -0.5px;
   margin-bottom: 28px;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
 }
 
 .sectionTitle::before {
@@ -393,7 +399,7 @@
 }
 
 .painIndex {
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 12px;
   color: #ff6b6b;
   letter-spacing: 2px;
@@ -502,7 +508,7 @@ thead .colWin {
   border-radius: 50%;
   background: #00ff9c;
   color: #06110c;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 12px;
   font-weight: 700;
 }
@@ -526,7 +532,7 @@ thead .colWin {
   margin: 0;
   padding: 14px;
   background: #070b09;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 12.5px;
   line-height: 1.7;
   color: #d7ffe9;
@@ -536,6 +542,62 @@ thead .colWin {
 .stepCode code {
   color: inherit;
   background: transparent;
+}
+
+/* 移动端：三条命令改为纵向时间线（序号在左、内容在右），
+   代码块换行而不是横向滚动，避免小屏上被截断。 */
+@media (max-width: 700px) {
+  .steps {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .stepCard {
+    position: relative;
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    overflow: visible;
+    padding: 0 0 22px 34px;
+  }
+
+  /* 时间线竖线：贯穿整卡，末卡不画 */
+  .stepCard::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 26px;
+    bottom: 0;
+    width: 1px;
+    background: #26332e;
+  }
+
+  .stepCard:last-child::before {
+    display: none;
+  }
+
+  .stepHead {
+    padding: 0 0 10px;
+    background: transparent;
+    border-bottom: none;
+  }
+
+  .stepNum {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 21px;
+    height: 21px;
+  }
+
+  .stepCode {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow-x: visible;
+    border: 1px solid #26332e;
+    border-radius: 6px;
+    font-size: 12px;
+  }
 }
 
 /* features */
@@ -563,7 +625,7 @@ thead .colWin {
   color: #e5efe9;
   font-size: 14.5px;
   margin-bottom: 8px;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
 }
 
 .featureCardTitle::before {
@@ -602,7 +664,7 @@ thead .colWin {
 }
 
 .embedTitle {
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 16px;
   font-weight: 700;
   color: #00ff9c;
@@ -624,7 +686,7 @@ thead .colWin {
 }
 
 .embedLink {
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 13px;
 }
 
@@ -669,7 +731,7 @@ thead .colWin {
   right: 0;
   top: 15px;
   color: #00ff9c;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
 }
 
 .faqItem[open] .faqQ::after {
@@ -725,7 +787,7 @@ thead .colWin {
   color: #06110c;
   border: none;
   font-weight: 600;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
 }
 .share .buttonPrimary:hover {
   background: #4dffc0;
@@ -736,7 +798,7 @@ thead .colWin {
   background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
   border: 1px solid #557066;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
 }
 .share .buttonSecondary:hover {
   background: rgba(255, 255, 255, 0.12);
@@ -751,7 +813,7 @@ thead .colWin {
   color: #ffffff;
   font-size: 16px;
   padding: 10px 20px;
-  font-family: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  font-family: var(--ifm-font-family-monospace);
 }
 
 .shareCopy:hover {

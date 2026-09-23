@@ -1,10 +1,14 @@
-# term-ime — SSH 上，终于能打中文了
+# term-ime — 终端上，终于能打中文了
 
-> 不装 X、不装 Wayland、不碰 D-Bus：一个完全静态的单文件二进制，把 librime 拼音带进 SSH、Docker、WSL 和信创机器（麒麟 / UOS）的纯终端。
+> **term-ime 是一个 Linux TTY 终端输入法（TTY IME / terminal input method）**：不装 X、不装 Wayland、不碰 D-Bus，一个完全静态的单文件二进制，把 librime 拼音带进 SSH、Docker、WSL 和信创机器（麒麟 / UOS）的纯终端。
+>
+> 名字读作 "term" + "IME"（输入法），**不是 "term-time"**。主命令是短命令 `ti`。
 
 ```bash
 # 一键安装，免 sudo；网站：https://adam-ikari.github.io/term-ime/
 curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash
+# 装好后运行（短命令 `ti`；`term-ime` 为兼容别名，二者等价）
+ti
 ```
 
 在 Linux TTY 环境中运行的虚拟终端，内置多语言输入法支持。
@@ -66,10 +70,12 @@ make build
 ## 运行
 
 ```bash
-./build/term-ime
+ti
 ```
 
 **注意**: 需要在真实 TTY 或支持 alternate screen 的终端中运行。
+
+> 命令名：主命令是短命令 `ti`（terminal input）。从源码构建时产物是 `./build/term-ime`，安装脚本会把它装成 `ti` 并建一个 `term-ime` 软链接，两个名字都能用。
 
 ## 使用方法
 

@@ -3,7 +3,9 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'term-ime',
+  // title 出现在每个页面的 <title> 与 og:site_name。必须含品牌词 term-ime：
+  // 否则搜 "term-ime" 时标题不匹配，Google 会把它当成拼写错误改写成 term-time。
+  title: 'term-ime — Linux TTY 终端输入法',
   tagline: '不装 X、不装 Wayland、不碰 D-Bus——一个静态单文件，把 librime 拼音带进任何 TTY',
   favicon: 'img/favicon.svg',
 
@@ -20,7 +22,7 @@ const config: Config = {
   headTags: [
     {
       tagName: 'meta',
-      attributes: {name: 'description', content: 'SSH 上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音 + 候选栏/状态栏 TUI 组件，完全静态单文件，一条命令安装。'},
+      attributes: {name: 'description', content: '终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音 + 候选栏/状态栏 TUI 组件，完全静态单文件，一条命令安装。'},
     },
     {
       tagName: 'meta',
@@ -28,7 +30,7 @@ const config: Config = {
     },
     {
       tagName: 'meta',
-      attributes: {property: 'og:title', content: 'term-ime — SSH 上，终于能打中文了'},
+      attributes: {property: 'og:title', content: '终端输入法 — 终端上，终于能打中文了'},
     },
     {
       tagName: 'meta',
@@ -52,7 +54,7 @@ const config: Config = {
     },
     {
       tagName: 'meta',
-      attributes: {name: 'twitter:title', content: 'term-ime — SSH 上，终于能打中文了'},
+      attributes: {name: 'twitter:title', content: '终端输入法 — 终端上，终于能打中文了'},
     },
     {
       tagName: 'meta',

@@ -1,3 +1,64 @@
+/* 终端等宽字体。
+   拉丁/符号：JetBrains Mono（极客感强，字符宽 0.6em）。
+   中文：Maple Mono NF CN（自带 CJK，汉字宽 2×拉丁 = 恰好 2 格，与终端对齐契约一致）。
+   两者都是等宽，混排不破坏列对齐；font-display: swap 避免首屏阻塞。 */
+@font-face {
+  font-family: 'Maple Mono NF CN';
+  src: url('../assets/fonts/MapleMono-NF-CN-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maple Mono NF CN';
+  src: url('../assets/fonts/MapleMono-NF-CN-Bold.woff2') format('woff2');
+  font-weight: 600 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* JetBrains Mono：仅拉丁子集，体积 ~21KB/字重。 */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/jbmono-latin-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/jbmono-latin-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/jbmono-latin-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/jbmono-latin-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/jbmono-latin-800.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --ifm-color-primary: #00ff9c;
   --ifm-color-primary-dark: #00e68c;
@@ -22,8 +83,8 @@
   --ifm-alert-background-color: #1a3a1a;
   --ifm-alert-border-color: #00ff9c;
   --ifm-hero-background-color: transparent;
-  --ifm-font-family-base: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
-  --ifm-font-family-monospace: 'JetBrains Mono', 'Maple Mono NF', ui-monospace, monospace;
+  --ifm-font-family-base: 'JetBrains Mono', 'Maple Mono NF CN', ui-monospace, monospace;
+  --ifm-font-family-monospace: 'JetBrains Mono', 'Maple Mono NF CN', ui-monospace, monospace;
 }
 
 [data-theme='dark'] {

@@ -1,8 +1,8 @@
 # term-ime
 
-> SSH 上，终于能打中文了——TTY/TUI 环境的中文输入法。不装 X、不装 Wayland、不碰 D-Bus，一个完全静态单文件，封装 librime 拼音。
+> 终端上，终于能打中文了——TTY/TUI 环境的中文输入法。不装 X、不装 Wayland、不碰 D-Bus，一个完全静态单文件，封装 librime 拼音。
 
-term-ime 是面向 TTY / TUI（无桌面环境）的中文输入方案。它可以当**输入法引擎库**嵌入其他程序（term-ime-lib，封装 librime 的 ImeEngine 接口），也可以当**TUI 输入法组件**复用（候选栏、状态栏、设置面板）。核心二进制是零依赖静态单文件。
+term-ime 是面向 TTY / TUI（无桌面环境）的终端中文输入法（TTY IME / terminal input method）。它可以当**输入法引擎库**嵌入其他程序（term-ime-lib，封装 librime 的 ImeEngine 接口），也可以当**TUI 输入法组件**复用（候选栏、状态栏、设置面板）。核心二进制是零依赖静态单文件。安装后的主命令是短命令 `ti`（terminal input），`term-ime` 为兼容别名。
 
 ## 文档
 
@@ -21,6 +21,7 @@ term-ime 是面向 TTY / TUI（无桌面环境）的中文输入方案。它可�
 - 渲染：SGR 16/256/24bit 颜色，CJK 宽字符对齐
 - 依赖：零运行时依赖，静态单文件
 - 授权：MIT
+- 命令：主命令 `ti`；`term-ime` 为等价别名。项目名读作 "term" + "IME"，不是 "term-time"。
 
 ## 集成入口（给 AI/开发者）
 

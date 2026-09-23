@@ -27,6 +27,8 @@ make build
 ./build/term-ime
 ```
 
+> 命令名：安装脚本会把程序装成短命令 `ti`（terminal input），并保留 `term-ime` 软链接别名。从源码构建时直接运行 `./build/term-ime`，或把它放到 PATH 后用 `ti` 调用。
+
 :::tip 字体推荐
 推荐在终端使用等宽字体（如 [Maple Mono](https://github.com/subframe7536/maple-font)、Sarasa Mono、JetBrains Mono），以获得最佳的中文与候选词对齐效果。
 :::

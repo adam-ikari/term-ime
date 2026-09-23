@@ -47,7 +47,9 @@ jobs:
         run: |
           mkdir -p dist/term-ime/bin
           mkdir -p dist/term-ime/share/term-ime/rime-data
-          cp build/term-ime dist/term-ime/bin/
+          # 主命令名是短命令 `ti`（terminal input）；`term-ime` 作为兼容别名符号链接。
+          cp build/term-ime dist/term-ime/bin/ti
+          ln -sf ti dist/term-ime/bin/term-ime
           cp -r build/share/rime-data/* dist/term-ime/share/term-ime/rime-data/
           cp README.md dist/term-ime/
           tar -czf term-ime-linux-x86_64.tar.gz -C dist term-ime

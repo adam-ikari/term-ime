@@ -86,10 +86,14 @@ fi
 echo ">> Extracting"
 tar -xzf "${TMP}/${ASSET}" -C "$TMP"
 
-# Find the binary inside the extracted dir.
-BIN="$(find "$TMP" -type f -name term-ime -perm -u+x | head -1)"
+# Find the binary inside the extracted dir. Primary name is the short command `ti`.
+BIN="$(find "$TMP" -type f -name ti -perm -u+x | head -1)"
 if [[ -z "$BIN" ]]; then
-    echo "error: term-ime binary not found in archive" >&2
+    # Back-compat: older archives shipped the binary as `term-ime`.
+    BIN="$(find "$TMP" -type f -name term-ime -perm -u+x | head -1)"
+fi
+if [[ -z "$BIN" ]]; then
+    echo "error: binary not found in archive" >&2
     exit 1
 fi
 
@@ -101,7 +105,9 @@ if [[ ! -w "${PREFIX}/bin" ]]; then
     SUDO="sudo"
 fi
 
-${SUDO} install -m 0755 "$BIN" "${PREFIX}/bin/term-ime"
+${SUDO} install -m 0755 "$BIN" "${PREFIX}/bin/ti"
+# `term-ime` kept as a compatibility alias for scripts/docs that predate the short command.
+${SUDO} ln -sf ti "${PREFIX}/bin/term-ime"
 
 # Install rime-data (shared data: schemas + essay.txt + dict).
 EXTRACT_ROOT="$(dirname "$(dirname "$BIN")")"
@@ -136,19 +142,19 @@ case ":${PATH}:" in
         ;;
 esac
 
-INSTALLED="${BIN_DIR}/term-ime"
-if [[ ":${PATH}:" == *":${BIN_DIR}:"* ]]; then INSTALLED="term-ime"; fi
-echo ">> Installed: ${INSTALLED}"
+INSTALLED="${BIN_DIR}/ti"
+if [[ ":${PATH}:" == *":${BIN_DIR}:"* ]]; then INSTALLED="ti"; fi
+echo ">> Installed: ${INSTALLED} (alias: term-ime)"
 
 # Verify the installed binary is actually statically linked.
 echo ">> Verifying binary..."
-if ! file "${PREFIX}/bin/term-ime" | grep -q "statically linked"; then
+if ! file "${PREFIX}/bin/ti" | grep -q "statically linked"; then
     echo "!! WARNING: Binary does not appear to be fully statically linked."
     echo "!! This may indicate a build issue. Please report at:"
     echo "!! https://github.com/${REPO}/issues"
     echo "!!"
     echo "!! Dynamic dependencies detected:"
-    ldd "${PREFIX}/bin/term-ime" 2>/dev/null || true
+    ldd "${PREFIX}/bin/ti" 2>/dev/null || true
 fi
 
-echo ">> Run: term-ime"
+echo ">> Run: ti"
