@@ -109,6 +109,9 @@ class App {
     ImeSnapshot ime_snapshot_;
     void refresh_ime_snapshot();
     void render_candidates_bar(bool refresh = true);
+    // Send one byte to librime and forward whatever it committed. Returns false
+    // when rime declined the key (caller decides: forward to the PTY or drop).
+    bool ime_feed(char ch);
     // Shift the visible candidate window by one group; rolls onto the previous /
     // next rime page when the window would run past the page edge.
     void advance_candidate_window(int direction);  // <0 previous, >0 next

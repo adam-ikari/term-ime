@@ -264,19 +264,27 @@ std::u32string RimeIme::select(int index) {
     rime_->process_key(session_, key, 0);
 
     // Get committed text
-    std::u32string result;
-    RIME_STRUCT(RimeCommit, commit);
-    if (rime_->get_commit(session_, &commit)) {
-        const char* text = commit.text;
-        result = text ? utf8_to_utf32(text) : U"";
-        rime_->free_commit(&commit);
-    }
+    std::u32string result = take_commit();
 
     // If state is still Composing/Selecting but buffer is empty, clear it.
     // Otherwise keep it so the user can continue typing the remaining input.
     if (state() != ImeState::Inactive && buffer().empty()) {
         rime_->clear_composition(session_);
     }
+    return result;
+}
+
+std::u32string RimeIme::take_commit() {
+    if (!rime_ || !session_)
+        return U"";
+
+    RIME_STRUCT(RimeCommit, commit);
+    if (!rime_->get_commit(session_, &commit))
+        return U"";
+
+    const char* text = commit.text;
+    std::u32string result = text ? utf8_to_utf32(text) : U"";
+    rime_->free_commit(&commit);
     return result;
 }
 

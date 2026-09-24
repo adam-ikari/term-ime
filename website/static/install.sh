@@ -66,7 +66,10 @@ case "$ARCH" in
 esac
 
 ASSET="term-ime-${ASSET_ARCH}.tar.gz"
-URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
+# TERM_IME_DOWNLOAD_BASE lets CI / mirrors point at any HTTP(S) base holding
+# the asset + .sha256 (default: the GitHub release for this version).
+DOWNLOAD_BASE="${TERM_IME_DOWNLOAD_BASE:-https://github.com/${REPO}/releases/download/${VERSION}}"
+URL="${DOWNLOAD_BASE}/${ASSET}"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -109,7 +112,7 @@ ${SUDO} install -m 0755 "$BIN" "${PREFIX}/bin/ti"
 # `term-ime` kept as a compatibility alias for scripts/docs that predate the short command.
 ${SUDO} ln -sf ti "${PREFIX}/bin/term-ime"
 
-# Install rime-data (shared data: schemas + essay.txt + dict).
+# Install rime-data (shared data: schemas + essay.txt + dict) and translations.
 EXTRACT_ROOT="$(dirname "$(dirname "$BIN")")"
 SHARED_SRC="${EXTRACT_ROOT}/share/term-ime/rime-data"
 if [[ -d "$SHARED_SRC" ]]; then
@@ -117,6 +120,16 @@ if [[ -d "$SHARED_SRC" ]]; then
     mkdir -p "$DATA_DEST"
     ${SUDO} cp -r "$SHARED_SRC"/* "$DATA_DEST/"
     echo ">> Installed rime-data to ${DATA_DEST}"
+fi
+
+# UI translation catalogs (data/translations/*.json). Without these the panel
+# falls back to built-in strings and any newer key renders as its raw id.
+TRANS_SRC="${EXTRACT_ROOT}/share/term-ime/translations"
+if [[ -d "$TRANS_SRC" ]]; then
+    TRANS_DEST="${PREFIX}/share/term-ime/translations"
+    mkdir -p "$TRANS_DEST"
+    ${SUDO} cp -r "$TRANS_SRC"/* "$TRANS_DEST/"
+    echo ">> Installed translations to ${TRANS_DEST}"
 fi
 
 # Ensure the install prefix is on PATH; if not, append to the user's shell rc.

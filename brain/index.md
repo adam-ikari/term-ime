@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-23T04:03:02.597Z._
+_Auto-generated. Last updated 2026-09-24T10:35:05.662Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | <current best understanding — replace this with the real content>
@@ -8,11 +8,13 @@ _Auto-generated. Last updated 2026-09-23T04:03:02.597Z._
 - [e2e-harness-contract](pages/e2e-harness-contract.md) — category: concept | tags: [testing, pty, harness] | ## 约束（违反即脆性测试）
 - [event-loop-libuv-handle-ownership](pages/event-loop-libuv-handle-ownership.md) — category: decision | tags: [libuv, event-loop, memory-lifetime] | EventLoop 持有的 libuv 句柄（stdin/PTY 的 uv_poll/uv_stream 等）在 `uv_close` 调用时**立即把所有权 release 给 libuv**：close 回调是唯一合法的 `delete` 点。
 - [fuzzy-pinyin-toggle](pages/fuzzy-pinyin-toggle.md) — category: decision | tags: [rime, config, settings, schema] | ## 模糊音组的落点（2026-09-16）
+- [i18n-resource-resolution](pages/i18n-resource-resolution.md) — category: decision | tags: [i18n, translation, install, packaging] | **结论**：翻译资源按固定顺序解析，第一个含 `zh-CN.json` 的目录胜出：
 - [opencc-chain-for-simplified](pages/opencc-chain-for-simplified.md) — category: decision | tags: [rime, opencc, i18n, schema] | ## variants_ext.txt（2026-09-16）
 - [parser-stream-state-contract](pages/parser-stream-state-contract.md) — category: concept | tags: [parser, utf8, csi, osc] | `Parser` 的输入是**任意切分的字节流**——PTY 的 read 边界与转义序列边界无关。
 - [passthrough-query-architecture](pages/passthrough-query-architecture.md) — category: decision | tags: [terminal, parser, architecture, query] | ## 事实
 - [review-fix-wide-char](pages/review-fix-wide-char.md) — category: decision | tags: [parser, renderer, review, wide-char] | 评审修复轮(4 commits):宽字符占右半格+参数化光标 CSI 上限+中文组合态透传控制字节+Pty::write 总上限。
+- [rime-punctuator-preset](pages/rime-punctuator-preset.md) — category: decision | tags: [rime, 标点, punctuator, schema] | **结论**：schema 想用标点映射，必须在自己的 `.schema.yaml` 里写 `punctuator: { import_preset: default }`。
 - [sgr-color-support](pages/sgr-color-support.md) — category: decision | tags: [terminal, parser, renderer, sgr] | <current best understanding — replace this with the real content>
 - [startup-readiness-window](pages/startup-readiness-window.md) — category: decision | tags: [rime, startup, pty, testing] | ## 已观测事实
 - [status-bar-owns-last-row](pages/status-bar-owns-last-row.md) — category: decision | tags: [terminal, layout, resize, renderer] | 状态栏（Status bar）固定渲染在终端**最后一行**，属于 UI 保留区，不属于 shell/PTY 的绘制区。
-- [website-spread-redesign](pages/website-spread-redesign.md) — category: decision | tags: [website, 传播, 文案] | **决定**：官网落地页按"可传播"重做，范围 = 结构 + 文案 + 视觉全做；主战场是中文技术社区（V2EX/掘金/知乎/公众号）；首屏用**双钩子**——痛点标题 + 硬核副标题。
+- [website-spread-redesign](pages/website-spread-redesign.md) — category: decision | tags: [website, 传播, 文案] | **决定**：官网落地页按“可传播”重做，范围 = 结构 + 文案 + 视觉全做；主战场是中文技术社区（V2EX/掘金/知乎/公众号）。

@@ -27,6 +27,11 @@ class ImeEngine {
     virtual std::string buffer() const = 0;
     virtual std::vector<Candidate> candidates() const = 0;
     virtual std::u32string select(int index) = 0;
+    // Text librime committed as a side effect of the last key (punctuation's
+    // full-width form, auto-commit, sentence commit). Drains the internal
+    // commit queue: empty once nothing is pending. Keys that only start a
+    // composition return empty here — use state() to tell the two apart.
+    virtual std::u32string take_commit() = 0;
     virtual void backspace() = 0;  // delete one syllable char
     virtual void cancel() = 0;     // clear entire composition
     virtual void page_up() = 0;

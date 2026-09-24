@@ -114,6 +114,12 @@ simplifier:
   tips: none
   option_name: "x"
 
+# Punctuation mapping (',' → '，', '?' → '？', …) lives in default.yaml; a
+# schema must pull it in explicitly or librime's punctuator has no mapping and
+# refuses the key outright (no full-width output, no candidate menu).
+punctuator:
+  import_preset: default
+
 zh_hans:
   option_name: zh_hans
   opencc_config: t2s_full.json

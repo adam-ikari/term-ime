@@ -16,6 +16,50 @@
 // treated as an independent ESC keypress and forwarded to the shell.
 static constexpr uint64_t kEscapeTimeoutMs = 50;
 
+// Bytes that librime's punctuator may map to a full-width form (see
+// data/rime-data/default.yaml: punctuator.full_shape). Letters and digits are
+// excluded: they belong to the speller/selector. This is only a cheap filter —
+// rime is still the authority, and an unmapped byte is refused (see ime_feed).
+static bool is_punct_key(char ch) {
+    switch (ch) {
+        case ',':
+        case '.':
+        case '<':
+        case '>':
+        case '/':
+        case '?':
+        case ';':
+        case ':':
+        case '\'':
+        case '"':
+        case '\\':
+        case '|':
+        case '`':
+        case '~':
+        case '!':
+        case '@':
+        case '#':
+        case '%':
+        case '$':
+        case '^':
+        case '&':
+        case '*':
+        case '(':
+        case ')':
+        case '-':
+        case '_':
+        case '+':
+        case '=':
+        case '[':
+        case ']':
+        case '{':
+        case '}':
+            return true;
+        default:
+            return false;
+    }
+}
+
 App::App() = default;
 
 App::~App() {
@@ -184,6 +228,24 @@ void App::refresh_ime_snapshot() {
     ime_snapshot_.mode = (ime_->mode() == ImeMode::Chinese) ? "拼" : "EN";
     ime_snapshot_.candidates = ime_->candidates();
     ime_snapshot_.buffer = ime_->buffer();
+}
+
+bool App::ime_feed(char ch) {
+    if (!ime_)
+        return false;
+    if (!ime_->input(ch))
+        return false;
+    // Rain / selectless commit: librime can emit text as a direct side effect
+    // of a key (full-width punctuation, auto-commit). Forward it now; the
+    // composition state is irrelevant once the bytes are out.
+    if (auto committed = ime_->take_commit(); !committed.empty()) {
+        std::string utf8;
+        for (char32_t c : committed) {
+            utf8 += utf8::encode(c);
+        }
+        pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+    }
+    return true;
 }
 
 void App::render_candidates_bar(bool refresh) {
@@ -482,19 +544,29 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 }
                 continue;
             } else if (ch == ',' || ch == '<') {
-                // Previous group of candidates.
+                // Selecting: page to the previous group. Composing: the byte is
+                // punctuation, so librime's punctuator commits '，' instead.
                 if (ime_->state() == ImeState::Selecting) {
                     advance_candidate_window(-1);
                     render();
                     continue;
                 }
+                if (ime_feed(ch)) continue;
             } else if (ch == '.' || ch == '>') {
-                // Next group of candidates.
+                // Selecting: page to the next group. Composing: commit '。'.
                 if (ime_->state() == ImeState::Selecting) {
                     advance_candidate_window(1);
                     render();
                     continue;
                 }
+                if (ime_feed(ch)) continue;
+            } else if (is_punct_key(ch)) {
+                // Punctuation mid-composition goes through librime's punctuator
+                // so the full-width form is committed while the composition
+                // stays up. A byte rime does not map is dropped rather than
+                // leaked to the shell, which would splice a stray character
+                // into the middle of a half-typed word.
+                if (ime_feed(ch)) continue;
             }
             // Other keys are ignored while composing
             spdlog::debug("IME composing: ignoring key 0x{:02x}", byte);
@@ -508,16 +580,22 @@ void App::on_keyboard_data(const char* data, size_t len) {
         // so in_escape() alone cannot tell — the forwarded result beginning
         // with ESC is the reliable signal. The sequence is forwarded below.
         bool completed_escape = input_result.forward && !input_result.data.empty() && input_result.data[0] == 0x1b;
+        const bool chinese_ime_key = ime_->mode() == ImeMode::Chinese && !completed_escape &&
+                                     !input_processor_.in_escape() && is_punct_key(static_cast<char>(byte));
         if (ime_->mode() == ImeMode::Chinese && byte >= 'a' && byte <= 'z' && !completed_escape &&
             !input_processor_.in_escape()) {
-            bool accepted = ime_->input(static_cast<char>(byte));
             selected_candidate_ = 0;
-            if (accepted) {
-                need_render_ = true;
-            } else {
-                render();
-            }
+            need_render_ = ime_feed(static_cast<char>(byte));
             continue;
+        }
+        if (chinese_ime_key) {
+            // Punctuation in Chinese mode belongs to librime's punctuator, which
+            // commits the full-width form (',' → '，', '?' → '？'). rime only
+            // reports the key as accepted; the text arrives via take_commit().
+            // An unmapped byte is not ours: fall through and hand it to the PTY.
+            if (ime_feed(static_cast<char>(byte))) {
+                continue;
+            }
         }
 
         // Forward to shell if requested

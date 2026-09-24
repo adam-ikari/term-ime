@@ -43,14 +43,16 @@ jobs:
           fi
           echo "OK: fully static, zero runtime deps"
 
-      - name: Pack artifact (binary + rime-data)
+      - name: Pack artifact (binary + rime-data + translations)
         run: |
           mkdir -p dist/term-ime/bin
           mkdir -p dist/term-ime/share/term-ime/rime-data
+          mkdir -p dist/term-ime/share/term-ime/translations
           # 主命令名是短命令 `ti`（terminal input）；`term-ime` 作为兼容别名符号链接。
           cp build/term-ime dist/term-ime/bin/ti
           ln -sf ti dist/term-ime/bin/term-ime
           cp -r build/share/rime-data/* dist/term-ime/share/term-ime/rime-data/
+          cp data/translations/*.json dist/term-ime/share/term-ime/translations/
           cp README.md dist/term-ime/
           tar -czf term-ime-linux-x86_64.tar.gz -C dist term-ime
           sha256sum term-ime-linux-x86_64.tar.gz > term-ime-linux-x86_64.tar.gz.sha256

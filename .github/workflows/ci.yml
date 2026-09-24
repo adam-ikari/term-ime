@@ -83,6 +83,8 @@ jobs:
         python3 tests/test_simplified_candidates.py
         echo ">> test_fuzzy_pinyin (per-group toggles)"
         python3 tests/test_fuzzy_pinyin.py
+        echo ">> test_punctuation"
+        python3 tests/test_punctuation.py
 
   website:
     # The docs are user-facing: a broken build (bad mdx, broken links) must
@@ -117,3 +119,70 @@ jobs:
       run: |
         find src -name "*.cpp" -o -name "*.hpp" | xargs clang-format --dry-run --Werror
       continue-on-error: true
+
+  install-test:
+    # End-to-end check of the one-line installer (curl | bash). Rebuilds the
+    # release tarball locally (same layout as release.yml), serves it over a
+    # throwaway HTTP server, then pipes it through website/static/install.sh
+    # via TERM_IME_DOWNLOAD_BASE and asserts the installed `ti` binary works.
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake pkg-config
+
+    - name: Configure & build
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --config Release -j$(nproc)
+
+    - name: Pack release tarball (mirror release.yml)
+      run: |
+        mkdir -p dist/term-ime/bin
+        mkdir -p dist/term-ime/share/term-ime/rime-data
+        mkdir -p dist/term-ime/share/term-ime/translations
+        cp build/term-ime dist/term-ime/bin/ti
+        ln -sf ti dist/term-ime/bin/term-ime
+        cp -r build/share/rime-data/* dist/term-ime/share/term-ime/rime-data/
+        cp data/translations/*.json dist/term-ime/share/term-ime/translations/
+        cp README.md dist/term-ime/
+        tar -czf term-ime-linux-x86_64.tar.gz -C dist term-ime
+        sha256sum term-ime-linux-x86_64.tar.gz > term-ime-linux-x86_64.tar.gz.sha256
+
+    - name: Run installer and verify binary
+      run: |
+        set -euo pipefail
+        python3 -m http.server 8899 --directory . >/tmp/httpserver.log 2>&1 &
+        SERVER_PID=$!
+        trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+        sleep 1
+
+        PREFIX="$(mktemp -d)/ime"
+        TERM_IME_DOWNLOAD_BASE="http://127.0.0.1:8899" \
+          bash website/static/install.sh --version v9.9.9 --prefix "$PREFIX" \
+          | tee /tmp/install.log
+        grep -q "Installed rime-data" /tmp/install.log
+        grep -q "Installed translations" /tmp/install.log
+
+        test -x "$PREFIX/bin/ti"
+        test -L "$PREFIX/bin/term-ime"
+        test "$(readlink "$PREFIX/bin/term-ime")" = "ti"
+
+        # The real TUI needs a PTY (already covered by the `e2e` job, which
+        # drives the freshly-built binary). Here we assert the installer's
+        # hand-off is sound: binary placed, alias symlinked, data installed,
+        # statically linked, and the script is syntactically clean.
+        bash -n website/static/install.sh
+        file "$PREFIX/bin/ti" | grep -q "statically linked"
+        test -s "$PREFIX/bin/term-ime"
+        test -f "$PREFIX/share/term-ime/rime-data/essay.txt"
+        test -f "$PREFIX/share/term-ime/translations/zh-CN.json"
+        echo "OK: install-test passed"

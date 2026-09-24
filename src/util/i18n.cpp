@@ -1,5 +1,6 @@
 #include "i18n.hpp"
 #include <nlohmann/json.hpp>
+#include <cstdlib>
 #include <fstream>
 #include <spdlog/spdlog.h>
 
@@ -71,22 +72,38 @@ I18n::Lang I18n::parse_lang(const std::string& code) {
 }
 
 std::filesystem::path I18n::get_default_translations_path() {
-    // Try multiple paths in order
+    // Search order mirrors RimeIme's rime-data resolution so a portable/prefix
+    // install finds its own bundled files before any system-wide copy.
     std::vector<std::filesystem::path> search_paths;
 
-    // 1. Build directory (current working directory)
+    // 1. Build tree / CWD (developer runs, `cmake` copies data/translations here).
     search_paths.push_back(std::filesystem::current_path() / "data" / "translations");
 
-    // 2. Executable directory (for portable installs)
-    // This allows running from build directory or portable installs
+    // 2. Alongside the executable: <bindir>/../share/term-ime/translations and
+    //    <bindir>/data/translations. Resolved via /proc/self/exe, which is the
+    //    only reliable way to locate a fully static binary's own directory
+    //    (argv[0] may be a bare name resolved through PATH).
+    std::error_code ec;
+    const auto exe = std::filesystem::read_symlink("/proc/self/exe", ec);
+    if (!ec) {
+        const auto bin_dir = exe.parent_path();
+        search_paths.push_back(bin_dir / ".." / "share" / "term-ime" / "translations");
+        search_paths.push_back(bin_dir / "data" / "translations");
+    }
 
-    // 3. System install paths
-    search_paths.push_back(std::filesystem::path("/usr/share/term-ime/translations"));
+    // 3. User-local install (install.sh default prefix).
+    if (const char* home = getenv("HOME"); home && *home) {
+        search_paths.push_back(std::filesystem::path(home) / ".local" / "share" / "term-ime" / "translations");
+    }
+
+    // 4. System install paths.
     search_paths.push_back(std::filesystem::path("/usr/local/share/term-ime/translations"));
+    search_paths.push_back(std::filesystem::path("/usr/share/term-ime/translations"));
 
-    // Find first existing path
+    // First path that actually holds a translation file wins: an empty
+    // directory (e.g. a leftover install dir) must not shadow a real one.
     for (const auto& path : search_paths) {
-        if (std::filesystem::exists(path)) {
+        if (std::filesystem::exists(path / "en.json") || std::filesystem::exists(path / "zh-CN.json")) {
             spdlog::debug("Found translations path: {}", path.string());
             return path;
         }
@@ -132,17 +149,47 @@ void I18n::load_default_translations(Lang lang) {
     switch (lang) {
     case Lang::ZH_CN:
         translations_ = {
-            {"mode.chinese", "中文"},   {"mode.english", "EN"},     {"hint.toggle_mode", "切换"},
-            {"hint.select", "选择"},    {"hint.cancel", "取消"},    {"status.pinyin", "拼音"},
-            {"settings.title", "设置"}, {"settings.close", "关闭"}, {"settings.ui_language", "界面语言"},
+            {"mode.chinese", "中文"},
+            {"mode.english", "EN"},
+            {"hint.toggle_mode", "切换"},
+            {"hint.select", "选择"},
+            {"hint.cancel", "取消"},
+            {"status.pinyin", "拼音"},
+            {"status.initializing", "初始化中…"},
+            {"settings.title", "设置"},
+            {"settings.close", "关闭"},
+            {"settings.ui_language", "界面语言"},
+            {"settings.max_candidates", "候选词数量"},
+            {"settings.fuzzy.zh_z", "模糊音 平翘舌"},
+            {"settings.fuzzy.n_l", "模糊音 n/l"},
+            {"settings.fuzzy.r", "模糊音 r 系"},
+            {"settings.fuzzy.hu_f", "模糊音 h/f"},
+            {"settings.fuzzy.nose", "模糊音 前后鼻音"},
+            {"option.off", "关"},
+            {"option.on", "开"},
         };
         break;
 
     default:
         translations_ = {
-            {"mode.chinese", "中文"},       {"mode.english", "EN"},      {"hint.toggle_mode", "Toggle"},
-            {"hint.select", "Select"},      {"hint.cancel", "Cancel"},   {"status.pinyin", "Pinyin"},
-            {"settings.title", "Settings"}, {"settings.close", "Close"}, {"settings.ui_language", "UI Language"},
+            {"mode.chinese", "中文"},
+            {"mode.english", "EN"},
+            {"hint.toggle_mode", "Toggle"},
+            {"hint.select", "Select"},
+            {"hint.cancel", "Cancel"},
+            {"status.pinyin", "Pinyin"},
+            {"status.initializing", "Initializing…"},
+            {"settings.title", "Settings"},
+            {"settings.close", "Close"},
+            {"settings.ui_language", "UI Language"},
+            {"settings.max_candidates", "Candidates"},
+            {"settings.fuzzy.zh_z", "Fuzzy zh/z"},
+            {"settings.fuzzy.n_l", "Fuzzy n/l"},
+            {"settings.fuzzy.r", "Fuzzy r"},
+            {"settings.fuzzy.hu_f", "Fuzzy h/f"},
+            {"settings.fuzzy.nose", "Fuzzy -n/-ng"},
+            {"option.off", "Off"},
+            {"option.on", "On"},
         };
         break;
     }

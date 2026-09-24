@@ -284,6 +284,7 @@ install(FILES
 )
 
 install(FILES data/pinyin.dict DESTINATION share/term-ime)
+install(DIRECTORY data/translations DESTINATION share/term-ime)
 
 # Copy data directory to build for testing
 configure_file(${CMAKE_SOURCE_DIR}/data/pinyin.dict ${CMAKE_BINARY_DIR}/data/pinyin.dict COPYONLY)
