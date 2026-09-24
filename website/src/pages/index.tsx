@@ -22,7 +22,7 @@ const structuredData = {
       applicationCategory: 'UtilityApplication',
       operatingSystem: 'Linux / Unix (TTY, no desktop required)',
       description:
-        '终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。输入法引擎库（term-ime-lib，封装 librime）加 TUI 输入法组件（候选栏/状态栏/设置面板），静态单文件。',
+        '终端里能用中文输入法：无 X、无 Wayland、无 D-Bus。输入法引擎库（term-ime-lib，封装 librime）加 TUI 输入法组件（候选栏/状态栏/设置面板），静态单文件。',
       url: SITE_URL,
       license: 'https://opensource.org/licenses/MIT',
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -256,7 +256,7 @@ function Hero() {
               <span className={styles.badge}>MIT</span>
             </div>
             <Heading as="h1" className={styles.heroTitle}>
-              终端上，终于能打中文了
+              终端里的中文输入法
             </Heading>
             <p className={styles.heroTagline}>
               不装 X、Wayland、D-Bus，一个静态单文件丢进去就能用。SSH、Docker、
@@ -427,25 +427,20 @@ function QuickStart() {
     {
       title: '安装',
       copy: INSTALL_CMD,
-      code: `# 免 sudo，装到 ~/.local/bin；静态单文件，零依赖\n${INSTALL_CMD}`,
-      out: `>> Installing term-ime v1.1.0
->> Verifying checksum
->> Installed: ~/.local/bin/ti (alias: term-ime)
->> Run: ti`,
+      code: `# 免 sudo，装到 ~/.local/bin；静态单文件，零依赖
+${INSTALL_CMD}`,
     },
     {
       title: '运行',
       copy: 'ti',
-      code: `# 短命令 ti（term-ime 为兼容别名）；需真实 TTY 或支持 alternate screen 的终端\nti`,
-      out: `~/project on master ................. with you@host at 16:07:19
->
- [EN]              ^A Space 切换 | ^A S 设置`,
+      code: `# 短命令 ti（term-ime 为兼容别名）；需真实 TTY 或支持 alternate screen 的终端
+ti`,
     },
     {
       title: '打字',
       copy: '',
-      code: `# Ctrl+A 然后 Space 切中英文\n# 输拼音 nihao，按 1 或空格上屏「你好」`,
-      out: `> [拼]  ni hao  1.你好  2.逆号  3.你  4.拟  5.尼  6.泥  7.呢`,
+      code: `# Ctrl+A 然后 Space 切中英文
+# 输拼音 nihao，按 1 或空格上屏「你好」`,
     },
   ];
   return (
@@ -457,9 +452,13 @@ function QuickStart() {
         <div className={styles.steps}>
           {steps.map((s, i) => (
             <div key={s.title} className={styles.stepCard}>
-              <div className={styles.stepHead}>
-                <span className={styles.stepNum}>{i + 1}</span>
-                <span className={styles.stepTitle}>{s.title}</span>
+              <Heading as="h3" className={styles.stepTitle}>
+                {i + 1}. {s.title}
+              </Heading>
+              <div className={styles.stepCodeWrap}>
+                <pre className={styles.stepCode}>
+                  <code>{s.code}</code>
+                </pre>
                 {s.copy && (
                   <CopyButton
                     text={s.copy}
@@ -468,12 +467,6 @@ function QuickStart() {
                   />
                 )}
               </div>
-              <pre className={styles.stepCode}>
-                <code>{s.code}</code>
-              </pre>
-              <pre className={styles.stepOut}>
-                <code>{s.out}</code>
-              </pre>
             </div>
           ))}
         </div>
@@ -683,7 +676,7 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title={siteConfig.title}
-      description="终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音加候选栏/状态栏 TUI 组件，静态单文件，一条命令安装。">
+      description="终端里的中文输入法：无 X、无 Wayland、无 D-Bus。librime 拼音加候选栏/状态栏 TUI 组件，静态单文件，一条命令安装。">
       <Head>
         <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
       </Head>

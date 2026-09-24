@@ -22,7 +22,7 @@ const config: Config = {
   headTags: [
     {
       tagName: 'meta',
-      attributes: {name: 'description', content: '终端上，终于能打中文了：无 X、无 Wayland、无 D-Bus 的终端中文输入法。librime 拼音加候选栏/状态栏 TUI 组件，静态单文件，一条命令安装。'},
+      attributes: {name: 'description', content: '终端里的中文输入法：无 X、无 Wayland、无 D-Bus。librime 拼音加候选栏/状态栏 TUI 组件，静态单文件，一条命令安装。'},
     },
     {
       tagName: 'meta',
@@ -30,7 +30,7 @@ const config: Config = {
     },
     {
       tagName: 'meta',
-      attributes: {property: 'og:title', content: '终端输入法 — 终端上，终于能打中文了'},
+      attributes: {property: 'og:title', content: 'term-ime — 终端里的中文输入法'},
     },
     {
       tagName: 'meta',
@@ -54,7 +54,7 @@ const config: Config = {
     },
     {
       tagName: 'meta',
-      attributes: {name: 'twitter:title', content: '终端输入法 — 终端上，终于能打中文了'},
+      attributes: {name: 'twitter:title', content: 'term-ime — 终端里的中文输入法'},
     },
     {
       tagName: 'meta',

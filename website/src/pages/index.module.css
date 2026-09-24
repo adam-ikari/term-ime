@@ -478,60 +478,45 @@ thead .colWin {
 /* steps */
 
 .steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  max-width: 780px;
 }
 
 .stepCard {
-  border: 1px solid #26332e;
-  background: #101614;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.stepHead {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: #131b18;
-  border-bottom: 1px solid #26332e;
-}
-
-.stepNum {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #00ff9c;
-  color: #06110c;
-  font-family: var(--ifm-font-family-monospace);
-  font-size: 12px;
-  font-weight: 700;
+  display: block;
 }
 
 .stepTitle {
-  flex: 1;
-  font-size: 13.5px;
-  color: #dfe9e5;
+  font-size: 16px;
   font-weight: 600;
+  color: #dfe9e5;
+  margin: 0 0 10px;
+}
+
+.stepCodeWrap {
+  position: relative;
 }
 
 .stepCopy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   border-left: none !important;
   border: 1px solid #2f5c48;
   border-radius: 4px;
-  padding: 4px 10px !important;
+  padding: 3px 10px !important;
   font-size: 12px !important;
+  background: #0e1613;
 }
 
 .stepCode {
   margin: 0;
-  padding: 14px;
+  padding: 14px 16px;
   background: #070b09;
+  border: 1px solid #26332e;
+  border-radius: 6px;
   font-family: var(--ifm-font-family-monospace);
   font-size: 12.5px;
   line-height: 1.7;
@@ -544,89 +529,17 @@ thead .colWin {
   background: transparent;
 }
 
-/* 真实终端反馈：与命令区分隔，左侧绿线表示“输出” */
-.stepOut {
-  margin: 0;
-  padding: 12px 14px;
-  background: #0a120e;
-  border-top: 1px solid #1c2a24;
-  border-left: 2px solid #1f6b4a;
-  font-family: var(--ifm-font-family-monospace);
-  font-size: 11.5px;
-  line-height: 1.65;
-  color: #7fd6a8;
-  overflow-x: auto;
-  white-space: pre;
-}
-
-.stepOut code {
-  color: inherit;
-  background: transparent;
-}
-
-/* 移动端：三条命令改为纵向时间线（序号在左、内容在右），
-   代码块换行而不是横向滚动，避免小屏上被截断。 */
+/* 移动端：代码块换行而不是横向滚动，避免小屏上被截断。 */
 @media (max-width: 700px) {
   .steps {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
-  .stepCard {
-    position: relative;
-    border: none;
-    background: transparent;
-    border-radius: 0;
-    overflow: visible;
-    padding: 0 0 22px 34px;
-  }
-
-  /* 时间线竖线：贯穿整卡，末卡不画 */
-  .stepCard::before {
-    content: '';
-    position: absolute;
-    left: 10px;
-    top: 26px;
-    bottom: 0;
-    width: 1px;
-    background: #26332e;
-  }
-
-  .stepCard:last-child::before {
-    display: none;
-  }
-
-  .stepHead {
-    padding: 0 0 10px;
-    background: transparent;
-    border-bottom: none;
-  }
-
-  .stepNum {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 21px;
-    height: 21px;
+    gap: 22px;
   }
 
   .stepCode {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     overflow-x: visible;
-    border: 1px solid #26332e;
-    border-radius: 6px;
     font-size: 12px;
-  }
-
-  .stepOut {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    overflow-x: visible;
-    border: 1px solid #26332e;
-    border-top: none;
-    border-radius: 0 0 6px 6px;
-    font-size: 11.5px;
   }
 }
 

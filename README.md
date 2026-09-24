@@ -1,4 +1,4 @@
-# term-ime — 终端上，终于能打中文了
+# term-ime — 终端里的中文输入法
 
 > **term-ime 是一个 Linux TTY 终端输入法（TTY IME / terminal input method）**：不装 X、不装 Wayland、不碰 D-Bus，一个完全静态的单文件二进制，把 librime 拼音带进 SSH、Docker、WSL 和信创机器（麒麟 / UOS）的纯终端。
 >
