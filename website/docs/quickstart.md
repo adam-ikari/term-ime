@@ -33,6 +33,25 @@ make build
 终端用等宽字体（[Maple Mono](https://github.com/subframe7536/maple-font)、Sarasa Mono、JetBrains Mono 都行），中文和候选词对齐最好。
 :::
 
+## 日常使用
+
+:::caution
+需在真实 TTY 或支持 alternate screen 的终端中运行。
+:::
+
+```bash
+ti
+```
+
+1. `Ctrl+A` 再按 `Space`：切中英文，状态栏左侧显示 `[拼]` / `[英]`
+2. 输拼音（如 `nihao`）：候选出现在状态栏，按 `1`–`9` 或空格上屏，`Esc` 取消整段输入
+3. `,` / `.`（或方向键、`PgUp` / `PgDn`）翻页，`Backspace` 删一个字母，`'` 分隔音节（`ni'hao`）
+4. `Ctrl+A` `S` 打开设置面板，`Ctrl+A` `Ctrl+C` 退出，或直接敲 `exit` 退出 shell
+
+状态栏固定占终端最后一行，显示模式、拼音串和候选词；窄终端只显示放得下的候选，不会露半截词。
+
+完整按键见[快捷键](/docs/shortcuts)，口音相关的打法见[模糊音](/docs/fuzzy)。
+
 ## 配置（可选）
 
 配置文件在 `~/.config/term-ime/config.json`，在这里开关语言、切界面语言。
@@ -50,6 +69,4 @@ make build
 }
 ```
 
-:::caution
-需在真实 TTY 或支持 alternate screen 的终端中运行。
-:::
+字段含义见[配置](/docs/config)。

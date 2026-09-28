@@ -355,6 +355,13 @@
   padding: 5px 14px;
 }
 
+.chipsLabel {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 12.5px;
+  color: #4d7a66;
+  padding: 5px 4px 5px 0;
+}
+
 /* ========================================================= sections ==== */
 
 .section {
@@ -380,6 +387,17 @@
 .sectionTitle::before {
   content: '# ';
   color: #3d6b57;
+}
+
+/* 同一区块内的小标题（对比表、嵌入库） */
+.subTitle {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 16.5px;
+  font-weight: 700;
+  color: #e5efe9;
+  margin: 48px 0 18px;
+  padding-top: 34px;
+  border-top: 1px solid #1a2822;
 }
 
 /* pain cards */

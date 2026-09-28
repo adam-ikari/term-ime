@@ -12,6 +12,33 @@ const SITE_URL = 'https://adam-ikari.github.io/term-ime/';
 const INSTALL_CMD =
   'curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash';
 
+const HERO_TAGLINE =
+  'SSH 上改配置、写 commit，打句中文得先回桌面。term-ime 直接读写终端字符流，零图形依赖，一条命令装完。';
+
+// 首页 FAQ 与 JSON-LD 共用同一份数据：页面显示什么，搜索引擎就看到什么。
+const FAQS: [string, string][] = [
+  [
+    '什么是终端输入法？',
+    '在没有桌面的纯终端里打中文的输入法。term-ime 直接读写终端字符流，SSH、容器、最小化安装的控制台都能用。',
+  ],
+  [
+    '预编译包支持哪些架构？',
+    'install.sh 只发布 linux-x86_64。ARM64、LoongArch、SW64 从源码编译，只需要 gcc / cmake 工具链，不装任何 -dev 包。',
+  ],
+  [
+    '能嵌进我自己的程序吗？',
+    '能。term-ime-lib 用 ImeEngine 接口封装 librime，term-terminal 提供候选栏、状态栏、设置面板，TUI 程序接上就能打拼音。',
+  ],
+  [
+    'term-ime 支持模糊音吗？',
+    '支持，5 组独立开关：平翘舌、n/l、r 系、h/f、前后鼻音，在设置面板或配置文件 fuzzy_groups 里逐组切换，默认全开。',
+  ],
+  [
+    '安装后的命令是什么？',
+    '主命令是短命令 ti，term-ime 为兼容别名。项目名是 term-ime，不是 term-time。',
+  ],
+];
+
 // AI-SEO: structured data for search engines / AI answer engines (JSON-LD).
 const structuredData = {
   '@context': 'https://schema.org',
@@ -22,7 +49,7 @@ const structuredData = {
       applicationCategory: 'UtilityApplication',
       operatingSystem: 'Linux / Unix (TTY, no desktop required)',
       description:
-        '终端里能用中文输入法：无 X、无 Wayland、无 D-Bus。输入法引擎库（term-ime-lib，封装 librime）加 TUI 输入法组件（候选栏/状态栏/设置面板），静态单文件。',
+        '终端输入法：输入法引擎库（term-ime-lib，封装 librime）加 TUI 输入法组件（候选栏/状态栏/设置面板），静态单文件，直接读写终端字符流。',
       url: SITE_URL,
       license: 'https://opensource.org/licenses/MIT',
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -30,56 +57,11 @@ const structuredData = {
     },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: '什么是 TTY 输入法 / 终端中文输入法？',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'TTY 输入法是在没有桌面环境的纯终端（Linux TTY、SSH、Docker、WSL）里输入中文的输入法。term-ime 直接读写终端，不需要 X、Wayland、D-Bus 或任何桌面输入法框架。',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'term-ime 可以作为输入法库嵌入其他程序吗？',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: '可以。term-ime-lib 是独立静态库，通过很小的 ImeEngine C++ 接口封装 librime，任何 TUI 程序、编辑器插件或终端模拟器都能嵌入获得中文拼音输入。',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'term-ime 的 TUI 输入法组件包含什么？',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: '候选栏（宽度自适应、去重重绘）、状态栏（独占最后一行）、设置面板（全屏覆盖层，含模糊音 5 组独立开关、候选数量、界面语言）。通过 term-terminal 库复用，带完整 SGR 颜色和 CJK 宽字符对齐。',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'term-ime 支持模糊音吗？',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: '支持，且按组独立开关：平翘舌（zh/z）、n/l、r 系、h/f、前后鼻音（en/eng、in/ing、an/ang）。可在设置面板或配置文件（fuzzy_groups）中逐类配置，默认全开。',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: '预编译包支持哪些架构？',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'install.sh 只发布 linux-x86_64 预编译包。ARM64、LoongArch、SW64 等架构从源码编译，构建只需要 gcc / cmake 工具链，不需要任何第三方系统库。',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'term-ime 的运行命令是什么？',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: '安装后主命令是短命令 ti（terminal input），并保留 term-ime 作为兼容别名，二者等价。注意项目名是 term-ime（不是 term-time）：它是 Linux TTY 终端中文输入法，基于 librime 拼音。',
-          },
-        },
-      ],
+      mainEntity: FAQS.map(([q, a]) => ({
+        '@type': 'Question',
+        name: q,
+        acceptedAnswer: {'@type': 'Answer', text: a},
+      })),
     },
   ],
 };
@@ -256,12 +238,9 @@ function Hero() {
               <span className={styles.badge}>MIT</span>
             </div>
             <Heading as="h1" className={styles.heroTitle}>
-              终端里的中文输入法
+              终端输入法
             </Heading>
-            <p className={styles.heroTagline}>
-              不装 X、Wayland、D-Bus，一个静态单文件丢进去就能用。SSH、Docker、
-              WSL，或者一台没装桌面的 Linux server。
-            </p>
+            <p className={styles.heroTagline}>{HERO_TAGLINE}</p>
 
             <div className={styles.installBox}>
               <code className={styles.installCmd}>
@@ -271,7 +250,8 @@ function Hero() {
               <CopyButton text={INSTALL_CMD} label="复制" />
             </div>
             <p className={styles.installNote}>
-              装到 ~/.local/bin，不需要 sudo。预编译包为 linux-x86_64，其他架构源码编译。
+              免 sudo，装到 ~/.local/bin；其他装法见
+              <Link to="/docs/quickstart">快速开始</Link>。
             </p>
 
             <div className={styles.buttons}>
@@ -302,11 +282,11 @@ function Hero() {
               </div>
               <div className={styles.stat}>
                 <span className={styles.statValue}>1</span>
-                <span className={styles.statLabel}>个文件拷贝即用</span>
+                <span className={styles.statLabel}>个静态二进制</span>
               </div>
               <div className={styles.stat}>
                 <span className={styles.statValue}>5</span>
-                <span className={styles.statLabel}>组模糊音独立开关</span>
+                <span className={styles.statLabel}>组模糊音</span>
               </div>
               <div className={styles.stat}>
                 <span className={styles.statValue}>MIT</span>
@@ -321,6 +301,7 @@ function Hero() {
         </div>
 
         <div className={styles.chips}>
+          <span className={styles.chipsLabel}>用在哪</span>
           {[
             'SSH 生产机',
             'Docker 容器',
@@ -339,26 +320,33 @@ function Hero() {
   );
 }
 
-function Pains() {
+function Why() {
   const pains = [
     {
-      title: '终端上写不了中文',
-      desc: '想在 commit message、配置注释里写句话，只能切回桌面打好再粘过来，剪贴板还常常被终端搞乱。',
+      title: '写中文得来回切屏',
+      desc: '在本地窗口打好再粘回来，剪贴板还常常被终端搞乱。',
     },
     {
-      title: '最小化安装的 server 打不出中文',
-      desc: '没装桌面，控制台连输入法框架都没有，想写句中文注释只能拿拼音字母硬凑。',
+      title: '服务器上压根没有输入法',
+      desc: '最小化安装没有桌面，也没有输入法框架，中文注释只能拿拼音字母硬凑。',
     },
     {
-      title: '容器里配输入法是场噩梦',
-      desc: 'X11 转发、D-Bus、fcitx 一串依赖装完还未必能用，镜像大一圈，问题照样复现。',
+      title: '容器里装输入法太费劲',
+      desc: 'X11 转发、D-Bus、fcitx 装一大堆，镜像大一圈，装完还未必能用。',
     },
+  ];
+  const rows: [string, string, string, string][] = [
+    ['SSH 会话里直接打字', '否，得切回本地', '勉强，依赖转发和字体', '可以'],
+    ['需要桌面 / 图形栈', '不适用', 'X、fcitx、X11 转发', '都不需要'],
+    ['无桌面的最小系统', '否', '否', '可以'],
+    ['容器 & WSL', '否', '否', '可以'],
+    ['安装成本', '不适用', '多个系统包 + 配置', '一条命令，一个文件'],
   ];
   return (
     <section className={styles.section}>
       <div className="container">
         <Heading as="h2" className={styles.sectionTitle}>
-          在这些地方，你连一句中文都打不出来
+          没有输入法的终端有多难用
         </Heading>
         <div className={styles.painGrid}>
           {pains.map((p, i) => (
@@ -373,24 +361,9 @@ function Pains() {
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
 
-function Compare() {
-  const rows: [string, string, string, string][] = [
-    ['在 SSH 会话里直接打', '否，要切回本地', '勉强，依赖转发与字体', '是'],
-    ['需要桌面 / 图形栈', '—', '需要 X、fcitx、X11 转发', '都不需要'],
-    ['无桌面的最小系统', '否', '否', '是'],
-    ['容器 & WSL', '否', '否', '是'],
-    ['安装成本', '—', '多个系统包 + 配置', '一条命令，一个文件'],
-  ];
-  return (
-    <section className={clsx(styles.section, styles.sectionAlt)}>
-      <div className="container">
-        <Heading as="h2" className={styles.sectionTitle}>
-          三种做法，你大概都试过
+        <Heading as="h3" className={styles.subTitle}>
+          跟复制粘贴、X11 转发比
         </Heading>
         <div className={styles.tableWrap}>
           <table className={styles.compareTable}>
@@ -415,7 +388,7 @@ function Compare() {
           </table>
         </div>
         <p className={styles.tableNote}>
-          term-ime 直接读写终端字符流，不经过图形输入法框架，没桌面的机器照样能用。
+          term-ime 直接读写终端字符流，不经过图形输入法框架。
         </p>
       </div>
     </section>
@@ -425,29 +398,26 @@ function Compare() {
 function QuickStart() {
   const steps = [
     {
-      title: '安装',
-      copy: INSTALL_CMD,
-      code: `# 免 sudo，装到 ~/.local/bin；静态单文件，零依赖
-${INSTALL_CMD}`,
-    },
-    {
-      title: '运行',
+      title: '启动',
       copy: 'ti',
-      code: `# 短命令 ti（term-ime 为兼容别名）；需真实 TTY 或支持 alternate screen 的终端
-ti`,
+      code: `# 短命令 ti（term-ime 为兼容别名）\nti`,
     },
     {
-      title: '打字',
+      title: '切中文',
       copy: '',
-      code: `# Ctrl+A 然后 Space 切中英文
-# 输拼音 nihao，按 1 或空格上屏「你好」`,
+      code: `# Ctrl+A 然后 Space，中英文之间来回切\nCtrl+A  Space`,
+    },
+    {
+      title: '打字上屏',
+      copy: '',
+      code: `# 输拼音，按 1 或空格上屏；逗号句号翻页\nnihao  →  你好`,
     },
   ];
   return (
-    <section className={styles.section}>
+    <section className={clsx(styles.section, styles.sectionAlt)}>
       <div className="container">
         <Heading as="h2" className={styles.sectionTitle}>
-          三条命令开始
+          装完怎么用
         </Heading>
         <div className={styles.steps}>
           {steps.map((s, i) => (
@@ -471,8 +441,8 @@ ti`,
           ))}
         </div>
       <p className={styles.tableNote}>
-        完整说明见 <Link to="/docs/quickstart">快速开始</Link>，
-        快捷键见 <Link to="/docs/shortcuts">快捷键</Link>。
+        完整按键见<Link to="/docs/shortcuts">快捷键</Link>，其他装法见
+        <Link to="/docs/quickstart">快速开始</Link>。
       </p>
       </div>
     </section>
@@ -483,34 +453,50 @@ function Features() {
   const features = [
     {
       title: 'librime 拼音',
-      desc: '正经 Rime 引擎，词库和候选排序跟桌面版同源，不是简单的逐字匹配。',
+      desc: '词库和候选排序跟桌面版 Rime 同源。',
     },
     {
       title: '5 组模糊音',
-      desc: '平翘舌、n/l、r 系、h/f、前后鼻音逐组开关，默认全开，全关即精确拼音。',
+      desc: '平翘舌、n/l、r 系、h/f、前后鼻音，一组一个开关。',
     },
     {
       title: '静态单文件',
-      desc: 'ldd 显示 not a dynamic executable，没有任何 .so 依赖，拷过去就能跑。',
+      desc: 'ldd 显示 not a dynamic executable，拷到别的机器也能跑。',
     },
     {
       title: '自适应候选栏',
-      desc: '按终端宽度只显示放得下的候选，不会露半截词；逗号、句号成组翻页。',
+      desc: '窄终端只显示放得下的候选，逗号句号翻页。',
     },
     {
-      title: '状态栏 + 设置面板',
-      desc: '状态栏独占最后一行；Ctrl+A S 打开设置，调候选数、界面语言、模糊音。',
+      title: '状态栏和设置面板',
+      desc: '状态栏占最后一行，Ctrl+A S 打开设置，调候选数和模糊音。',
     },
     {
-      title: '中文不把界面撑歪',
-      desc: 'CJK 宽字符右半格对齐、SGR 16 色、ED/EL 擦除，中文和颜色都不会错位。',
+      title: '中文不错位',
+      desc: 'CJK 宽字符对齐，SGR 颜色，重绘不会留半个字。',
+    },
+  ];
+  const libs = [
+    {
+      title: 'term-ime-lib',
+      subtitle: '输入法引擎库',
+      desc: 'ImeEngine 接口封装 librime，TUI 程序、编辑器插件嵌进来就有拼音输入。',
+      to: '/docs/library',
+      linkLabel: '输入法库文档',
+    },
+    {
+      title: 'term-terminal',
+      subtitle: 'TUI 输入法组件',
+      desc: '候选栏、状态栏、设置面板三个现成组件，自带颜色和中文对齐。',
+      to: '/docs/tui-component',
+      linkLabel: 'TUI 组件文档',
     },
   ];
   return (
-    <section className={clsx(styles.section, styles.sectionAlt)}>
+    <section className={styles.section}>
       <div className="container">
         <Heading as="h2" className={styles.sectionTitle}>
-          几个关键点
+          功能
         </Heading>
         <div className={styles.featureGrid}>
           {features.map((f) => (
@@ -522,33 +508,9 @@ function Features() {
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
 
-function Embed() {
-  const libs = [
-    {
-      title: 'term-ime-lib',
-      subtitle: '输入法引擎库',
-      desc: '很小的 ImeEngine C++ 接口封装 librime。TUI 程序、编辑器插件、终端模拟器嵌进来就能打拼音。',
-      to: '/docs/library',
-      linkLabel: '输入法库文档',
-    },
-    {
-      title: 'term-terminal',
-      subtitle: 'TUI 输入法组件',
-      desc: '候选栏、状态栏、设置面板三个现成组件，自带 SGR 颜色与 CJK 对齐，接上引擎就是完整输入界面。',
-      to: '/docs/tui-component',
-      linkLabel: 'TUI 组件文档',
-    },
-  ];
-  return (
-    <section className={styles.section}>
-      <div className="container">
-        <Heading as="h2" className={styles.sectionTitle}>
-          想给自己的 TUI 程序加中文输入？
+        <Heading as="h3" className={styles.subTitle}>
+          嵌进你自己的程序
         </Heading>
         <div className={styles.embedGrid}>
           {libs.map((l) => (
@@ -559,7 +521,7 @@ function Embed() {
               </div>
               <p className={styles.embedDesc}>{l.desc}</p>
               <Link className={styles.embedLink} to={l.to}>
-                {l.linkLabel} →
+                {l.linkLabel}
               </Link>
             </div>
           ))}
@@ -570,32 +532,6 @@ function Embed() {
 }
 
 function Faq() {
-  const faqs: [string, ReactNode][] = [
-    [
-      '什么是 TTY 输入法 / 终端中文输入法？',
-      '在没有桌面环境的纯终端里输入中文的输入法。term-ime 直接读写终端字符流，不需要 X、Wayland、D-Bus 或任何桌面输入法框架，所以 SSH、容器、最小化安装的控制台都能用。',
-    ],
-    [
-      '预编译包支持哪些架构？',
-      <>
-        install.sh 只发布 linux-x86_64 预编译包。ARM64、LoongArch、SW64
-        从源码编译，构建只需要 gcc / cmake 工具链，yaml-cpp、leveldb、marisa、opencc
-        都随源码静态编译，不需要装任何 <code>-dev</code> 包。
-      </>,
-    ],
-    [
-      'term-ime 可以作为输入法库嵌入其他程序吗？',
-      '可以。term-ime-lib 是独立静态库，通过 ImeEngine 接口封装 librime，任何 TUI 程序、编辑器插件或终端模拟器都能嵌入获得拼音输入能力。',
-    ],
-    [
-      'term-ime 的 TUI 输入法组件包含什么？',
-      '候选栏（宽度自适应、去重重绘）、状态栏（独占最后一行）、设置面板（全屏覆盖层，含 5 组模糊音开关、候选数量、界面语言），通过 term-terminal 库复用。',
-    ],
-    [
-      'term-ime 支持模糊音吗？',
-      '支持，且按组独立开关：平翘舌（zh/z）、n/l、r 系、h/f、前后鼻音（en/eng、in/ing、an/ang）。在设置面板或配置文件 fuzzy_groups 里逐类配置，默认全开。',
-    ],
-  ];
   return (
     <section className={clsx(styles.section, styles.sectionAlt)}>
       <div className="container">
@@ -603,7 +539,7 @@ function Faq() {
           常见问题
         </Heading>
         <div className={styles.faqList}>
-          {faqs.map(([q, a]) => (
+          {FAQS.map(([q, a]) => (
             <details key={q} className={styles.faqItem}>
               <summary className={styles.faqQ}>{q}</summary>
               <p className={styles.faqA}>{a}</p>
@@ -676,17 +612,15 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title={siteConfig.title}
-      description="终端里的中文输入法：无 X、无 Wayland、无 D-Bus。librime 拼音加候选栏/状态栏 TUI 组件，静态单文件，一条命令安装。">
+      description="终端输入法：librime 拼音加候选栏/状态栏 TUI 组件，静态单文件，一条命令安装，SSH、容器和无桌面的服务器通用。">
       <Head>
         <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
       </Head>
       <Hero />
       <main>
-        <Pains />
-        <Compare />
+        <Why />
         <QuickStart />
         <Features />
-        <Embed />
         <Faq />
         <ShareCta />
       </main>
