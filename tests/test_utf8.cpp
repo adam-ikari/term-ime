@@ -177,6 +177,41 @@ TEST_F(Utf8Test, ParserAbortsCsiAtHighByte) {
     EXPECT_EQ(screen.get(0, 3).fg, 7);
 }
 
+// Character-set designation escapes are ESC + intermediate + final, and their
+// finals are printable ('B' = US ASCII, '0' = DEC line graphics). htop and vim
+// emit "\x1b(B" on nearly every repaint: if the final byte is treated as text
+// the shadow model accumulates stray glyphs and redraw_shell() paints them back.
+// NOTE: every ESC below is written as "\x1b" "x" -- a bare "\x1b7" is one greedy
+// hex escape (0x1B7), not ESC followed by '7'.
+TEST_F(Utf8Test, ParserSwallowsCharsetDesignationFinals) {
+    Screen screen(2, 20);
+    Parser parser(screen);
+    feed(parser, "\x1b" "(B\x1b" ")0\x1b" "*A\x1b" "+B");
+    feed(parser, "A");
+    EXPECT_EQ(row_text(screen, 0), "A                   ");
+}
+
+TEST_F(Utf8Test, ParserSwallowsOtherThreeByteEscapes) {
+    Screen screen(2, 20);
+    Parser parser(screen);
+    // DECALN, ISO 2022 shift selection, RFC 1479, and a two-intermediate
+    // designation: none of the finals are text.
+    feed(parser, "\x1b" "#8\x1b" "%G\x1b" "/B\x1b" "-A\x1b" "(/A");
+    feed(parser, "A");
+    EXPECT_EQ(row_text(screen, 0), "A                   ");
+}
+
+TEST_F(Utf8Test, ParserSavesAndRestoresCursorOnEsc7And8) {
+    Screen screen(2, 20);
+    Parser parser(screen);
+    feed(parser, "abc");                // cursor one past "abc", at column 3
+    feed(parser, "\x1b" "7");           // DECSC
+    feed(parser, "xyz");                // overwrite the trail
+    feed(parser, "\x1b" "8");           // DECRC
+    feed(parser, "Q");
+    EXPECT_EQ(row_text(screen, 0), "abcQyz              ");
+}
+
 TEST_F(Utf8Test, ParserKeepsKnownCsiBehaviour) {
     Screen screen(4, 10);
     Parser parser(screen);

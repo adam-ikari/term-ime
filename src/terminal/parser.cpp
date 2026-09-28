@@ -163,10 +163,42 @@ void Parser::handle_char(char c) {
         } else if (c == ']' || c == 'P' || c == 'X' || c == '^' || c == '_') {
             // OSC / DCS / SOS / PM / APC: swallow the body, it is not text.
             state_ = State::OSC;
+        } else if (static_cast<unsigned char>(c) >= 0x20 &&
+                   static_cast<unsigned char>(c) <= 0x2F) {
+            // ECMA-48 escape intermediates: character-set designation
+            // ("( B", ") 0", "* A", "+ B", "/ B"), DEC screen alignment ("# 8"),
+            // and ISO 2022 shift selection ("% G"). All of them are ESC +
+            // intermediate + final, and their finals are ordinary characters.
+            // Returning to Normal here wrote those finals straight onto the
+            // grid -- htop and vim repaint with "\x1b(B" constantly, which is
+            // how the shadow model sprouted stray 'B' glyphs that
+            // redraw_shell() then painted back.
+            state_ = State::Scs;
+        } else if (c == '7') {
+            // DECSC shares the save slot with CSI 's'.
+            saved_row_ = screen_.cursor_row();
+            saved_col_ = screen_.cursor_col();
+            state_ = State::Normal;
+        } else if (c == '8') {
+            wrap_pending_ = false;
+            screen_.move_cursor(saved_row_, saved_col_);
+            state_ = State::Normal;
         } else {
             state_ = State::Normal;
         }
         break;
+
+    case State::Scs: {
+        // 0x20-0x2F are further intermediates (the 94-character designations);
+        // any other byte is the final. Either way the sequence ends here and
+        // none of its bytes are text -- except a fresh ESC, which starts over.
+        const unsigned char b = static_cast<unsigned char>(c);
+        if (b == 0x1B)
+            state_ = State::Escape;
+        else
+            state_ = (b >= 0x20 && b <= 0x2F) ? State::Scs : State::Normal;
+        break;
+    }
 
     case State::CSI:
         handle_csi(c);

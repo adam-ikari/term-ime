@@ -14,7 +14,9 @@ class Parser {
     Screen& screen_;
     // Normal -> Escape -> CSI/OSCEsc; OSC covers every ESC-terminated string
     // control (OSC/DCS/SOS/PM/APC) whose body must never reach the grid.
-    enum class State { Normal, Escape, CSI, OSC, OSCEsc };
+    // Scs is the tail of a multi-byte charset-designation escape, whose final
+    // byte is an ordinary character ('B', '0') and would otherwise be printed.
+    enum class State { Normal, Escape, Scs, CSI, OSC, OSCEsc };
     State state_ = State::Normal;
     std::string csi_params_;
     bool csi_private_ = false;       // 0x3C-0x3F prefix seen ('?', '>', '!', '<')
