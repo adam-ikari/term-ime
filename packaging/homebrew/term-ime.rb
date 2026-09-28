@@ -1,6 +1,5 @@
 # Homebrew formula for term-ime.
 #
-# Tap usage (once the homebrew-tap repo exists):
 #   brew tap adam-ikari/tap
 #   brew install term-ime
 #
@@ -10,21 +9,23 @@
 # translations) works unchanged under Homebrew's prefix.
 #
 # Prebuilt binaries are fully static (ldd: "not a dynamic executable"), so
-# this formula just unpacks them — no build deps.
-#
-# TODO(aarch64): add an `on_arm do ... end` stanza mirroring on_intel once
-# the first release publishing term-ime-linux-aarch64.tar.gz ships (the
-# release.yml matrix is ready; no ARM asset exists yet).
+# this formula just unpacks them — no build deps. x86_64 + aarch64 both
+# published since v1.1.2 (release.yml matrix).
 class TermIme < Formula
   desc "Linux TTY 终端输入法 — librime 拼音带进 SSH/Docker/WSL 纯终端"
   homepage "https://adam-ikari.github.io/term-ime/"
-  version "1.1.1"
+  version "1.1.2"
   depends_on :linux
   license "MIT"
 
   on_intel do
-    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.1/term-ime-linux-x86_64.tar.gz"
-    sha256 "8a0ffa50ffb909d1e6155fcf4d792516b3c5147358942a07847923922a1f6655"
+    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.2/term-ime-linux-x86_64.tar.gz"
+    sha256 "a2a5c83304fd6cddc79047f66a67f7a042a3226fc25067bc09c2289903ef74b7"
+  end
+
+  on_arm do
+    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.2/term-ime-linux-aarch64.tar.gz"
+    sha256 "100af48382e05efab224d0f870a32fa2817968de6b2d4302b5604287d4fe6152"
   end
 
   def install
