@@ -41,3 +41,4 @@ website/.env*.local
 
 website/build/
 website/node_modules/
+__pycache__/

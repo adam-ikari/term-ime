@@ -96,6 +96,20 @@ class App {
     int candidate_slots_ = 0;         // candidates the last draw really showed
     std::string candidate_page_sig_;  // detects a new rime page / composition
 
+    // Input bytes collected during one on_keyboard_data() batch, handed to the
+    // pty as a single write() when the batch ends. A paste arrives as one batch
+    // of kilobytes, and writing it byte by byte cost one write() syscall per
+    // byte plus a fresh copy of the unsent queue each time (65536-byte paste:
+    // 65652 master writes, against 20 once batched).
+    std::vector<uint8_t> tx_batch_;
+    // Append to the batch being assembled (the pass-through path).
+    void queue_for_shell(const std::vector<uint8_t>& bytes);
+    // Send `bytes` to the pty now, after first releasing anything batched
+    // earlier in this read -- those bytes are older. Every write path that is
+    // not itself the batch flush must go through this.
+    void send_to_shell(const std::vector<uint8_t>& bytes);
+    void flush_tx_batch();
+    void write_to_pty(const std::vector<uint8_t>& bytes);
     void on_language_change(const LanguageConfig& lang);
     // IME context snapshot. The PTY-output path repaints the status bar far more
     // often than the user types, and shell output cannot change the IME context,

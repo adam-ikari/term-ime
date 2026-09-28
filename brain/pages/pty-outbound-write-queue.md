@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [pty, libuv, write, ime]
 created: "2026-09-28T14:20:03"
-updated: "2026-09-28T16:16:45"
+updated: "2026-09-28T18:42:24"
 ---
 
 <!-- compiled_truth -->
@@ -19,13 +19,17 @@ updated: "2026-09-28T16:16:45"
 4. `~Pty()` 在 `close(master_fd_)` 之前给队列一次有界 drain（`kExitBudgetMs = 50`），然后才杀子进程。
 5. `flush(int budget_ms = 0)` 默认单次非阻塞 write()，因此 `on_pty_data()` 热路径上的 `pty_.flush()` 不再同步阻塞 100ms；只有用户刚产生的字节（`write()`，`kWriteBudgetMs = 100`）值得阻塞等待。EINTR 重试同样要重查 deadline —— SIGWINCH/SIGTERM 就投递在这个线程上。
 
-## 边界（不再对外承诺的东西）
+## 投递量由读者决定，不由队列决定
 
-"写不完不静默丢字"不是本模块的性质。大块数据能否送达由两件事决定：内核 tty 输入缓冲（~4 KiB）和粘贴路径的逐字节 `write()`（`src/core/app.cpp` 粘贴分支，7000 字节 = 7000 次 syscall）。队列只在 write 返回短计数/EAGAIN 时接手。粘贴整段写在另一条提交里处理。
+"写不完不静默丢字"不是本模块的性质：能送多少由前台读者是否在排空 tty 决定。队列只在 write 返回短计数/EAGAIN 时接手，之后按上面 5 条保证**顺序**，不保证**完整**。实测（200 KiB 粘贴，读者睡眠 20s 的不排空场景）：送达 15871 字节，且送达部分是原文的连续前缀，日志 24 条 dropped-newest + 40 条 buffering；读者正常排空时 8 KiB / 64 KiB / 200 KiB 三次粘贴全部逐字节完整。
+
+## 粘贴必须整段写
+
+一次 `on_keyboard_data()` 内 forward 的字节先攒进 `App::tx_batch_`，批次结束才 `write()` 一次；任何单发写（rime commit、Ctrl+C、孤儿 ESC）在 `send_to_shell()` 里**先冲掉批次**再发自己 —— 批次的字节更老，否则同一次读里 commit 会插到粘贴前面。逐字节写的代价实测为 65536 字节粘贴 = 65652 次 master write()（每次都要重排整条出站队列），整段写后是 19–20 次，其中 16 次恰好 4095 字节（内核 pty 单写上限）。
 
 ## 证据
 
-`tests/test_pty.cpp` 5 例锁住保序与覆盖语义；把 `buffer_tail` 改回"丢最旧"，`OverflowDropsNewestBytesNotOldest` 立即变红（已 A/B 验证）。
+`tests/test_pty.cpp` 5 例锁住保序与覆盖语义；`tests/test_paste_delivery.py`（`--bytes` / `--stall`）端到端量投递：它直控 term-ime 的 stdin pty，hermetic HOME，先断言 shell 活着（echo MARKER_42）再判投递，粘贴块自带块号标签，所以"剪断"会显形而不是被当成普通文本。两侧都已 A/B：把 `buffer_tail` 改回丢最旧 → 单测 `OverflowDropsNewestBytesNotOldest` 变红，同一 e2e 在 200 KiB/20s stall 下于偏移 13822 处报 splice；改回逐字节粘贴 → 同一次粘贴 master write() 从 19 次涨到 65652 次。
 
 
 ## Timeline
@@ -46,4 +50,22 @@ updated: "2026-09-28T16:16:45"
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: "2026-09-28 队列语义返工（A1/A3/A4/A5）"
+  affects: [pty-outbound-write-queue]
+
+- time: 2026-09-28T18:18:56
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: "2026-09-29 粘贴整段写（A2 根因）+ 200 KiB 不排空读者实测"
+  affects: [pty-outbound-write-queue]
+
+- time: 2026-09-28T18:18:56
+  kind: decision
+  summary: "粘贴整段写落地：App 侧 tx_batch_ 攒批 + send_to_shell 先冲批次保序；65536 字节粘贴的 master write() 从 65652 次降到 19 次，投递仍逐字节完整。测法教训：canonical tty 的 4095 行上限、stty raw 的 VMIN=0/VTIME=0 会让 read() 返回 0（被 head 当 EOF）、head 被信号杀死时不 flush 缓冲 —— 这三点各自制造过一次'term-ime 丢字节'的假象。"
+  source: "2026-09-29 A2 根因提交"
+  affects: [pty-outbound-write-queue]
+
+- time: 2026-09-28T18:42:24
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: "2026-09-29 端到端投递检查 tests/test_paste_delivery.py + 双向 A/B"
   affects: [pty-outbound-write-queue]

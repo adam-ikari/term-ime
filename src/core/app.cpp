@@ -235,6 +235,39 @@ void App::refresh_ime_snapshot() {
     ime_snapshot_.buffer = ime_->buffer();
 }
 
+void App::queue_for_shell(const std::vector<uint8_t>& bytes) {
+    tx_batch_.insert(tx_batch_.end(), bytes.begin(), bytes.end());
+}
+
+void App::flush_tx_batch() {
+    if (tx_batch_.empty())
+        return;
+    // Hand the bytes over by value: from here on they belong to the pty queue,
+    // not to the accumulator, so tx_batch_ is empty for the next read.
+    std::vector<uint8_t> batch;
+    batch.swap(tx_batch_);
+    write_to_pty(batch);
+}
+
+void App::send_to_shell(const std::vector<uint8_t>& bytes) {
+    // Bytes batched earlier in this same keyboard read are older than these and
+    // must reach the pty first, otherwise a commit or a control key overtakes the
+    // paste it came after.
+    flush_tx_batch();
+    write_to_pty(bytes);
+}
+
+void App::write_to_pty(const std::vector<uint8_t>& bytes) {
+    if (bytes.empty())
+        return;
+    if (!pty_.write(bytes)) {
+        // Pty::write keeps whatever the kernel refused and puts it ahead of the
+        // next batch, so this is a delay rather than a loss -- unless the queue
+        // itself overflowed, which pty.cpp logs at error level.
+        spdlog::debug("pty write incomplete for {} byte(s), buffered for retry", bytes.size());
+    }
+}
+
 bool App::ime_feed(char ch) {
     if (!ime_)
         return false;
@@ -248,7 +281,7 @@ bool App::ime_feed(char ch) {
         for (char32_t c : committed) {
             utf8 += utf8::encode(c);
         }
-        pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+        send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
     }
     return true;
 }
@@ -432,6 +465,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     if (ime_->state() != ImeState::Inactive) {
                         ime_->cancel();
                     }
+                    flush_tx_batch();  // bytes typed before the quit chord still go out
                     on_quit(0);
                     return;
                 }
@@ -448,7 +482,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     ime_->cancel();
                 }
                 selected_candidate_ = 0;
-                pty_.write(std::vector<uint8_t>{byte});
+                send_to_shell(std::vector<uint8_t>{byte});
                 render();
                 continue;
             }
@@ -504,7 +538,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     for (char32_t c : committed) {
                         utf8 += utf8::encode(c);
                     }
-                    pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+                    send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
                 }
                 render();
                 continue;
@@ -516,7 +550,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
                     for (char32_t c : committed) {
                         utf8 += utf8::encode(c);
                     }
-                    pty_.write(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+                    send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
                 }
                 render();
                 continue;
@@ -603,11 +637,14 @@ void App::on_keyboard_data(const char* data, size_t len) {
             }
         }
 
-        // Forward to shell if requested
+        // Forward to shell if requested. Accumulated rather than written per
+        // byte: a paste is one batch of kilobytes, and per-byte writes each
+        // retried the whole outbound queue.
         if (input_result.forward && !input_result.data.empty()) {
-            pty_.write(input_result.data);
+            queue_for_shell(input_result.data);
         }
     }
+    flush_tx_batch();
 
     // A lone ESC (no sequence byte followed it in this batch) cancels the
     // composition. A completed sequence (ESC[C …) was handled as candidate
@@ -632,7 +669,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
             [this]() {
                 spdlog::debug("Orphaned-ESC timeout: forwarding lone ESC");
                 input_processor_.reset();
-                pty_.write(std::vector<uint8_t>{0x1b});
+                send_to_shell(std::vector<uint8_t>{0x1b});
                 // Reap this fired single-shot timer's handle so it does not
                 // linger in EventLoop::timers_ until shutdown. clear_timer on
                 // a fired/unknown id is a safe no-op; calling it from inside
