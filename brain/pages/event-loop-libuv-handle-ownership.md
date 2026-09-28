@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [libuv, event-loop, memory-lifetime]
 created: "2026-09-14T15:18:05"
-updated: "2026-09-28T14:19:48"
+updated: "2026-09-28T19:36:10"
 ---
 
 <!-- compiled_truth -->
@@ -45,4 +45,10 @@ EventLoop 持有的 libuv 句柄（stdin/PTY 的 uv_poll/uv_stream 等）在 `uv
   kind: decision
   summary: "watch_fd()/watch_signal() 对同一 fd/signal 的第二次注册直接拒绝并记 error，不覆盖 map 条目：覆盖会丢掉指向 libuv 仍拥有句柄的指针（句柄只能由 uv_close 回调释放），是新句柄尚未初始化、旧句柄永不关闭的 use-after-free 来源。"
   source: "2026-09-28 代码评审修复轮"
+  affects: [event-loop-libuv-handle-ownership]
+
+- time: 2026-09-28T19:36:10
+  kind: decision
+  summary: "watch_fd()/watch_signal() 的返回值从 void 改成 bool：没受理就是 false（重复注册、uv_poll/uv_signal init|start 失败），且失败时 wrapper 已被 release() 交给 uv_close 回调释放。调用方必须把它当致命错误——main() 里 pty/stdin/SIGWINCH/SIGINT/SIGTERM 任一注册被拒即写 stderr + on_quit 退出：注册被拒意味着此后永远收不到键盘或 shell 输出，画面只会停在“像卡住了”的样子，静默继续比崩溃更难诊断。"
+  source: "2026-09-28 代码评审修复轮（第 4 提交）"
   affects: [event-loop-libuv-handle-ownership]

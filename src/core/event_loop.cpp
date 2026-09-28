@@ -79,14 +79,14 @@ void EventLoop::clear_timer(uint64_t timer_id) {
     uv_close(reinterpret_cast<uv_handle_t*>(&raw->handle), timer_close_cb);
 }
 
-void EventLoop::watch_fd(int fd, IoCallback callback, bool readable) {
+bool EventLoop::watch_fd(int fd, IoCallback callback, bool readable) {
     // The map is keyed by fd, so a second watch would destroy the previous
     // wrapper while libuv still owns its handle and keep calling back into freed
     // memory. Re-registering means the caller forgot to unwatch: keep the
     // existing watch and refuse the new one.
     if (io_handles_.count(fd) != 0) {
         spdlog::error("watch_fd: fd {} is already watched, ignoring the new callback", fd);
-        return;
+        return false;
     }
 
     auto handle = std::make_unique<IoHandle>();
@@ -95,11 +95,24 @@ void EventLoop::watch_fd(int fd, IoCallback callback, bool readable) {
     handle->owner = this;
     handle->handle.data = handle.get();
 
+    int init = uv_poll_init(&loop_, &handle->handle, fd);
+    if (init != 0) {
+        spdlog::error("watch_fd: uv_poll_init(fd {}) failed: {}", fd, uv_strerror(init));
+        return false;
+    }
     int events = readable ? UV_READABLE : UV_WRITABLE;
-    uv_poll_init(&loop_, &handle->handle, fd);
-    uv_poll_start(&handle->handle, events, io_callback);
+    int start = uv_poll_start(&handle->handle, events, io_callback);
+    if (start != 0) {
+        spdlog::error("watch_fd: uv_poll_start(fd {}) failed: {}", fd, uv_strerror(start));
+        // The handle is initialised, so libuv must still be allowed to close it:
+        // io_close_cb() frees the wrapper, which the unique_ptr may not do first.
+        IoHandle* raw = handle.release();
+        uv_close(reinterpret_cast<uv_handle_t*>(&raw->handle), io_close_cb);
+        return false;
+    }
 
     io_handles_[fd] = std::move(handle);
+    return true;
 }
 
 void EventLoop::unwatch_fd(int fd) {
@@ -113,12 +126,12 @@ void EventLoop::unwatch_fd(int fd) {
     uv_close(reinterpret_cast<uv_handle_t*>(&raw->handle), io_close_cb);
 }
 
-void EventLoop::watch_signal(int signum, SignalCallback callback) {
+bool EventLoop::watch_signal(int signum, SignalCallback callback) {
     // Same keyed-map hazard as watch_fd(): the old wrapper must not be freed
     // while libuv still owns the signal handle.
     if (signal_handles_.count(signum) != 0) {
         spdlog::error("watch_signal: signal {} is already watched, ignoring the new callback", signum);
-        return;
+        return false;
     }
 
     auto handle = std::make_unique<SignalHandle>();
@@ -126,10 +139,21 @@ void EventLoop::watch_signal(int signum, SignalCallback callback) {
     handle->signum = signum;
     handle->handle.data = handle.get();
 
-    uv_signal_init(&loop_, &handle->handle);
-    uv_signal_start(&handle->handle, signal_callback, signum);
+    int init = uv_signal_init(&loop_, &handle->handle);
+    if (init != 0) {
+        spdlog::error("watch_signal: uv_signal_init({}) failed: {}", signum, uv_strerror(init));
+        return false;
+    }
+    int start = uv_signal_start(&handle->handle, signal_callback, signum);
+    if (start != 0) {
+        spdlog::error("watch_signal: uv_signal_start({}) failed: {}", signum, uv_strerror(start));
+        SignalHandle* raw = handle.release();  // signal_close_cb() frees it
+        uv_close(reinterpret_cast<uv_handle_t*>(&raw->handle), signal_close_cb);
+        return false;
+    }
 
     signal_handles_[signum] = std::move(handle);
+    return true;
 }
 
 void EventLoop::unwatch_signal(int signum) {

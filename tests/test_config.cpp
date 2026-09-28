@@ -155,6 +155,32 @@ TEST_F(ConfigTest, MaxCandidatesIsClampedAndTypeSafe) {
     std::remove(path.c_str());
 }
 
+// A config that cannot be parsed at all is the one diagnostic that must reach
+// the log file the *user* configured, not whichever logger happened to exist
+// while loading; so the loader hands the note back instead of logging it.
+TEST_F(ConfigTest, UnparseableConfigReportsThroughTheResult) {
+    const std::string path = "/tmp/term-ime-test-broken.json";
+    {
+        std::ofstream out(path);
+        out << R"({"shell": "/bin/zsh",)";  // truncated: not valid JSON
+    }
+    AppConfig broken = AppConfig::load(path);
+    EXPECT_EQ(broken.shell, AppConfig::default_shell());  // fell back to defaults
+    ASSERT_EQ(broken.load_notes.size(), 1u);
+    EXPECT_NE(broken.load_notes[0].find("failed to load"), std::string::npos);
+
+    // take_load_notes() drains, so a replay cannot repeat on every consumer.
+    EXPECT_EQ(broken.take_load_notes().size(), 1u);
+    EXPECT_TRUE(broken.load_notes.empty());
+
+    {
+        std::ofstream out(path);
+        out << R"({"shell": "/bin/zsh"})";
+    }
+    EXPECT_TRUE(AppConfig::load(path).load_notes.empty());  // healthy file, no notes
+    std::remove(path.c_str());
+}
+
 // The shell comes from the config when configured, else from $SHELL, else from
 // /bin/bash. An explicit "/bin/bash" must survive a different $SHELL: the
 // member default used to be indistinguishable from an absent key, so $SHELL

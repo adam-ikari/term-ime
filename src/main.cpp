@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <cstdio>
 #include <cstdlib>
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 
@@ -24,6 +25,17 @@ static spdlog::level::level_enum config_log_level(const std::string& name) {
     return spdlog::level::warn;
 }
 
+// A file logger that only flushes when the process exits cleanly loses exactly
+// the lines that would explain an abrupt death (observed: a multiplexer killing
+// the pane left a log that stopped mid-boot). warn and above go out at once;
+// everything else waits at most a second for the registry's periodic flusher,
+// because per-line flushing on the render path was not the point of this.
+static std::shared_ptr<spdlog::logger> open_file_logger(const std::string& path) {
+    auto logger = spdlog::basic_logger_mt("term-ime", path, true);
+    logger->flush_on(spdlog::level::warn);
+    return logger;
+}
+
 int main(int argc, char* argv[]) {
     // 设置日志输出到文件
     std::string log_file;  // path the running logger writes to (shown on failure)
@@ -33,9 +45,12 @@ int main(int argc, char* argv[]) {
             std::filesystem::path(getenv("HOME") ? getenv("HOME") : "/tmp") / ".cache" / "term-ime";
         std::filesystem::create_directories(log_dir);
         log_file = (log_dir / "term-ime.log").string();
-        auto logger = spdlog::basic_logger_mt("term-ime", log_file, true);
+        auto logger = open_file_logger(log_file);
         spdlog::set_default_logger(logger);
         spdlog::set_level(spdlog::level::debug);
+        // Applies to every logger registered afterwards too, so the file the
+        // config switches to inherits it.
+        spdlog::flush_every(std::chrono::seconds(1));
         file_logging = true;
     } catch (const std::exception& e) {
         // 如果无法创建文件日志，禁用日志。The default logger writes to stderr,
@@ -52,24 +67,38 @@ int main(int argc, char* argv[]) {
         config_path = argv[1];
     }
     AppConfig config = AppConfig::load(config_path);
-    spdlog::info("Loaded config from: {}", config_path);
+    // Trouble the loader saw travels with the result and is replayed below, once
+    // the destination is settled: the log the config chose is the one the user
+    // will open, and a message emitted before the switch stayed in the boot log.
+    std::vector<std::string> load_notes = config.take_load_notes();
 
     // The boot logger above exists only so that loading the config could be
     // logged; from here the config owns the level and the file.
     if (file_logging) {
+        const std::string boot_file = log_file;
         spdlog::set_level(config_log_level(config.log_level));
         if (!config.log_file.empty() && config.log_file != log_file) {
             try {
                 std::filesystem::create_directories(std::filesystem::path(config.log_file).parent_path());
+                spdlog::default_logger()->flush();
                 spdlog::drop("term-ime");
-                spdlog::set_default_logger(spdlog::basic_logger_mt("term-ime", config.log_file, true));
+                spdlog::set_default_logger(open_file_logger(config.log_file));
                 log_file = config.log_file;
             } catch (const std::exception& e) {
-                spdlog::error("Cannot log to {}: {}", config.log_file, e.what());
-                spdlog::set_level(spdlog::level::off);
+                // The boot logger is still held by spdlog's default pointer with
+                // its file open, so this report has somewhere to go. Turning the
+                // level off here -- as it used to -- hid every later warning
+                // behind the very failure it was reporting.
+                log_file = boot_file;
+                spdlog::error("Cannot log to {}: {} -- still logging to {}", config.log_file, e.what(), boot_file);
             }
         }
+        spdlog::info("Loaded config from: {}", config_path);
+        if (log_file != boot_file)
+            spdlog::info("logging to {} instead of {}", log_file, boot_file);
     }
+    for (const auto& note : load_notes)
+        spdlog::warn("config: {}", note);
 
     // Initialize i18n based on active language
     I18n::Lang i18n_lang = I18n::Lang::EN;
@@ -107,20 +136,27 @@ int main(int argc, char* argv[]) {
 
     spdlog::info("Registering callbacks");
 
-    // Register PTY reader
-    loop.watch_fd(app.pty_fd(), [&app, &loop](const char* data, size_t len) {
+    // A refused watch means term-ime never sees that fd or signal again -- no
+    // keyboard, no shell output, and a screen that sits there looking hung. Say
+    // so and leave instead.
+    auto refused = [&app](const char* what) {
+        spdlog::error("{} watch registration refused, exiting", what);
+        std::cerr << "term-ime: cannot register the " << what << " watcher (see the log file)" << std::endl;
+        app.on_quit(0);
+        return 1;
+    };
+
+    // PTY reader: shell output, plus the hangup that ends the session.
+    EventLoop::IoCallback pty_reader = [&](const char* data, size_t len) {
         if (len == 0 || data == nullptr) {
-            // PTY closed (EOF), exit gracefully
             spdlog::info("PTY closed, exiting");
             app.on_quit(0);
             loop.stop();
         } else {
             app.on_pty_data(data, len);
         }
-    });
-
-    // Register keyboard reader
-    loop.watch_fd(STDIN_FILENO, [&app, &loop](const char* data, size_t len) {
+    };
+    EventLoop::IoCallback keyboard_reader = [&](const char* data, size_t len) {
         if (len == 0 || data == nullptr) {
             // stdin reached EOF/error (terminal gone); the EventLoop already
             // dropped the watch, so exit gracefully instead of spinning.
@@ -133,25 +169,28 @@ int main(int argc, char* argv[]) {
         if (app.quit_requested()) {
             loop.stop();
         }
-    });
-
-    // Register signal handlers
-    loop.watch_signal(SIGWINCH, [&app](int signum) { app.on_resize(signum); });
-
-    loop.watch_signal(SIGINT, [&app, &loop](int signum) {
+    };
+    EventLoop::SignalCallback quit_session = [&](int signum) {
         app.on_quit(signum);
         loop.stop();
-    });
+    };
 
-    loop.watch_signal(SIGTERM, [&app, &loop](int signum) {
-        app.on_quit(signum);
-        loop.stop();
-    });
+    if (!loop.watch_fd(app.pty_fd(), pty_reader))
+        return refused("pty");
+    if (!loop.watch_fd(STDIN_FILENO, keyboard_reader))
+        return refused("stdin");
+    if (!loop.watch_signal(SIGWINCH, [&app](int signum) { app.on_resize(signum); }))
+        return refused("SIGWINCH");
+    if (!loop.watch_signal(SIGINT, quit_session))
+        return refused("SIGINT");
+    if (!loop.watch_signal(SIGTERM, quit_session))
+        return refused("SIGTERM");
 
     // Run event loop
     spdlog::info("Starting event loop");
     loop.run();
     spdlog::info("Event loop finished");
+    spdlog::default_logger()->flush();
 
     return 0;
 }

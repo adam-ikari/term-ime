@@ -147,11 +147,15 @@ AppConfig AppConfig::load(const std::string& path) {
         std::ifstream file(p);
         json j;
         file >> j;
-        spdlog::info("Loaded config from: {}", path);
         return from_json(j);
     } catch (const std::exception& e) {
-        spdlog::error("Failed to load config: {}", e.what());
-        return from_json(json::object());
+        // Carried out with the result rather than logged here: a config that
+        // will not parse is the one message the user must find in the log file
+        // they just configured, and that destination is only chosen later.
+        AppConfig fallback = from_json(json::object());
+        fallback.load_notes.push_back("config " + path + " failed to load: " + e.what() +
+                                      " -- running with defaults");
+        return fallback;
     }
 }
 

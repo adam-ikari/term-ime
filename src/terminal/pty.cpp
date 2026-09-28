@@ -220,10 +220,22 @@ int Pty::fd() const {
 }
 
 void Pty::resize(int rows, int cols) {
+    // winsize's fields are unsigned short, so a negative or oversized value does
+    // not fail -- it wraps, and the child is told something like 65535 rows. Both
+    // callers range-check the geometry they read from the tty first, so this is
+    // the backstop for whoever calls next, not a live bug being papered over.
+    const auto clamp = [](int v, const char* what) {
+        if (v >= 1 && v <= 65535)
+            return static_cast<unsigned short>(v);
+        const int fixed = v < 1 ? 1 : 65535;
+        spdlog::warn("pty resize: {} = {} is outside winsize's 1..65535, using {}", what, v, fixed);
+        return static_cast<unsigned short>(fixed);
+    };
+
     // Zero-initialised: TIOCSWINSZ reads ws_xpixel/ws_ypixel, and leaving them
     // as stack garbage makes the child inherit a meaningless pixel size.
     struct winsize ws {};
-    ws.ws_row = static_cast<unsigned short>(rows);
-    ws.ws_col = static_cast<unsigned short>(cols);
+    ws.ws_row = clamp(rows, "rows");
+    ws.ws_col = clamp(cols, "cols");
     ioctl(master_fd_, TIOCSWINSZ, &ws);
 }

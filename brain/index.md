@@ -1,10 +1,10 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-28T18:42:24.504Z._
+_Auto-generated. Last updated 2026-09-28T19:36:10.880Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | <current best understanding — replace this with the real content>
-- [config-runtime-binding](pages/config-runtime-binding.md) — category: decision | tags: [config, shell, logging, rime] | <current best understanding — replace this with the real content>
+- [config-runtime-binding](pages/config-runtime-binding.md) — category: decision | tags: [config, shell, logging, rime] | 配置字段只有被运行时读到才算接线。
 - [config-save-never-throws](pages/config-save-never-throws.md) — category: decision | tags: [config, error-handling, libuv] | `AppConfig::save` **不抛异常**，返回 `bool` 表示成功与否（写失败、目录不可写、序列化失败都走 `false`）。
 - [e2e-harness-contract](pages/e2e-harness-contract.md) — category: concept | tags: [testing, pty, harness] | ## 约束（违反即脆性测试）
 - [event-loop-libuv-handle-ownership](pages/event-loop-libuv-handle-ownership.md) — category: decision | tags: [libuv, event-loop, memory-lifetime] | EventLoop 持有的 libuv 句柄（stdin/PTY 的 uv_poll/uv_stream 等）在 `uv_close` 调用时**立即把所有权 release 给 libuv**：close 回调是唯一合法的 `delete` 点。

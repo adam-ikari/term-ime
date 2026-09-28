@@ -36,12 +36,15 @@ class EventLoop {
     uint64_t set_timer(TimerCallback callback, uint64_t timeout_ms, bool repeat = false);
     void clear_timer(uint64_t timer_id);
 
-    // Async I/O
-    void watch_fd(int fd, IoCallback callback, bool readable = true);
+    // Async I/O. Returns false when nothing ended up watching the fd: either it
+    // was already registered (see the duplicate rule in event_loop.cpp) or libuv
+    // refused the handle. Callers must not ignore that -- a refused watch is an
+    // app that never sees input again.
+    bool watch_fd(int fd, IoCallback callback, bool readable = true);
     void unwatch_fd(int fd);
 
-    // Signal handling
-    void watch_signal(int signum, SignalCallback callback);
+    // Signal handling. Same contract as watch_fd.
+    bool watch_signal(int signum, SignalCallback callback);
     void unwatch_signal(int signum);
 
    private:

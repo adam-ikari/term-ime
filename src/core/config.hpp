@@ -61,6 +61,17 @@ struct AppConfig {
     std::string log_level = "warn";  // "debug", "info", "warn", "error"
     std::string log_file = "";       // empty = ~/.cache/term-ime/term-ime.log
 
+    // Trouble seen while loading, carried out with the result instead of being
+    // written to whichever logger happens to exist at that moment: the file the
+    // config names may not be the one open yet. main() replays these once it is.
+    // Runtime-only -- to_json() does not write it, from_json() does not read it.
+    std::vector<std::string> load_notes;
+    std::vector<std::string> take_load_notes() {
+        std::vector<std::string> out;
+        out.swap(load_notes);
+        return out;
+    }
+
     // Load from file
     static AppConfig load(const std::string& path);
 
