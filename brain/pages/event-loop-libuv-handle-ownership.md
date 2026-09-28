@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [libuv, event-loop, memory-lifetime]
 created: "2026-09-14T15:18:05"
-updated: "2026-09-14T15:18:10"
+updated: "2026-09-28T14:19:48"
 ---
 
 <!-- compiled_truth -->
@@ -39,4 +39,10 @@ EventLoop 持有的 libuv 句柄（stdin/PTY 的 uv_poll/uv_stream 等）在 `uv
   kind: decision
   summary: "确认 libuv 句柄所有权在 uv_close 时 release 给 libuv，close 回调负责 delete；EventLoop 析构必须先 uv_run 排空 close 回调再 uv_loop_close"
   source: "2026-09-14 终端/输入法缺陷修复"
+  affects: [event-loop-libuv-handle-ownership]
+
+- time: 2026-09-28T14:19:48
+  kind: decision
+  summary: "watch_fd()/watch_signal() 对同一 fd/signal 的第二次注册直接拒绝并记 error，不覆盖 map 条目：覆盖会丢掉指向 libuv 仍拥有句柄的指针（句柄只能由 uv_close 回调释放），是新句柄尚未初始化、旧句柄永不关闭的 use-after-free 来源。"
+  source: "2026-09-28 代码评审修复轮"
   affects: [event-loop-libuv-handle-ownership]

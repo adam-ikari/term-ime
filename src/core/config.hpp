@@ -18,7 +18,9 @@ struct LanguageConfig {
 };
 
 struct AppConfig {
-    // Shell settings
+    // Shell settings. An absent or empty "shell" in config.json inherits the
+    // login environment: AppConfig::load() falls back to $SHELL, then
+    // /bin/bash. A bare program name ("zsh") is resolved through PATH.
     std::string shell = "/bin/bash";
 
     // Language settings (replaces hardcoded chinese/english mode)
@@ -55,9 +57,9 @@ struct AppConfig {
     bool show_mode_indicator = true;
     std::string candidate_bar_position = "bottom";  // "bottom" or "top"
 
-    // Logging
+    // Logging, applied by main() once the config is read.
     std::string log_level = "warn";  // "debug", "info", "warn", "error"
-    std::string log_file = "";       // empty = no file logging
+    std::string log_file = "";       // empty = ~/.cache/term-ime/term-ime.log
 
     // Load from file
     static AppConfig load(const std::string& path);
@@ -68,6 +70,9 @@ struct AppConfig {
 
     // Get default config path
     static std::string default_path();
+
+    // Shell used when the config leaves "shell" unset: $SHELL, else /bin/bash.
+    static std::string default_shell();
 
     // Convert to/from JSON
     json to_json() const;

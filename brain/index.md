@@ -1,9 +1,10 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-28T02:15:17.798Z._
+_Auto-generated. Last updated 2026-09-28T14:20:29.473Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | <current best understanding — replace this with the real content>
+- [config-runtime-binding](pages/config-runtime-binding.md) — category: decision | tags: [config, shell, logging, rime] | <current best understanding — replace this with the real content>
 - [config-save-never-throws](pages/config-save-never-throws.md) — category: decision | tags: [config, error-handling, libuv] | `AppConfig::save` **不抛异常**，返回 `bool` 表示成功与否（写失败、目录不可写、序列化失败都走 `false`）。
 - [e2e-harness-contract](pages/e2e-harness-contract.md) — category: concept | tags: [testing, pty, harness] | ## 约束（违反即脆性测试）
 - [event-loop-libuv-handle-ownership](pages/event-loop-libuv-handle-ownership.md) — category: decision | tags: [libuv, event-loop, memory-lifetime] | EventLoop 持有的 libuv 句柄（stdin/PTY 的 uv_poll/uv_stream 等）在 `uv_close` 调用时**立即把所有权 release 给 libuv**：close 回调是唯一合法的 `delete` 点。
@@ -12,6 +13,7 @@ _Auto-generated. Last updated 2026-09-28T02:15:17.798Z._
 - [opencc-chain-for-simplified](pages/opencc-chain-for-simplified.md) — category: decision | tags: [rime, opencc, i18n, schema] | ## variants_ext.txt（2026-09-16）
 - [parser-stream-state-contract](pages/parser-stream-state-contract.md) — category: concept | tags: [parser, utf8, csi, osc] | `Parser` 的输入是**任意切分的字节流**——PTY 的 read 边界与转义序列边界无关。
 - [passthrough-query-architecture](pages/passthrough-query-architecture.md) — category: decision | tags: [terminal, parser, architecture, query] | ## 事实
+- [pty-outbound-write-queue](pages/pty-outbound-write-queue.md) — category: decision | tags: [pty, libuv, write, ime] | <current best understanding — replace this with the real content>
 - [review-fix-wide-char](pages/review-fix-wide-char.md) — category: decision | tags: [parser, renderer, review, wide-char] | 评审修复轮(4 commits):宽字符占右半格+参数化光标 CSI 上限+中文组合态透传控制字节+Pty::write 总上限。
 - [rime-punctuator-preset](pages/rime-punctuator-preset.md) — category: decision | tags: [rime, 标点, punctuator, schema] | **结论**：schema 想用标点映射，必须在自己的 `.schema.yaml` 里写 `punctuator: { import_preset: default }`。
 - [sgr-color-support](pages/sgr-color-support.md) — category: decision | tags: [terminal, parser, renderer, sgr] | <current best understanding — replace this with the real content>

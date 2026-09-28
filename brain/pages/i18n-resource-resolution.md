@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [i18n, translation, install, packaging]
 created: "2026-09-24T10:34:27"
-updated: "2026-09-24T10:34:39"
+updated: "2026-09-28T14:19:48"
 ---
 
 <!-- compiled_truth -->
@@ -33,4 +33,10 @@ updated: "2026-09-24T10:34:39"
   kind: decision
   summary: "记录解析顺序与打包约束"
   source: "本次会话 I18nFix"
+  affects: [i18n-resource-resolution]
+
+- time: 2026-09-28T14:19:48
+  kind: decision
+  summary: "翻译解析两处定调：(1) load_translations 先装内置表、再用文件条目逐条覆盖（合并语义），这样安装目录下过旧的 en.json/zh-CN.json 不会让设置面板打印裸 key；文件为空或全非字符串则视为失败回退内置。(2) 资源搜索顺序把 CWD 的 data/translations 排到最后（exe 相对 → ~/.local/share → /usr/local/share → /usr/share → CWD），避免不可信当前目录压过已安装文件。"
+  source: "2026-09-28 代码评审修复轮"
   affects: [i18n-resource-resolution]

@@ -40,7 +40,11 @@ void Parser::feed(const uint8_t* data, size_t len) {
     while (pos < len) {
         uint8_t byte = data[pos];
 
-        if (byte < 0x80) {
+        // A high byte only carries text while the machine is in Normal state.
+        // Inside an escape sequence it aborts a CSI (not a parameter byte) or is
+        // the body of an OSC/DCS string -- a CJK window title (`ESC]0;中文 BEL`)
+        // is the common case -- and must never reach the grid.
+        if (byte < 0x80 || state_ != State::Normal) {
             handle_char(static_cast<char>(byte));
             ++pos;
             continue;

@@ -154,7 +154,7 @@ bool App::init(const AppConfig& config, EventLoop* event_loop) {
         };
         show_startup_hint(I18n::t("status.initializing"));
 
-        ime_ = std::make_unique<RimeIme>();
+        ime_ = std::make_unique<RimeIme>(config_.rime_shared_data_dir, config_.rime_user_data_dir);
         // Record the fuzzy groups before initialize(): the engine materialises
         // any per-combination schema during init, then the schema selection
         // below picks the right twin.
@@ -191,6 +191,9 @@ bool App::init(const AppConfig& config, EventLoop* event_loop) {
 }
 
 void App::on_pty_data(const char* data, size_t len) {
+    // The shell just consumed enough input to produce output, so its side of the
+    // pty has room again: retry whatever an earlier write had to buffer.
+    pty_.flush();
     // The settings panel is a fullscreen overlay. Shell output must not be
     // painted over it, but it must not be dropped either (defect 8): keep the
     // internal screen model current and let on_settings_close()/

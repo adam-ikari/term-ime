@@ -74,7 +74,11 @@ bool Pty::spawn(const std::string& shell) {
     if (pid_ == 0) {
         // Child process
         setenv("TERM", "xterm-256color", 1);
-        execl(shell.c_str(), shell.c_str(), nullptr);
+        // execvp, not execl: a config may name the shell as a bare program
+        // ("zsh"), and execl would fail on it instead of searching PATH -- the
+        // child would _exit() and term-ime would close with no explanation.
+        std::vector<char*> argv = {const_cast<char*>(shell.c_str()), nullptr};
+        execvp(shell.c_str(), argv.data());
         _exit(1);
     }
 
@@ -96,18 +100,49 @@ std::optional<std::vector<uint8_t>> Pty::read() {
 }
 
 bool Pty::write(const std::vector<uint8_t>& data) {
+    // Queued bytes are older than `data`, so they go out first.
+    if (tx_pending_.empty())
+        return write_raw(data.data(), data.size());
+    std::vector<uint8_t> merged;
+    merged.reserve(tx_pending_.size() + data.size());
+    merged.insert(merged.end(), tx_pending_.begin(), tx_pending_.end());
+    merged.insert(merged.end(), data.begin(), data.end());
+    tx_pending_.clear();
+    return write_raw(merged.data(), merged.size());
+}
+
+bool Pty::flush() {
+    if (tx_pending_.empty())
+        return true;
+    std::vector<uint8_t> queued;
+    queued.swap(tx_pending_);
+    return write(queued);
+}
+
+bool Pty::write_raw(const uint8_t* data, size_t len) {
     // master_fd_ is O_NONBLOCK: a single write() may accept only part of the
     // buffer (large paste, long CJK commit) or return EAGAIN. Loop until every
     // byte is handed to the kernel; dropping the tail silently lost input.
     // Callers run on the event-loop thread, so the EAGAIN poll() retries are
     // bounded by a total budget: a slave buffer that never drains (shell not
-    // reading) must not freeze the loop forever.
-    constexpr int kPollTimeoutMs = 1000;
+    // reading) must not freeze the loop forever. Whatever the budget could not
+    // send is queued for the next write()/flush() -- losing a commit would be
+    // silent data loss at the one place the user cannot retype.
     constexpr int kMaxBlockMs = 100;
+    constexpr size_t kMaxPendingBytes = 64 * 1024;
+    auto queue_tail = [&](size_t from) {
+        tx_pending_.assign(data + from, data + len);
+        if (tx_pending_.size() > kMaxPendingBytes) {
+            const size_t drop = tx_pending_.size() - kMaxPendingBytes;
+            spdlog::error("pty write: queue full, dropping {} oldest buffered bytes", drop);
+            tx_pending_.erase(tx_pending_.begin(), tx_pending_.begin() + drop);
+        }
+    };
+
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kMaxBlockMs);
     size_t written = 0;
-    while (written < data.size()) {
-        ssize_t n = ::write(master_fd_, data.data() + written, data.size() - written);
+    while (written < len) {
+        ssize_t n = ::write(master_fd_, data + written, len - written);
         if (n > 0) {
             written += static_cast<size_t>(n);
             continue;
@@ -118,8 +153,8 @@ bool Pty::write(const std::vector<uint8_t>& data) {
         if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
             auto now = std::chrono::steady_clock::now();
             if (now >= deadline) {
-                spdlog::warn("pty write: blocked >{}ms, dropping {} of {} bytes", kMaxBlockMs, data.size() - written,
-                             data.size());
+                spdlog::warn("pty write: blocked >{}ms, buffering {} of {} bytes", kMaxBlockMs, len - written, len);
+                queue_tail(written);
                 return false;
             }
             struct pollfd pfd {};
@@ -133,19 +168,21 @@ bool Pty::write(const std::vector<uint8_t>& data) {
                     continue;
                 }
                 spdlog::warn("pty write: poll failed: {}", std::strerror(errno));
+                queue_tail(written);
                 return false;
             }
             if (pr == 0) {
-                spdlog::warn("pty write: stalled after {} of {} bytes", written, data.size());
+                spdlog::warn("pty write: stalled after {} of {} bytes, buffering the rest", written, len);
+                queue_tail(written);
                 return false;
             }
             if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                spdlog::warn("pty write: {} of {} bytes sent, peer gone", written, data.size());
+                spdlog::warn("pty write: {} of {} bytes sent, peer gone", written, len);
                 return false;
             }
             continue;
         }
-        spdlog::warn("pty write: {} of {} bytes sent: {}", written, data.size(),
+        spdlog::warn("pty write: {} of {} bytes sent: {}", written, len,
                      n < 0 ? std::strerror(errno) : "zero-length write");
         return false;
     }
@@ -157,8 +194,10 @@ int Pty::fd() const {
 }
 
 void Pty::resize(int rows, int cols) {
-    struct winsize ws;
-    ws.ws_row = rows;
-    ws.ws_col = cols;
+    // Zero-initialised: TIOCSWINSZ reads ws_xpixel/ws_ypixel, and leaving them
+    // as stack garbage makes the child inherit a meaningless pixel size.
+    struct winsize ws {};
+    ws.ws_row = static_cast<unsigned short>(rows);
+    ws.ws_col = static_cast<unsigned short>(cols);
     ioctl(master_fd_, TIOCSWINSZ, &ws);
 }

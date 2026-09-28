@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "core/config.hpp"
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 
 class ConfigTest : public ::testing::Test {
@@ -152,4 +153,34 @@ TEST_F(ConfigTest, MaxCandidatesIsClampedAndTypeSafe) {
     EXPECT_EQ(survived.shell, "/bin/zsh");
 
     std::remove(path.c_str());
+}
+
+// The shell comes from the config when configured, else from $SHELL, else from
+// /bin/bash. An explicit "/bin/bash" must survive a different $SHELL: the
+// member default used to be indistinguishable from an absent key, so $SHELL
+// overrode whatever the user had written.
+TEST_F(ConfigTest, ShellResolutionPrefersExplicitValue) {
+    const char* saved = getenv("SHELL");
+    const std::string restore = saved ? saved : "";
+
+    const std::string path = "/tmp/term-ime-test-shell.json";
+    auto load = [&](const std::string& body) {
+        {
+            std::ofstream out(path);
+            out << body;
+        }
+        return AppConfig::load(path);
+    };
+
+    setenv("SHELL", "/bin/zsh", 1);
+    EXPECT_EQ(load(R"({"shell": "/bin/bash"})").shell, "/bin/bash");
+    EXPECT_EQ(load(R"({"shell": "/usr/bin/fish"})").shell, "/usr/bin/fish");
+    EXPECT_EQ(load(R"({})").shell, "/bin/zsh");             // $SHELL fills in
+    EXPECT_EQ(load(R"({"shell": ""})").shell, "/bin/zsh");  // blank falls back too
+
+    unsetenv("SHELL");
+    EXPECT_EQ(load(R"({})").shell, "/bin/bash");
+
+    std::remove(path.c_str());
+    if (!restore.empty()) setenv("SHELL", restore.c_str(), 1);
 }

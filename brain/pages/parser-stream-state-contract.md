@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [parser, utf8, csi, osc]
 created: "2026-09-14T15:18:22"
-updated: "2026-09-14T15:18:22"
+updated: "2026-09-28T14:19:48"
 ---
 
 <!-- compiled_truth -->
@@ -44,4 +44,10 @@ updated: "2026-09-14T15:18:22"
   kind: decision
   summary: "Parser::feed 可被任意切分：未完成 UTF-8 序列存 pending_ 跨调用；私有参数 CSI（ESC[?…）与 OSC 字符串体一律不写屏幕网格"
   source: "2026-09-14 终端/输入法缺陷修复"
+  affects: [parser-stream-state-contract]
+
+- time: 2026-09-28T14:19:48
+  kind: decision
+  summary: "不变式 2 补一条判据：高位字节（>=0x80）只有在 Normal 状态才是文本。feed() 里必须写作 byte < 0x80 || state_ != State::Normal 才交给 handle_char，否则 ESC]0;中文 BEL 这类 CJK 窗口标题会被当 UTF-8 解码写进网格，且残留在 CSI 状态里的终止符（如 m）会被误当作 SGR 执行改色。PTY 输出是不可信输入。"
+  source: "2026-09-28 代码评审修复轮"
   affects: [parser-stream-state-contract]

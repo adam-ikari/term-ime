@@ -1,6 +1,7 @@
 #include "config.hpp"
 #include <filesystem>
 #include <fstream>
+#include <cstdlib>
 #include <spdlog/spdlog.h>
 #include <algorithm>
 
@@ -54,9 +55,23 @@ json AppConfig::to_json() const {
     return j;
 }
 
+std::string AppConfig::default_shell() {
+    // The login shell when the environment advertises one, else bash. Used
+    // whenever the config leaves "shell" absent or empty, so running term-ime
+    // from a zsh session gets zsh without any configuration.
+    if (const char* env_shell = getenv("SHELL"); env_shell && *env_shell) {
+        return env_shell;
+    }
+    return "/bin/bash";
+}
+
 AppConfig AppConfig::from_json(const json& j) {
     AppConfig cfg;
-    cfg.shell = j.value("shell", "/bin/bash");
+    // An explicit "shell" is respected even when it equals the built-in default;
+    // to_json always writes the key, so a config saved by an earlier run must
+    // not be re-derived from $SHELL behind the user's back.
+    const std::string configured = j.value("shell", "");
+    cfg.shell = configured.empty() ? default_shell() : configured;
 
     if (j.contains("languages") && j["languages"].is_array()) {
         for (const auto& lang : j["languages"]) {
@@ -123,9 +138,9 @@ AppConfig AppConfig::load(const std::string& path) {
 
     if (!fs::exists(p)) {
         spdlog::info("Config file not found: {}, using defaults", path);
-        AppConfig cfg;
-        cfg.languages = default_languages();
-        return cfg;
+        // Same route as a parsed file, so the defaults (including the $SHELL
+        // lookup) cannot drift apart from a real config.
+        return from_json(json::object());
     }
 
     try {
@@ -136,9 +151,7 @@ AppConfig AppConfig::load(const std::string& path) {
         return from_json(j);
     } catch (const std::exception& e) {
         spdlog::error("Failed to load config: {}", e.what());
-        AppConfig cfg;
-        cfg.languages = default_languages();
-        return cfg;
+        return from_json(json::object());
     }
 }
 

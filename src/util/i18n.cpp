@@ -76,10 +76,7 @@ std::filesystem::path I18n::get_default_translations_path() {
     // install finds its own bundled files before any system-wide copy.
     std::vector<std::filesystem::path> search_paths;
 
-    // 1. Build tree / CWD (developer runs, `cmake` copies data/translations here).
-    search_paths.push_back(std::filesystem::current_path() / "data" / "translations");
-
-    // 2. Alongside the executable: <bindir>/../share/term-ime/translations and
+    // 1. Alongside the executable: <bindir>/../share/term-ime/translations and
     //    <bindir>/data/translations. Resolved via /proc/self/exe, which is the
     //    only reliable way to locate a fully static binary's own directory
     //    (argv[0] may be a bare name resolved through PATH).
@@ -91,14 +88,20 @@ std::filesystem::path I18n::get_default_translations_path() {
         search_paths.push_back(bin_dir / "data" / "translations");
     }
 
-    // 3. User-local install (install.sh default prefix).
+    // 2. User-local install (install.sh default prefix).
     if (const char* home = getenv("HOME"); home && *home) {
         search_paths.push_back(std::filesystem::path(home) / ".local" / "share" / "term-ime" / "translations");
     }
 
-    // 4. System install paths.
+    // 3. System install paths.
     search_paths.push_back(std::filesystem::path("/usr/local/share/term-ime/translations"));
     search_paths.push_back(std::filesystem::path("/usr/share/term-ime/translations"));
+
+    // 4. Last, not first: the working directory. A translated file is user
+    //    visible content, so a directory the user merely happened to cd through
+    //    must not outrank the installed resources. Developer runs from the build
+    //    tree still land on it (cmake copies data/translations there).
+    search_paths.push_back(std::filesystem::current_path() / "data" / "translations");
 
     // First path that actually holds a translation file wins: an empty
     // directory (e.g. a leftover install dir) must not shadow a real one.
@@ -127,14 +130,23 @@ bool I18n::load_translations(Lang lang) {
         json j;
         file >> j;
 
-        translations_.clear();
+        // Built-in table first, then the file on top: an installed translations
+        // file that predates a newer UI string must not make the panel print raw
+        // key names. The file stays authoritative for every key it does carry.
+        load_default_translations(lang);
+        size_t applied = 0;
         for (auto& [key, value] : j.items()) {
             if (value.is_string()) {
                 translations_[key] = value.get<std::string>();
+                ++applied;
             }
         }
+        if (applied == 0) {
+            spdlog::warn("Translation file {} has no string entries", file_path.string());
+            return false;
+        }
 
-        spdlog::info("Loaded {} translations from {}", translations_.size(), file_path.string());
+        spdlog::info("Loaded {} translations from {}", applied, file_path.string());
         return true;
     } catch (const std::exception& e) {
         spdlog::error("Failed to load translations: {}", e.what());
@@ -194,5 +206,5 @@ void I18n::load_default_translations(Lang lang) {
         break;
     }
 
-    spdlog::info("Using default translations for {}", lang_code(lang));
+    spdlog::debug("Installed the built-in translations for {}", lang_code(lang));
 }

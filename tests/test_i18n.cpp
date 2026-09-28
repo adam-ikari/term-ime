@@ -1,5 +1,9 @@
 #include <gtest/gtest.h>
 #include "util/i18n.hpp"
+#include <filesystem>
+#include <fstream>
+#include <filesystem>
+#include <fstream>
 
 class I18nTest : public ::testing::Test {
    protected:
@@ -43,6 +47,31 @@ TEST_F(I18nTest, LoadEnFromFile) {
     EXPECT_EQ(I18n::get("settings.language"), "Language");
     EXPECT_EQ(I18n::get("settings.ui_language"), "UI Language");
     EXPECT_EQ(I18n::get("settings.close"), "Close");
+}
+
+// ==========================================================================
+// A partial translation file overlays the built-ins instead of replacing them
+// ==========================================================================
+
+TEST_F(I18nTest, PartialFileOverlaysBuiltins) {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "term-ime-i18n-partial";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    {
+        std::ofstream out(dir / "en.json");
+        out << R"({"hint.toggle_mode": "Choose"})";
+    }
+
+    I18n::init(I18n::Lang::EN, dir.string());
+    // The file is authoritative for the key it carries...
+    EXPECT_EQ(I18n::get("hint.toggle_mode"), "Choose");
+    // ...and a key added after the installed file was written still resolves,
+    // instead of the panel printing the raw key name.
+    EXPECT_EQ(I18n::get("settings.fuzzy.zh_z"), "Fuzzy zh/z");
+
+    I18n::init(I18n::Lang::EN, "/nonexistent/path");
+    fs::remove_all(dir);
 }
 
 // ==========================================================================

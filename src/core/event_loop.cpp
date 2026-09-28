@@ -80,6 +80,15 @@ void EventLoop::clear_timer(uint64_t timer_id) {
 }
 
 void EventLoop::watch_fd(int fd, IoCallback callback, bool readable) {
+    // The map is keyed by fd, so a second watch would destroy the previous
+    // wrapper while libuv still owns its handle and keep calling back into freed
+    // memory. Re-registering means the caller forgot to unwatch: keep the
+    // existing watch and refuse the new one.
+    if (io_handles_.count(fd) != 0) {
+        spdlog::error("watch_fd: fd {} is already watched, ignoring the new callback", fd);
+        return;
+    }
+
     auto handle = std::make_unique<IoHandle>();
     handle->callback = std::move(callback);
     handle->fd = fd;
@@ -105,6 +114,13 @@ void EventLoop::unwatch_fd(int fd) {
 }
 
 void EventLoop::watch_signal(int signum, SignalCallback callback) {
+    // Same keyed-map hazard as watch_fd(): the old wrapper must not be freed
+    // while libuv still owns the signal handle.
+    if (signal_handles_.count(signum) != 0) {
+        spdlog::error("watch_signal: signal {} is already watched, ignoring the new callback", signum);
+        return;
+    }
+
     auto handle = std::make_unique<SignalHandle>();
     handle->callback = std::move(callback);
     handle->signum = signum;

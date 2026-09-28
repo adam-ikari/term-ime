@@ -154,6 +154,29 @@ TEST_F(Utf8Test, ParserSwallowsOscWithBelAndSt) {
     EXPECT_EQ(row_text(screen, 0), "AB        ");
 }
 
+TEST_F(Utf8Test, ParserSwallowsOscWithUtf8Body) {
+    Screen screen(2, 20);
+    Parser parser(screen);
+    // A CJK window title is the common case: the body is bytes >= 0x80 and must
+    // not be decoded as text while the machine is inside the control string.
+    feed(parser, "\x1b]0;标题测试\x07");
+    feed(parser, "A");
+
+    EXPECT_EQ(row_text(screen, 0), "A                   ");
+}
+
+TEST_F(Utf8Test, ParserAbortsCsiAtHighByte) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "\x1b[3\xC3\xA9m");  // the high byte abandons the CSI
+    feed(parser, "ABCDEF");
+
+    // 'é' never reaches the grid and 'm' is not an SGR final byte, so the pen
+    // stays at the default rather than turning the letters green.
+    EXPECT_EQ(row_text(screen, 0), "\xEF\xBF\xBDmABCDEF  ");
+    EXPECT_EQ(screen.get(0, 3).fg, 7);
+}
+
 TEST_F(Utf8Test, ParserKeepsKnownCsiBehaviour) {
     Screen screen(4, 10);
     Parser parser(screen);
