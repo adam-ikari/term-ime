@@ -11,7 +11,16 @@ permissions:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            # GitHub-provided free ARM64 runner for public repos.
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,15 +63,15 @@ jobs:
           cp -r build/share/rime-data/* dist/term-ime/share/term-ime/rime-data/
           cp data/translations/*.json dist/term-ime/share/term-ime/translations/
           cp README.md dist/term-ime/
-          tar -czf term-ime-linux-x86_64.tar.gz -C dist term-ime
-          sha256sum term-ime-linux-x86_64.tar.gz > term-ime-linux-x86_64.tar.gz.sha256
+          tar -czf term-ime-linux-${{ matrix.arch }}.tar.gz -C dist term-ime
+          sha256sum term-ime-linux-${{ matrix.arch }}.tar.gz > term-ime-linux-${{ matrix.arch }}.tar.gz.sha256
 
       - uses: actions/upload-artifact@v4
         with:
-          name: term-ime-linux-x86_64
+          name: term-ime-linux-${{ matrix.arch }}
           path: |
-            term-ime-linux-x86_64.tar.gz
-            term-ime-linux-x86_64.tar.gz.sha256
+            term-ime-linux-${{ matrix.arch }}.tar.gz
+            term-ime-linux-${{ matrix.arch }}.tar.gz.sha256
 
   release:
     needs: build-linux
@@ -71,15 +80,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: term-ime-linux-x86_64
           path: dist
+          # No `name:` → downloads every build-linux matrix artifact into
+          # dist/<artifact-name>/ (x86_64 + aarch64).
 
       - name: Create / update release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/term-ime-linux-x86_64.tar.gz
-            dist/term-ime-linux-x86_64.tar.gz.sha256
+            dist/*/term-ime-linux-*.tar.gz
+            dist/*/term-ime-linux-*.tar.gz.sha256
             website/static/install.sh
           generate_release_notes: true
           draft: false

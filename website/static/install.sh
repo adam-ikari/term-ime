@@ -58,11 +58,12 @@ if [[ -z "$VERSION" ]]; then
 fi
 echo ">> Installing term-ime ${VERSION}"
 
-# Detect arch. Only x86_64 is published (release.yml builds linux-x86_64 only).
+# Detect arch. Prebuilt binaries: x86_64 and aarch64 (see release.yml matrix).
 ARCH="$(uname -m)"
 case "$ARCH" in
-    x86_64|amd64) ASSET_ARCH="linux-x86_64" ;;
-    *) echo "error: unsupported architecture: $ARCH (prebuilt binaries are x86_64 only; build from source for other archs)" >&2; exit 1 ;;
+    x86_64|amd64)   ASSET_ARCH="linux-x86_64" ;;
+    aarch64|arm64)  ASSET_ARCH="linux-aarch64" ;;
+    *) echo "error: unsupported architecture: $ARCH (prebuilt binaries are x86_64/aarch64 only; build from source for other archs)" >&2; exit 1 ;;
 esac
 
 ASSET="term-ime-${ASSET_ARCH}.tar.gz"
