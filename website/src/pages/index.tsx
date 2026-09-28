@@ -13,7 +13,7 @@ const INSTALL_CMD =
   'curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash';
 
 const HERO_TAGLINE =
-  'SSH 上改配置、写 commit，打句中文得先回桌面。term-ime 直接读写终端字符流，零图形依赖，一条命令装完。';
+  'SSH 上改配置、写 commit，写句中文得回桌面，打完再粘回来。term-ime 把输入法装进终端，没有桌面的机器也能用。';
 
 // 首页 FAQ 与 JSON-LD 共用同一份数据：页面显示什么，搜索引擎就看到什么。
 const FAQS: [string, string][] = [

@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [website, 传播, 文案]
 created: "2026-09-23T04:02:42"
-updated: "2026-09-28T01:55:33"
+updated: "2026-09-28T02:15:17"
 ---
 
 <!-- compiled_truth -->
@@ -14,6 +14,8 @@ updated: "2026-09-28T01:55:33"
 **首屏标题（2026-09-28 修订）**：Hero 主标题用**事实陈述**，不用痛点式钩子。当前为「终端输入法」，站名标题为 `term-ime — 终端输入法`。演进：「终端上，终于能打中文了」（判为标题党）→「终端里的中文输入法」→「终端输入法」。统一替换面：hero H1、`docusaurus.config.ts` 的 `title` / `og:title` / `twitter:title` / meta description、首页 Layout `description`、`README.md` 首行、`static/llms.txt` 引言、`website/docs/intro.mdx` 首行；描述里的关键词短语「终端中文输入法」保持不变。站点级标题仍必须含品牌词 `term-ime`（否则 Google 会改写成 term-time）。分享卡标题同规则：`og-image.html` 现为「SSH 上，直接打中文」，旧钩子「SSH 上，终于能打中文了」已废弃。
 
 **文案风格（2026-09-28 定）**：社区推广口吻，保留痛点共鸣和转发钩子，但标题一律写成 README 式直白短语（`没有输入法的终端有多难用` / `装完怎么用` / `功能` / `常见问题`），不用口号式小标题、排比三连、「不是 X 而是 Y」、段尾总结句；数字和硬事实照旧（0 图形栈依赖、1 个静态二进制、5 组模糊音、MIT）。首页 FAQ 与 JSON-LD 用同一份 `FAQS` 数组，页面显示什么搜索引擎就看到什么。
+
+**Hero tagline 只给两个信息（2026-09-28 复盘）**：一句痛点场景 + 一个卖点，禁止把卖点排成三连短句（反例已被打回：「直接读写终端字符流，零图形依赖，一条命令装完」= 排比三连 + 四字口号 + 短句收尾，全是 AI 腔）。当前版本：「SSH 上改配置、写 commit，写句中文得回桌面，打完再粘回来。term-ime 把输入法装进终端，没有桌面的机器也能用。」其余事实交给数字条和安装框去说。
 
 **禁用句式「不装 X、不装 Wayland、不碰 D-Bus」（2026-09-28 用户判定 AI 腔）**：连排否定加技术名词罗列是模型常用写法，全站禁用，同类的「不需要 A、B 或 C」也照此改。同一个事实改用正面说法，按位置各选一种、别反复用：`零图形依赖`、`直接读写终端字符流`、`桌面环境和图形输入法框架都用不上`，或直接列场景（SSH / 容器 / 无桌面服务器）。已替换：hero tagline、`docusaurus.config.ts` 的 tagline 与 meta/og/twitter description、JSON-LD description、首页 Layout description、`README.md` 第 3 行、`static/llms.txt` 引言、`docs/intro.mdx` 开头两处、`og-image.html` 副标题（原破折号连排一并去掉）。
 
@@ -88,4 +90,16 @@ updated: "2026-09-28T01:55:33"
   kind: decision
   summary: "禁用连排否定句式「不装 X、不装 Wayland、不碰 D-Bus」（用户判定 AI 腔）：hero tagline、meta/og/twitter description、config tagline、JSON-LD、README 第 3 行、llms.txt、intro.mdx 全部改为「零图形依赖 / 直接读写终端字符流 / 都用不上 / 列场景」等正面说法；分享卡旧钩子「SSH 上，终于能打中文了」换成「SSH 上，直接打中文」，og-image.png 已重出；字体子集按新用字重生成（891 字）"
   source: "本次会话用户指令：不碰XX就是AI常用的说法；SSH 上，终于能打中文了 这个文案不好"
+  affects: [website-spread-redesign]
+
+- time: 2026-09-28T02:15:17
+  kind: decision
+  summary: "Hero tagline 收敛为痛点场景 + 单个卖点，禁三连排比卖点"
+  source: "本次会话用户指令：这还是AI的说话方式（用户选定「没桌面也能用」版本）"
+  affects: [website-spread-redesign]
+
+- time: 2026-09-28T02:15:17
+  kind: decision
+  summary: "Hero tagline 二次返工：旧句「直接读写终端字符流，零图形依赖，一条命令装完」被判为 AI 腔（排比三连 + 四字口号 + 短句收尾），改为痛点场景 + 单个卖点：「…term-ime 把输入法装进终端，没有桌面的机器也能用。」"
+  source: "本次会话用户指令：这还是AI的说话方式"
   affects: [website-spread-redesign]
