@@ -11,6 +11,16 @@
 #include <thread>
 #include <spdlog/spdlog.h>
 
+namespace {
+// How long a write() for bytes the user just produced may block the event-loop
+// thread. Losing a committed word is silent data loss at the one place the user
+// cannot retype, so this is generous; flush() uses a non-blocking budget.
+constexpr int kWriteBudgetMs = 100;
+// ~Pty drains the queue while the child is still alive, but a stuck slave must
+// not hold up exit.
+constexpr int kExitBudgetMs = 50;
+}  // namespace
+
 Pty::Pty() = default;
 
 bool Pty::wait_for_exit(int timeout_ms) {
@@ -28,6 +38,16 @@ bool Pty::wait_for_exit(int timeout_ms) {
 
 Pty::~Pty() {
     if (master_fd_ >= 0) {
+        // Queued bytes are input the child has not seen yet, and closing the
+        // master makes them unrecoverable. The child is still alive at this
+        // point, so give the queue one bounded drain.
+        if (!tx_queue_.empty()) {
+            const std::vector<uint8_t> queued = tx_queue_.take();
+            write_raw(queued.data(), queued.size(), kExitBudgetMs);
+            if (!tx_queue_.empty()) {
+                spdlog::warn("pty exit: slave never took {} queued byte(s)", tx_queue_.size());
+            }
+        }
         close(master_fd_);
     }
     if (pid_ > 0) {
@@ -101,45 +121,48 @@ std::optional<std::vector<uint8_t>> Pty::read() {
 
 bool Pty::write(const std::vector<uint8_t>& data) {
     // Queued bytes are older than `data`, so they go out first.
-    if (tx_pending_.empty())
-        return write_raw(data.data(), data.size());
-    std::vector<uint8_t> merged;
-    merged.reserve(tx_pending_.size() + data.size());
-    merged.insert(merged.end(), tx_pending_.begin(), tx_pending_.end());
+    if (tx_queue_.empty())
+        return write_raw(data.data(), data.size(), kWriteBudgetMs);
+    std::vector<uint8_t> merged = tx_queue_.take();
     merged.insert(merged.end(), data.begin(), data.end());
-    tx_pending_.clear();
-    return write_raw(merged.data(), merged.size());
+    return write_raw(merged.data(), merged.size(), kWriteBudgetMs);
 }
 
-bool Pty::flush() {
-    if (tx_pending_.empty())
+bool Pty::flush(int budget_ms) {
+    if (tx_queue_.empty())
         return true;
-    std::vector<uint8_t> queued;
-    queued.swap(tx_pending_);
-    return write(queued);
+    const std::vector<uint8_t> queued = tx_queue_.take();
+    return write_raw(queued.data(), queued.size(), budget_ms);
 }
 
-bool Pty::write_raw(const uint8_t* data, size_t len) {
+bool Pty::write_raw(const uint8_t* data, size_t len, int budget_ms) {
     // master_fd_ is O_NONBLOCK: a single write() may accept only part of the
     // buffer (large paste, long CJK commit) or return EAGAIN. Loop until every
     // byte is handed to the kernel; dropping the tail silently lost input.
     // Callers run on the event-loop thread, so the EAGAIN poll() retries are
-    // bounded by a total budget: a slave buffer that never drains (shell not
+    // bounded by `budget_ms`: a slave buffer that never drains (shell not
     // reading) must not freeze the loop forever. Whatever the budget could not
-    // send is queued for the next write()/flush() -- losing a commit would be
-    // silent data loss at the one place the user cannot retype.
-    constexpr int kMaxBlockMs = 100;
-    constexpr size_t kMaxPendingBytes = 64 * 1024;
+    // send is queued for the next write()/flush().
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(budget_ms);
+
+    // Unsent bytes become the queue. Only the newest end may be dropped, since
+    // splicing the stream mid-sequence is worse than losing its tail.
     auto queue_tail = [&](size_t from) {
-        tx_pending_.assign(data + from, data + len);
-        if (tx_pending_.size() > kMaxPendingBytes) {
-            const size_t drop = tx_pending_.size() - kMaxPendingBytes;
-            spdlog::error("pty write: queue full, dropping {} oldest buffered bytes", drop);
-            tx_pending_.erase(tx_pending_.begin(), tx_pending_.begin() + drop);
+        if (const size_t dropped = tx_queue_.buffer_tail(data, len, from)) {
+            spdlog::error("pty write: queue full, dropped {} newest bytes to stay within {}, the rest of the stream is lost",
+                          dropped, TxByteQueue::kMaxBytes);
         }
     };
 
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kMaxBlockMs);
+    // The peer will never accept anything again, so a queue it cannot drain is
+    // worse than an honest drop: the next flush() would keep claiming success.
+    auto give_up = [&](size_t from, const char* why) {
+        const size_t unsent = (len - from) + tx_queue_.size();
+        tx_queue_.clear();
+        spdlog::warn("pty write: {}: discarding {} unsent bytes, peer cannot take them", why, unsent);
+        return false;
+    };
+
     size_t written = 0;
     while (written < len) {
         ssize_t n = ::write(master_fd_, data + written, len - written);
@@ -148,12 +171,18 @@ bool Pty::write_raw(const uint8_t* data, size_t len) {
             continue;
         }
         if (n < 0 && errno == EINTR) {
+            // SIGWINCH and SIGTERM land on this thread; retrying EINTR without
+            // re-checking the budget could spin past any deadline.
+            if (std::chrono::steady_clock::now() >= deadline) {
+                queue_tail(written);
+                return false;
+            }
             continue;
         }
         if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
             auto now = std::chrono::steady_clock::now();
             if (now >= deadline) {
-                spdlog::warn("pty write: blocked >{}ms, buffering {} of {} bytes", kMaxBlockMs, len - written, len);
+                spdlog::warn("pty write: blocked >{}ms, buffering {} of {} bytes", budget_ms, len - written, len);
                 queue_tail(written);
                 return false;
             }
@@ -177,14 +206,11 @@ bool Pty::write_raw(const uint8_t* data, size_t len) {
                 return false;
             }
             if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                spdlog::warn("pty write: {} of {} bytes sent, peer gone", written, len);
-                return false;
+                return give_up(written, "poll reported hangup");
             }
             continue;
         }
-        spdlog::warn("pty write: {} of {} bytes sent: {}", written, len,
-                     n < 0 ? std::strerror(errno) : "zero-length write");
-        return false;
+        return give_up(written, n < 0 ? std::strerror(errno) : "zero-length write");
     }
     return true;
 }

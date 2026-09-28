@@ -192,7 +192,9 @@ bool App::init(const AppConfig& config, EventLoop* event_loop) {
 
 void App::on_pty_data(const char* data, size_t len) {
     // The shell just consumed enough input to produce output, so its side of the
-    // pty has room again: retry whatever an earlier write had to buffer.
+    // pty has room again: retry whatever an earlier write had to buffer. This is
+    // the output hot path, so the attempt is non-blocking (budget 0) -- one
+    // write() syscall, and anything the kernel still refuses stays queued.
     pty_.flush();
     // The settings panel is a fullscreen overlay. Shell output must not be
     // painted over it, but it must not be dropped either (defect 8): keep the

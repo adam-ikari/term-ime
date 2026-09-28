@@ -339,6 +339,7 @@ add_executable(term-ime-tests
     tests/test_ime_state.cpp
     tests/test_i18n.cpp
     tests/test_input_processor.cpp
+    tests/test_pty.cpp
 )
 
 target_link_libraries(term-ime-tests
