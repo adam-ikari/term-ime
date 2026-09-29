@@ -71,21 +71,36 @@ Element SettingsPanel(SettingsState& state) {
     content.push_back(Text("  " + I18n::t("settings.title") + "  ") | Bold() | Inverted());
     content.push_back(Text(""));
 
-    // Settings items
+    // Settings items. Exactly one description line is drawn for whichever row
+    // holds focus, so the panel height does not change as you move up and down —
+    // a row appearing and vanishing would shove the Close item around the screen.
+    bool description_drawn = false;
     for (size_t i = 0; i < state.items.size(); ++i) {
-        bool focused = (static_cast<int>(i) == state.focus_index);
-        content.push_back(SettingsRow(state.items[i], focused));
+        const SettingsItem& item = state.items[i];
+        const bool focused = (static_cast<int>(i) == state.focus_index);
+        if (!item.group_header.empty()) {
+            content.push_back(Text("  " + item.group_header) | Dim());
+        }
+        content.push_back(SettingsRow(item, focused));
+        if (focused) {
+            content.push_back(Text("    " + item.description) | Dim());
+            description_drawn = true;
+        }
+    }
+
+    if (!description_drawn) {
+        // Focus is on Close; keep its explanation in the same slot.
+        content.push_back(Text("    " + I18n::t("settings.close.desc")) | Dim());
     }
 
     // Separator
     content.push_back(Text(""));
     content.push_back(Text("  " + std::string(30, '-') + "  ") | Dim());
-    content.push_back(Text(""));
 
-    // Instructions
-    content.push_back(Text("  " + I18n::t("hint.select") + ": Up/Down  ") | Dim());
-    content.push_back(Text("  " + I18n::t("hint.toggle_mode") + ": Left/Right/Enter  ") | Dim());
-    content.push_back(Text("  " + I18n::t("hint.cancel") + ": Esc/Tab  ") | Dim());
+    // Instructions, one line: the panel has to fit a 20-row terminal.
+    content.push_back(Text("  " + I18n::t("hint.select") + " ↑↓   " + I18n::t("hint.toggle_mode") +
+                           " ←→/Enter   " + I18n::t("hint.cancel") + " Esc/Tab  ") |
+                      Dim());
 
     // Close button
     content.push_back(Text(""));
@@ -191,6 +206,7 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     // UI Language
     SettingsItem ui_lang;
     ui_lang.label = I18n::t("settings.ui_language");
+    ui_lang.description = I18n::t("settings.ui_language.desc");
     ui_lang.key = "ui_language";
     ui_lang.options = {"en", "zh-CN"};
     ui_lang.display_options = {"English", "简体中文"};
@@ -208,6 +224,7 @@ void settings_init(SettingsState& state, const AppConfig& config) {
     // fewer on a narrow terminal; this is the upper bound.
     SettingsItem max_candidates;
     max_candidates.label = I18n::t("settings.max_candidates");
+    max_candidates.description = I18n::t("settings.max_candidates.desc");
     max_candidates.key = "max_candidates";
     for (int n = 1; n <= 9; ++n) {
         max_candidates.options.push_back(std::to_string(n));
@@ -225,7 +242,9 @@ void settings_init(SettingsState& state, const AppConfig& config) {
 
     // Fuzzy pinyin groups — one toggle per group (平翘舌/n/l/r系/h/f/前后鼻音).
     // Empty selection = precise spelling; the engine maps the group set to a
-    // bundled or generated schema (see RimeIme::fuzzy_variant).
+    // bundled or generated schema (see RimeIme::fuzzy_variant). Each row carries
+    // the pair it merges, because the group names alone do not say what stops
+    // being distinguished.
     struct {
         const char* id;
         const char* i18n;
@@ -233,11 +252,16 @@ void settings_init(SettingsState& state, const AppConfig& config) {
         {"zh_z", "settings.fuzzy.zh_z"}, {"n_l", "settings.fuzzy.n_l"},   {"r", "settings.fuzzy.r"},
         {"hu_f", "settings.fuzzy.hu_f"}, {"nose", "settings.fuzzy.nose"},
     };
-    for (const auto& g : kFuzzyGroups) {
+    for (size_t n = 0; n < sizeof(kFuzzyGroups) / sizeof(kFuzzyGroups[0]); ++n) {
+        const auto& g = kFuzzyGroups[n];
         const bool on =
             std::find(config.fuzzy_groups.begin(), config.fuzzy_groups.end(), g.id) != config.fuzzy_groups.end();
         SettingsItem fuzzy;
         fuzzy.label = I18n::t(g.i18n);
+        fuzzy.description = I18n::t(std::string(g.i18n) + ".desc");
+        if (n == 0) {
+            fuzzy.group_header = I18n::t("settings.group.fuzzy");
+        }
         fuzzy.key = std::string("fuzzy_") + g.id;
         fuzzy.options = {"off", "on"};
         fuzzy.display_options = {I18n::t("option.off"), I18n::t("option.on")};

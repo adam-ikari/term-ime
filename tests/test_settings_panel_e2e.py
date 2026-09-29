@@ -188,10 +188,14 @@ def test_settings_panel():
         print("\n[Test 4] Navigate with arrow keys")
         drain(master_fd)
         send(master_fd, b"\x1b[B")  # down -> first fuzzy row (平翘舌)
-        ok, buf = poll_until(master_fd, b"", row_focus_re('模糊音 平翘舌'), timeout=5.0)
+        ok, buf = poll_until(master_fd, b"", row_focus_re('平翘舌'), timeout=5.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:150])}")
-        fuzzy_focused = ok and bool(row_focus_re('模糊音 平翘舌').search(screen))
+        # The focused row's description must be on screen, not just in the data:
+        # that line is the whole point of the row being selectable.
+        desc_shown = '不区分 zh/ch/sh 与 z/c/s' in screen
+        fuzzy_focused = ok and bool(row_focus_re('平翘舌').search(screen)) and desc_shown
+        print(f"  Fuzzy description visible: {desc_shown}")
         drain(master_fd)
         send(master_fd, b"\x1b[B" * 5)  # across the 5 fuzzy rows -> Close
         ok, buf = poll_until(master_fd, b"", r'>\s*关闭\s*<', timeout=5.0)
@@ -249,7 +253,7 @@ def test_settings_panel():
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Output length: {len(buf)} bytes")
         print(f"  Screen preview: {repr(screen[:200])}")
-        panel_gone = ('Up/Down' not in screen
+        panel_gone = ('Esc/Tab' not in screen
                       and 'UI Language' not in screen
                       and '界面语言' not in screen
                       and 'Close' not in screen)

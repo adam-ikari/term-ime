@@ -15,11 +15,15 @@ namespace ui {
 struct SettingsItem {
     std::string label;
     std::string key;
+    std::string description;                   // One-line explanation, shown under the focused row
     std::string value;                         // Internal value
     std::string display_value;                 // Display value (friendly name)
     std::vector<std::string> options;          // Available options for selection (internal)
     std::vector<std::string> display_options;  // Display names for options
     int selected_index = 0;
+    // Non-empty means a header row with this text is drawn before this item.
+    // Headers are not selectable: focus_index still indexes items.
+    std::string group_header;
 };
 
 // Settings panel state

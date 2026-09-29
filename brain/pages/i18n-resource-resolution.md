@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [i18n, translation, install, packaging]
 created: "2026-09-24T10:34:27"
-updated: "2026-09-29T02:07:04"
+updated: "2026-09-29T03:21:07"
 ---
 
 <!-- compiled_truth -->
@@ -45,4 +45,10 @@ updated: "2026-09-29T02:07:04"
   kind: note
   summary: "rime 共享数据目录（rime-data）改用同一条规则解析：exe 相对优先、以内容标记判定归属，见 rime-data-dir-discovery。i18n 与 rime-data 现在是同一个安装形状（share/term-ime/...）的两份线索，打包缺任一份都是静默劣化。"
   source: "v1.1.4 修复会话"
+  affects: [i18n-resource-resolution]
+
+- time: 2026-09-29T03:21:07
+  kind: note
+  summary: "新增设置项文案时，内置表（zh/en 两处）和 data/translations/{zh-CN,en}.json 四个地方都要写：JSON 层叠在内置表之上，只写内置表会被安装目录里旧 JSON 顶回去；只写 JSON 则没有翻译目录的环境会打印裸 key。i18n 测试对两种来源分别断言。"
+  source: "设置面板描述改造会话"
   affects: [i18n-resource-resolution]

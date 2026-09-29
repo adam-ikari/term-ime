@@ -180,8 +180,8 @@ def test_settings():
         ok, buf = poll_until(master_fd, b"", r'SHELLVIEW42', timeout=10.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:200])}")
-        # Panel-only markers (footer 'Up/Down', item labels) must be gone.
-        panel_gone = ('Up/Down' not in screen
+        # Panel-only markers (footer 'Esc/Tab', item labels) must be gone.
+        panel_gone = ('Esc/Tab' not in screen
                       and 'UI Language' not in screen
                       and '界面语言' not in screen)
         shell_back = ok and 'SHELLVIEW42' in screen

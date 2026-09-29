@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-29T02:26:11.885Z._
+_Auto-generated. Last updated 2026-09-29T03:21:07.434Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | <current best understanding — replace this with the real content>
@@ -18,6 +18,7 @@ _Auto-generated. Last updated 2026-09-29T02:26:11.885Z._
 - [review-fix-wide-char](pages/review-fix-wide-char.md) — category: decision | tags: [parser, renderer, review, wide-char] | 评审修复轮(4 commits):宽字符占右半格+参数化光标 CSI 上限+中文组合态透传控制字节+Pty::write 总上限。
 - [rime-data-dir-discovery](pages/rime-data-dir-discovery.md) — category: decision | tags: [rime, packaging, install, release] | **结论（v1.1.4 起）**：`RimeIme::initialize()` 的 shared_data_dir 候选顺序，第一个"带标记"的目录胜出，与列表顺序无关；一个标记都没有时回落为第一个存在的目录（`select_shared_data_dir`，`src/ime/
 - [rime-punctuator-preset](pages/rime-punctuator-preset.md) — category: decision | tags: [rime, 标点, punctuator, schema] | **结论**：schema 想用标点映射，必须在自己的 `.schema.yaml` 里写 `punctuator: { import_preset: default }`。
+- [settings-panel-row-budget](pages/settings-panel-row-budget.md) — category: decision | tags: [ui, settings, i18n, ftxui] | **结论**：设置面板的内容高度是 **19 行**（7 项 + 1 分组标题 + 1 描述行 + 标题/分隔/提示/关闭），FTXUI 超预算只裁不折，先被裁的是最底下的「关闭」，面板打不开设置。
 - [sgr-color-support](pages/sgr-color-support.md) — category: decision | tags: [terminal, parser, renderer, sgr] | <current best understanding — replace this with the real content>
 - [startup-readiness-window](pages/startup-readiness-window.md) — category: decision | tags: [rime, startup, pty, testing] | ## 已观测事实
 - [status-bar-owns-last-row](pages/status-bar-owns-last-row.md) — category: decision | tags: [terminal, layout, resize, renderer] | 状态栏（Status bar）固定渲染在终端**最后一行**，属于 UI 保留区，不属于 shell/PTY 的绘制区。
