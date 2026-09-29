@@ -31,7 +31,7 @@ const FAQS: [string, string][] = [
   ],
   [
     'term-ime 支持模糊音吗？',
-    '支持，5 组独立开关：平翘舌、n/l、r 系、h/f、前后鼻音，在设置面板或配置文件 fuzzy_groups 里逐组切换，默认全开。',
+    '支持，平翘舌、n/l、r 系、h/f、前后鼻音各有开关，在设置面板或配置文件 fuzzy_groups 里逐组切换，默认全开。',
   ],
   [
     '安装后的命令是什么？',
@@ -285,8 +285,8 @@ function Hero() {
                 <span className={styles.statLabel}>个静态二进制</span>
               </div>
               <div className={styles.stat}>
-                <span className={styles.statValue}>5</span>
-                <span className={styles.statLabel}>组模糊音</span>
+                <span className={styles.statValue}>70655</span>
+                <span className={styles.statLabel}>词组词库</span>
               </div>
               <div className={styles.stat}>
                 <span className={styles.statValue}>MIT</span>
@@ -456,8 +456,8 @@ function Features() {
       desc: '词库和候选排序跟桌面版 Rime 同源。',
     },
     {
-      title: '5 组模糊音',
-      desc: '平翘舌、n/l、r 系、h/f、前后鼻音，一组一个开关。',
+      title: '模糊音',
+      desc: '平翘舌、n/l、r 系、h/f、前后鼻音，一组一个开关，默认全开。',
     },
     {
       title: '静态单文件',
