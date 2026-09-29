@@ -41,15 +41,16 @@ def check(name, ok, detail=""):
     print("  [%s] %-48s %s" % ("PASS" if ok else "FAIL", name, detail[:70]), flush=True)
 
 
-def wait_file(path, seconds=240.0):
+def wait_file(path, seconds=600.0):
     """Bounded wait for librime's background deploy to leave this file behind.
 
     A single os.path.exists() sample reads "not deployed yet" as "never
     deploys": on a fresh CI runner the prism for a generated schema shows up
     seconds after the status bar is already usable. The CI runner is
     ~3x slower at compiling per-combination prisms than the local box, so 90s
-    was flaky-red on every push for months; 240s leaves room without weakening
-    the check (true failure still fails — the file never shows up).
+    was flaky-red on every push for months and 240s still cut it close; 600s
+    leaves ample room without weakening the check (this is an upper bound, so
+    a prompt prism still returns instantly, and a true failure still fails).
     """
     end = time.time() + seconds
     while time.time() < end:
@@ -59,7 +60,7 @@ def wait_file(path, seconds=240.0):
     return False
 
 
-def wait_generated_prism(udir, seconds=240.0):
+def wait_generated_prism(udir, seconds=600.0):
     """Wait for the prism of any generated per-combination fuzzy schema."""
     build = os.path.join(udir, "build")
     end = time.time() + seconds
