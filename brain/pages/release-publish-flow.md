@@ -3,21 +3,20 @@ id: release-publish-flow
 title: "发布流程：tag → release.yml 出包 → formula 双写（仓库副本 + homebrew-tap）"
 category: concept
 status: active
-tags: [release, homebrew, ci]
+tags: [release, ci]
 created: "2026-09-29T00:41:51"
-updated: "2026-09-29T05:31:04"
+updated: "2026-09-29T05:36:28"
 ---
 
 <!-- compiled_truth -->
-发布 = 打 tag 触发 CI 出包，再把包摘要写进**两处** Homebrew formula。版本号只在 tag 与 formula 里，`CMakeLists.txt` 的 `project(... VERSION 1.0.0)` 只用于 SOVERSION，不随发布变化（别去改它，也别指望 `ti` 有 `--version` —— 没有）。
+发布 = 打 tag 触发 CI 出包，GitHub Release 就是全部发布产物。版本号只在 tag 里，`CMakeLists.txt` 的 `project(... VERSION 1.0.0)` 只用于 SOVERSION，不随发布变化（别去改它，也别指望 `ti` 有 `--version` —— 没有）。
+
+**v1.1.6 起不再做 Homebrew 渠道**（mac 环境不需要）：`packaging/homebrew/term-ime.rb` 已删，`adam-ikari/homebrew-tap` 不再推新版本。tarball + install.sh 是唯一安装渠道。
 
 ## 顺序
 
 1. 先推 `master`（发布提交必须先在默认分支上，release notes 才能对比出内容）。
-2. `git tag -a vX.Y.Z` 并推 tag → `release.yml` 在 x86_64 + aarch64 两个 runner 上构建全静态二进制，产出 `term-ime-linux-<arch>.tar.gz` 与 `.sha256` sidecar，连同 `website/static/install.sh` 一起发成 GitHub Release（`generate_release_notes: true`）。
-3. 取两个 `.tar.gz` 的 sha256（见下"摘要从哪来"），bump `packaging/homebrew/term-ime.rb`，提交推 `master`。
-4. **同内容再推 `adam-ikari/homebrew-tap` 的 `Formula/term-ime.rb`** —— 那是 `brew tap adam-ikari/tap` 实际读的文件，本仓库那份只是源副本。两处必须逐字节一致。
-   - **默认分支是 `master`，不是 `main`。** v1.1.5 发布时 `git push origin HEAD:main` 静默建了个新分支，`brew tap` 照旧读 `master` 里的旧版本 —— push 对已存在仓库正常返回，没有任何错误提示。推完必须 `gh api repos/adam-ikari/homebrew-tap/branches -q '.[].name'` 确认分支集合没多出来，并删掉误建的分支。
+2. `git tag -a vX.Y.Z` 并推 tag → `release.yml` 在 x86_64 + aarch64 两个 runner 上构建全静态二进制，产出 `term-ime-linux-<arch>.tar.gz` 与 `.sha256` sidecar，连同 `website/static/install.sh` 一起发成 GitHub Release（`generate_release_notes: true`）。到此发布完成，无后续步骤。
 
 ## 摘要从哪来
 
@@ -29,7 +28,7 @@ updated: "2026-09-29T05:31:04"
 
 ## 发布前该跑而 CI 不跑的
 
-`release.yml` 不做任何测试，只做静态链接检查。发布前必须本地跑 `ctest` + 六套 python e2e（见 `e2e-harness-contract`；本机 load 高的时候启动就绪门会超时，那是测量假象，不是缺陷）。`brew install` 在本机无法验证（这台机器没有 brew）。
+`release.yml` 不做任何测试，只做静态链接检查。发布前必须本地跑 `ctest` + 六套 python e2e（见 `e2e-harness-contract`；本机 load 高的时候启动就绪门会超时，那是测量假象，不是缺陷）。
 
 
 ## Timeline
@@ -68,4 +67,10 @@ updated: "2026-09-29T05:31:04"
   kind: evidence
   summary: "v1.1.6 发布完成：ctest 111/111 + 七套 e2e 全绿 → tag v1.1.6 → release.yml 成功 → sha256 三来源（API/sidecar/curl 复算）一致 → formula 双写逐字节一致，tap 这次直接推 master（无误建分支）。x86_64 5c929208…，aarch64 08dc8451…。内容：模糊音 window 框分组 + label 改音标对 + 描述固定槽。"
   source: "2026-09-29 v1.1.6 发布"
+  affects: [release-publish-flow]
+
+- time: 2026-09-29T05:36:28
+  kind: decision
+  summary: "v1.1.6 起不做 Homebrew 渠道，发布流程去掉 formula 双写"
+  source: "2026-09-29 用户决定不做 brew 渠道"
   affects: [release-publish-flow]
