@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-09-15T03:17:45"
+updated: "2026-09-29T00:41:58"
 ---
 
 <!-- compiled_truth -->
@@ -31,4 +31,10 @@ updated: "2026-09-15T03:17:45"
   kind: decision
   summary: "python PTY 端到端脚本必须：hermetic 环境 + 固定 SHELL=/bin/sh + 就绪门 + 探针式断言（不得匹配提示符文本）"
   source: "2026-09-15 e2e 脚本修复"
+  affects: [e2e-harness-contract]
+
+- time: 2026-09-29T00:41:58
+  kind: decision
+  summary: "脚本不得写死开发机绝对路径：二进制路径与工作目录要由 __file__ 推仓库根（或统一用相对仓库根的 ./build/term-ime）。tests/test_settings_panel_e2e.py 里的 /home/gem/project/term-ime 字面量让 ci.yml 的 e2e job 从接入那天起每次都在第一步 \"ERROR: ... not found\" 退出，master 上连续 4 次红与代码无关 —— 这类缺陷只在 runner 上暴露，本机永远跑不出。"
+  source: "2026-09-29 v1.1.3 发布"
   affects: [e2e-harness-contract]

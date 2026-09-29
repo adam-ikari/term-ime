@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-28T19:36:10.880Z._
+_Auto-generated. Last updated 2026-09-29T00:42:13.107Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | <current best understanding — replace this with the real content>
@@ -14,6 +14,7 @@ _Auto-generated. Last updated 2026-09-28T19:36:10.880Z._
 - [parser-stream-state-contract](pages/parser-stream-state-contract.md) — category: concept | tags: [parser, utf8, csi, osc] | `Parser` 的输入是**任意切分的字节流**——PTY 的 read 边界与转义序列边界无关。
 - [passthrough-query-architecture](pages/passthrough-query-architecture.md) — category: decision | tags: [terminal, parser, architecture, query] | ## 事实
 - [pty-outbound-write-queue](pages/pty-outbound-write-queue.md) — category: decision | tags: [pty, libuv, write, ime] | > 页面标题里的"永不丢弃"已被推翻（见时间线 reversal），当前结论以下面为准。
+- [release-publish-flow](pages/release-publish-flow.md) — category: concept | tags: [release, homebrew, ci] | 发布 = 打 tag 触发 CI 出包，再把包摘要写进**两处** Homebrew formula。
 - [review-fix-wide-char](pages/review-fix-wide-char.md) — category: decision | tags: [parser, renderer, review, wide-char] | 评审修复轮(4 commits):宽字符占右半格+参数化光标 CSI 上限+中文组合态透传控制字节+Pty::write 总上限。
 - [rime-punctuator-preset](pages/rime-punctuator-preset.md) — category: decision | tags: [rime, 标点, punctuator, schema] | **结论**：schema 想用标点映射，必须在自己的 `.schema.yaml` 里写 `punctuator: { import_preset: default }`。
 - [sgr-color-support](pages/sgr-color-support.md) — category: decision | tags: [terminal, parser, renderer, sgr] | <current best understanding — replace this with the real content>
