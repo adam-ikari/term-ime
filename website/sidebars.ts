@@ -10,6 +10,7 @@ const sidebars: SidebarsConfig = {
     'tui-component',
     'config',
     'alternatives',
+    'changelog',
   ],
 };
 

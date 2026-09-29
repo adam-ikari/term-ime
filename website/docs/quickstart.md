@@ -48,7 +48,11 @@ ti
 3. `,` / `.`（或方向键、`PgUp` / `PgDn`）翻页，`Backspace` 删一个字母，`'` 分隔音节（`ni'hao`）
 4. `Ctrl+A` `S` 打开设置面板，`Ctrl+A` `Ctrl+C` 退出，或直接敲 `exit` 退出 shell
 
+从终端粘贴大段文本会被整段交给 shell，不会再出现粘到一半丢字或前后接不上的情况。
+
 状态栏固定占终端最后一行，显示模式、拼音串和候选词；窄终端只显示放得下的候选，不会露半截词。
+
+程序出问题先看 `~/.cache/term-ime/term-ime.log`，把配置里的 `log_level` 调成 `debug` 记录更细，详见[配置](/docs/config)。
 
 完整按键见[快捷键](/docs/shortcuts)，口音相关的打法见[模糊音](/docs/fuzzy)。
 
