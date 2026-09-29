@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [release, homebrew, ci]
 created: "2026-09-29T00:41:51"
-updated: "2026-09-29T03:50:53"
+updated: "2026-09-29T05:31:04"
 ---
 
 <!-- compiled_truth -->
@@ -62,4 +62,10 @@ updated: "2026-09-29T03:50:53"
   kind: decision
   summary: "补 tap 默认分支是 master 的坑（v1.1.5 踩到）"
   source: "2026-09-29 v1.1.5 发布"
+  affects: [release-publish-flow]
+
+- time: 2026-09-29T05:31:04
+  kind: evidence
+  summary: "v1.1.6 发布完成：ctest 111/111 + 七套 e2e 全绿 → tag v1.1.6 → release.yml 成功 → sha256 三来源（API/sidecar/curl 复算）一致 → formula 双写逐字节一致，tap 这次直接推 master（无误建分支）。x86_64 5c929208…，aarch64 08dc8451…。内容：模糊音 window 框分组 + label 改音标对 + 描述固定槽。"
+  source: "2026-09-29 v1.1.6 发布"
   affects: [release-publish-flow]
