@@ -59,7 +59,7 @@ def _table_keys(fname: str) -> set:
     automatically."""
     path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "data", "rime-data", "opencc", fname,
+        "data", "rime-data-dict", "opencc", fname,
     )
     keys = set()
     with open(path, encoding="utf-8") as f:

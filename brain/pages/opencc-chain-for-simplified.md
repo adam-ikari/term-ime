@@ -11,7 +11,7 @@ updated: "2026-09-16T00:10:41"
 <!-- compiled_truth -->
 ## variants_ext.txt（2026-09-16）
 
-新增 `data/rime-data/opencc/variants_ext.txt`，946 条「表外异体字 → 简体正字」映射，
+新增 `opencc/variants_ext.txt`（v1.1.0 时位于主仓 `data/rime-data/opencc/`，词库拆独立仓库后迁到词库仓 submodule `data/rime-data-dict/opencc/`），946 条「表外异体字 → 简体正字」映射，
 挂在 t2s_full.json 链尾（第 4 步），统一收敛变体字。
 
 来源（全部权威可再生成）：

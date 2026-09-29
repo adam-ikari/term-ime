@@ -297,31 +297,40 @@ foreach(TRANSLATION_FILE ${TRANSLATION_FILES})
 endforeach()
 
 # ----------------------------------------------------------------
-# Bundled rime-data (luna_pinyin schemas + dict) — copied to build/share/rime-data
-# so the binary finds schemas with no system rime-data-luna-pinyin package.
-# Includes essay.txt (the preset vocabulary frequency table) — without it,
+# Bundled rime-data — copied to build/share/rime-data so the binary
+# finds schemas with no system rime-data-luna-pinyin package.
+#
+# The dictionary itself lives in its own repo (adam-ikari/term-ime-dict),
+# pulled in as a git submodule at data/rime-data-dict/ and locked to one
+# commit by whatever term-ime tag the build came from. What stays in this
+# repo is only term-ime's own schema/config; the dict, its essay.txt
+# frequency table (the preset vocabulary — without it,
 # use_preset_vocabulary: true in luna_pinyin.dict.yaml can't load word
-# frequencies, so candidates fall back to single chars sorted by Unicode (rare
-# chars like 㘈 rank ahead of 你) and phrases like "你好" are missing.
+# frequencies, so candidates fall back to single chars sorted by Unicode
+# (rare chars like 㘈 rank ahead of 你) and phrases like "你好" are
+# missing) and the opencc t2s data all come from the submodule.
 # ----------------------------------------------------------------
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/share/rime-data)
+set(RIME_DATA_DEST ${CMAKE_BINARY_DIR}/share/rime-data)
+file(MAKE_DIRECTORY ${RIME_DATA_DEST})
 file(GLOB RIME_DATA_FILES "${CMAKE_SOURCE_DIR}/data/rime-data/*.yaml")
 foreach(RIME_DATA_FILE ${RIME_DATA_FILES})
     get_filename_component(NAME ${RIME_DATA_FILE} NAME)
-    configure_file(${RIME_DATA_FILE} ${CMAKE_BINARY_DIR}/share/rime-data/${NAME} COPYONLY)
+    configure_file(${RIME_DATA_FILE} ${RIME_DATA_DEST}/${NAME} COPYONLY)
 endforeach()
-# essay.txt is the preset vocabulary table (3.7MB, ~300k phrases with weights).
-configure_file(${CMAKE_SOURCE_DIR}/data/rime-data/essay.txt
-               ${CMAKE_BINARY_DIR}/share/rime-data/essay.txt COPYONLY)
-# Copy opencc data files for simplifier (t2s conversion) — optional, skip if not present
-if(EXISTS ${CMAKE_SOURCE_DIR}/data/rime-data/opencc/t2s.json)
-  file(COPY ${CMAKE_SOURCE_DIR}/data/rime-data/opencc/ DESTINATION ${CMAKE_BINARY_DIR}/share/rime-data/opencc/)
+set(DICT_DIR ${CMAKE_SOURCE_DIR}/data/rime-data-dict)
+if(NOT EXISTS ${DICT_DIR}/luna_pinyin.dict.yaml)
+    message(FATAL_ERROR
+        "Dictionary submodule ${DICT_DIR} is empty. Run: git submodule update --init --recursive")
 endif()
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/data/rime-data/
-        DESTINATION share/term-ime/rime-data
-        FILES_MATCHING PATTERN "*.yaml" PATTERN "essay.txt")
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/data/rime-data/opencc/
-        DESTINATION share/term-ime/rime-data/opencc)
+configure_file(${DICT_DIR}/luna_pinyin.dict.yaml
+               ${RIME_DATA_DEST}/luna_pinyin.dict.yaml COPYONLY)
+# essay.txt is the preset vocabulary table (3.7MB, ~300k phrases with weights).
+configure_file(${DICT_DIR}/essay.txt
+               ${RIME_DATA_DEST}/essay.txt COPYONLY)
+# opencc data files for simplifier (t2s conversion)
+file(COPY ${DICT_DIR}/opencc/ DESTINATION ${RIME_DATA_DEST}/opencc/)
+install(DIRECTORY ${RIME_DATA_DEST}/
+        DESTINATION share/term-ime/rime-data)
 # Expose the build-tree bundled data dir to C++.
 target_compile_definitions(term-ime-lib PUBLIC
     RIME_BUNDLED_DATA_DIR="${CMAKE_BINARY_DIR}/share/rime-data")
