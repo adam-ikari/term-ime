@@ -74,7 +74,10 @@ def test_settings_panel():
     print("Settings Panel End-to-End Test")
     print("=" * 60)
 
-    term_ime_path = "/home/gem/project/term-ime/build/term-ime"
+    # The binary lives in this repo's build/, not on whichever machine typed the
+    # path when the script was written -- CI ran it under /home/runner.
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    term_ime_path = os.path.join(repo_root, "build", "term-ime")
     if not os.path.exists(term_ime_path):
         print(f"ERROR: {term_ime_path} not found")
         return False
@@ -98,7 +101,7 @@ def test_settings_panel():
     if pid == 0:
         # Child process - pty.fork() already made us a session leader,
         # so no os.setsid() here (it would fail with EPERM).
-        os.chdir("/home/gem/project/term-ime")
+        os.chdir(repo_root)
         os.execvp(term_ime_path, [term_ime_path])
         # If exec fails
         print(f"Failed to exec {term_ime_path}", file=sys.stderr)
