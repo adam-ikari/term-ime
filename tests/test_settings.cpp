@@ -79,66 +79,73 @@ int main() {
     std::cout << "  Escape handled: " << (handled ? "true" : "false") << "\n\n";
 
     // Test 7: 面板高度预算。FTXUI 超预算只裁不折，被裁掉的先是底部的「关闭」——
-    // 面板打不开设置就等于功能没了，所以这里逐焦点走一遍，钉住「底部边框 + 关闭 +
-    // 当前项描述」三样都在，且用的是 60x20（最小的受支持终端）。
+    // 面板打不开设置就等于功能没了，所以逐尺寸、逐焦点走一遍，钉住「底部边框 + 关闭 +
+    // 当前项描述」三样都在，且行数不随焦点变化。60x20 是最窄最小的受支持终端。
     settings_init(state, config);
     int failures = 0;
-    int drawn_rows = 0;
     const int last_focus = static_cast<int>(state.items.size());  // == Close
-    for (int f = 0; f <= last_focus; ++f) {
-        state.focus_index = f;
-        auto scr = ftxui::Screen::Create(ftxui::Dimension::Fixed(60), ftxui::Dimension::Fixed(20));
-        ftxui::Render(scr, SettingsPanel(state));
-        const std::string text = scr.ToString();
-        const std::vector<std::string> lines = [&text] {
-            std::vector<std::string> out;
-            std::stringstream ss(text);
-            std::string line;
-            while (std::getline(ss, line)) {
-                out.push_back(line);
-            }
-            // ToString() ends with a newline, so the last element is empty.
-            if (!out.empty() && out.back().empty()) {
-                out.pop_back();
-            }
-            return out;
-        }();
+    const std::vector<std::pair<int, int>> sizes = {{60, 20}, {80, 20}, {80, 24}};
+    for (const auto& size : sizes) {
+        int drawn_rows = 0;
+        for (int f = 0; f <= last_focus; ++f) {
+            state.focus_index = f;
+            auto scr =
+                ftxui::Screen::Create(ftxui::Dimension::Fixed(size.first), ftxui::Dimension::Fixed(size.second));
+            ftxui::Render(scr, SettingsPanel(state));
+            const std::string text = scr.ToString();
+            const std::vector<std::string> lines = [&text] {
+                std::vector<std::string> out;
+                std::stringstream ss(text);
+                std::string line;
+                while (std::getline(ss, line)) {
+                    out.push_back(line);
+                }
+                // ToString() ends with a newline, so the last element is empty.
+                if (!out.empty() && out.back().empty()) {
+                    out.pop_back();
+                }
+                return out;
+            }();
 
-        // The panel is vertically centred, so the box need not sit on the last
-        // row — but if it is taller than the screen FTXUI drops the bottom border
-        // without warning, so its presence is what proves nothing was clipped.
-        bool bottom_border = false;
-        for (const auto& line : lines) {
-            if (line.find("╰") != std::string::npos && line.find("╯") != std::string::npos) {
-                bottom_border = true;
+            // The panel is vertically centred, so the box need not sit on the last
+            // row — but if it is taller than the screen FTXUI drops the bottom border
+            // without warning, so its presence is what proves nothing was clipped.
+            bool bottom_border = false;
+            for (const auto& line : lines) {
+                if (line.find("╰") != std::string::npos && line.find("╯") != std::string::npos) {
+                    bottom_border = true;
+                }
+            }
+            // The Close row's "> <" markers are focus decoration, so match the label.
+            const bool close_visible = text.find(I18n::get("settings.close")) != std::string::npos;
+            const std::string want_desc =
+                (f < last_focus) ? state.items[f].description : I18n::get("settings.close.desc");
+            const bool desc_visible = !want_desc.empty() && text.find(want_desc) != std::string::npos;
+
+            // Height must not move with focus: the description slot is filled by
+            // whichever row holds focus, never added or removed.
+            int box_rows = 0;
+            for (const auto& line : lines) {
+                if (line.find("│") != std::string::npos || line.find("╭") != std::string::npos ||
+                    line.find("╰") != std::string::npos) {
+                    ++box_rows;
+                }
+            }
+            const bool same_height = (drawn_rows == 0 || box_rows == drawn_rows);
+            drawn_rows = box_rows;
+
+            if (!bottom_border || !close_visible || !desc_visible || !same_height) {
+                ++failures;
+                std::cout << "  FAIL " << size.first << "x" << size.second << " focus=" << f
+                          << " bottom_border=" << bottom_border << " close=" << close_visible
+                          << " desc=" << desc_visible << " same_height=" << same_height << " [" << want_desc << "]\n";
             }
         }
-        // The Close row's "> <" markers are focus decoration, so match the label.
-        const bool close_visible = text.find(I18n::get("settings.close")) != std::string::npos;
-        const std::string want_desc =
-            (f < last_focus) ? state.items[f].description : I18n::get("settings.close.desc");
-        const bool desc_visible = !want_desc.empty() && text.find(want_desc) != std::string::npos;
-
-        // Height must not move with focus: the description slot is filled by
-        // whichever row holds focus, never added or removed.
-        int box_rows = 0;
-        for (const auto& line : lines) {
-            if (line.find("│") != std::string::npos || line.find("╭") != std::string::npos ||
-                line.find("╰") != std::string::npos) {
-                ++box_rows;
-            }
-        }
-        const bool same_height = (drawn_rows == 0 || box_rows == drawn_rows);
-        drawn_rows = box_rows;
-
-        if (!bottom_border || !close_visible || !desc_visible || !same_height) {
-            ++failures;
-            std::cout << "  FAIL focus=" << f << " bottom_border=" << bottom_border << " close=" << close_visible
-                      << " desc=" << desc_visible << " same_height=" << same_height << " [" << want_desc << "]\n";
-        }
+        std::cout << "  " << size.first << "x" << size.second << ": box rows " << drawn_rows << ", foci walked "
+                  << (last_focus + 1) << "\n";
     }
-    std::cout << "Test 7: panel fits 60x20 at every focus position — " << (failures == 0 ? "OK" : "FAILED") << "\n";
-    std::cout << "  Box rows: " << drawn_rows << " of 20, foci walked: " << (last_focus + 1) << "\n\n";
+    std::cout << "Test 7: panel fits every supported size at every focus position — "
+              << (failures == 0 ? "OK" : "FAILED") << "\n\n";
 
     if (failures != 0) {
         std::cout << "=== Settings Tests FAILED (" << failures << " clipped renders) ===\n";
