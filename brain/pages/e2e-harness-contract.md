@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-09-29T03:21:07"
+updated: "2026-09-29T09:59:18"
 ---
 
 <!-- compiled_truth -->
@@ -43,4 +43,10 @@ updated: "2026-09-29T03:21:07"
   kind: note
   summary: "设置面板的开/关指纹字串从 'Up/Down' 换成 'Esc/Tab'（三行按键提示并成一行后 Up/Down 不再出现）。断言面板是否还开着要靠这个字面量，改提示文案必须同步改 panel_gone。"
   source: "设置面板描述改造会话"
+  affects: [e2e-harness-contract]
+
+- time: 2026-09-29T09:59:18
+  kind: decision
+  summary: "test_fuzzy_pinyin 的 per-combination prism 部署在 CI 上长期失败（词库拆仓前 run 0e222cb 同样 10/13，非回归）：n_l-only/zh_z-only/subset 三个组合 240s 内等不到 prism.bin。90s→240s 未能修复，600s 反而撞 job 超时被 cancel（已回退 240s）。这三条是 pre-existing flaky，不阻塞发布；根因（CI 2 核编译 7 万词条词典的耗时 vs deploy 真不完成）待单独排查。"
+  source: "2026-09-29 CI flaky 排查"
   affects: [e2e-harness-contract]
