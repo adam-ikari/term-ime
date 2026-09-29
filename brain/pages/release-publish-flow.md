@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [release, homebrew, ci]
 created: "2026-09-29T00:41:51"
-updated: "2026-09-29T00:42:13"
+updated: "2026-09-29T02:26:01"
 ---
 
 <!-- compiled_truth -->
@@ -43,4 +43,10 @@ updated: "2026-09-29T00:42:13"
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: "2026-09-29 v1.1.3 发布"
+  affects: [release-publish-flow]
+
+- time: 2026-09-29T02:26:01
+  kind: evidence
+  summary: "v1.1.4 发布完成（tag v1.1.4 @ b2b71a9+docs，Release run 成功）。sha256 三方一致：x86_64 5ebc864ffbebb2e857b8850c3038a414d27039a6cdf5ea06c0e92e9aee048f43、aarch64 5830bb2d457c461a5b75aded55b73bff2522bd6a3939dbd36afca8126a529770（GH 资产 digest == CI sidecar == 独立 curl 重算）。formula 双写完成，仓库副本与 homebrew-tap 副本 diff 为空。新增一步验证：把**已下载的发布 tarball** 直接放进 unshare 诱饵场景跑候选，而不是只验本地 build 产物 —— 发布出去的二进制才是用户手里的那个。"
+  source: "v1.1.4 发布会话"
   affects: [release-publish-flow]

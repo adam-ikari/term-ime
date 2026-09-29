@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-29T02:07:04.765Z._
+_Auto-generated. Last updated 2026-09-29T02:26:11.885Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | <current best understanding — replace this with the real content>

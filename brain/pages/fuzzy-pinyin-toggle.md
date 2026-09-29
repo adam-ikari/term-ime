@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [rime, config, settings, schema]
 created: "2026-09-15T08:07:37"
-updated: "2026-09-18T09:38:19"
+updated: "2026-09-29T02:26:11"
 ---
 
 <!-- compiled_truth -->
@@ -64,4 +64,10 @@ qian 有枪、wan 有网；面板切「关」→ 全部消失且精确读音仍�
   kind: decision
   summary: "细化:5组独立开关(平翘舌/n_l/r系/h_f/前后鼻音),部分开启时合成 per-combination schema"
   source: "2026-09-18 模糊音细化"
+  affects: [fuzzy-pinyin-toggle]
+
+- time: 2026-09-29T02:26:11
+  kind: evidence
+  summary: "仍未解决（发布不受阻，但 master 的 Build and Test 因此长期红）：CI runner 上按开关组合合成的 luna_pinyin_simp_fuzzy_<sig> schema 在 90 秒有界等待内始终没有部署出 prism，n_l-only / zh_z-only / subset 三条都停在「generated prism deployed」这道门上；本地同场景 19/19 全过。有界等待本身是对的（不再把部署没完成伪装成模糊音坏了），缺的是 runner 侧根因：可能是 rime_deployer 在容器里的后台部署线程根本没跑完，或 build/ 目录权限/挂载差异。下次动它先抓 runner 上 <user_dir>/build 的目录列表与 librime 部署日志，而不是再加等待时间。"
+  source: "v1.1.4 发布会话"
   affects: [fuzzy-pinyin-toggle]
