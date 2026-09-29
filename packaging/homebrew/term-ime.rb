@@ -14,18 +14,18 @@
 class TermIme < Formula
   desc "Linux TTY 终端输入法 — librime 拼音带进 SSH/Docker/WSL 纯终端"
   homepage "https://adam-ikari.github.io/term-ime/"
-  version "1.1.3"
+  version "1.1.4"
   depends_on :linux
   license "MIT"
 
   on_intel do
-    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.3/term-ime-linux-x86_64.tar.gz"
-    sha256 "1780154e61c506fa48b2b56f42048ae85c5a9de685edd04d83d31e0151e1a8eb"
+    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.4/term-ime-linux-x86_64.tar.gz"
+    sha256 "5ebc864ffbebb2e857b8850c3038a414d27039a6cdf5ea06c0e92e9aee048f43"
   end
 
   on_arm do
-    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.3/term-ime-linux-aarch64.tar.gz"
-    sha256 "470c1abe458ea078bfee572e0d718c928a6b1e8d116107cbf1898f6ab7b952ff"
+    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.4/term-ime-linux-aarch64.tar.gz"
+    sha256 "5830bb2d457c461a5b75aded55b73bff2522bd6a3939dbd36afca8126a529770"
   end
 
   def install
@@ -39,5 +39,9 @@ class TermIme < Formula
   test do
     assert_predicate bin/"ti", :executable?
     assert_predicate (share/"term-ime/rime-data"), :directory?
+    # Runtime discovery decides ownership of a data dir by this schema, so a
+    # bundle that merely has the directory still installs clean and then offers
+    # no candidates.
+    assert_predicate (share/"term-ime/rime-data/luna_pinyin_simp_fuzzy.schema.yaml"), :exist?
   end
 end
