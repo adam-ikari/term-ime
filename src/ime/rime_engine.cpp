@@ -12,6 +12,44 @@
 #define RIME_BUNDLED_DATA_DIR ""
 #endif
 
+// Directory containing the running binary, or "" when /proc/self/exe is not
+// readable. Install layouts are found relative to this, so a relocated or
+// freshly extracted build needs no compile-time path to be valid.
+static std::string exe_dir() {
+    std::error_code ec;
+    auto exe = std::filesystem::read_symlink("/proc/self/exe", ec);
+    if (ec || exe.empty()) {
+        return "";
+    }
+    return exe.parent_path().string();
+}
+
+std::string select_shared_data_dir(const std::string& configured, const std::vector<std::string>& candidates,
+                                   const std::string& fallback) {
+    if (!configured.empty()) {
+        return configured;
+    }
+
+    namespace fs = std::filesystem;
+    std::string first_existing;
+    for (const auto& path : candidates) {
+        if (path.empty()) {
+            continue;
+        }
+        std::error_code ec;
+        if (!fs::exists(path, ec) || !fs::is_directory(path, ec)) {
+            continue;
+        }
+        if (fs::exists(fs::path(path) / kRimeDataMarker, ec)) {
+            return path;
+        }
+        if (first_existing.empty()) {
+            first_existing = path;
+        }
+    }
+    return first_existing.empty() ? fallback : first_existing;
+}
+
 // rime_life_ is built with an explicit deleter: GCC cannot default-construct a
 // unique_ptr whose deleter is a nested class of the unique_ptr's owner.
 RimeIme::RimeIme(const std::string& shared_data_dir, const std::string& user_data_dir)
@@ -41,16 +79,20 @@ bool RimeIme::initialize() {
     // Setup traits
     RIME_STRUCT(RimeTraits, traits);
 
-    // Determine shared data directory — prefer term-ime's own bundled data, then
-    // fall back to system rime-data (which ships prebuilt prism/table .bin so no
-    // runtime deploy is needed). The user data dir is always term-ime's own.
+    // Determine shared data directory. Order matters: the data sitting next to
+    // this binary (tarball, Homebrew Cellar, or the build tree) is the data this
+    // program was shipped with, so it beats an install-script copy, which beats
+    // a system rime-data -- that one has no term-ime schema and typing would
+    // silently yield nothing.
     std::string shared_dir = shared_data_dir_;
     if (shared_dir.empty()) {
-        // Get user's home directory for fallback paths
+        const std::string bin = exe_dir();
         const char* home = getenv("HOME");
         std::string user_local = home ? std::string(home) + "/.local/share/term-ime/rime-data" : "";
 
         std::vector<std::string> search_paths = {
+            bin.empty() ? "" : (std::filesystem::path(bin) / ".." / "share" / "term-ime" / "rime-data").string(),
+            bin.empty() ? "" : (std::filesystem::path(bin) / "share" / "rime-data").string(),
             RIME_BUNDLED_DATA_DIR,  // build-time bundled data
             user_local,             // user-local install
             "/usr/local/share/term-ime/rime-data",
@@ -58,18 +100,19 @@ bool RimeIme::initialize() {
             "/usr/share/rime-data",
             "/usr/local/share/rime-data",
         };
-
-        for (const auto& path : search_paths) {
-            if (!path.empty() && std::filesystem::exists(path)) {
-                shared_dir = path;
-                break;
-            }
-        }
-
-        if (shared_dir.empty()) {
-            shared_dir = "/usr/share/rime-data";  // fallback
-        }
+        shared_dir = select_shared_data_dir("", search_paths, "/usr/share/rime-data");
     }
+
+    // Applies to a configured dir as well: whichever dir it ends up being, no
+    // marker there means the schema this app loads is absent, and the only
+    // symptom a user sees is an empty candidate bar.
+    std::error_code ec;
+    if (!std::filesystem::exists(std::filesystem::path(shared_dir) / kRimeDataMarker, ec)) {
+        spdlog::warn("rime data at {} has no {}; pinyin will not be offered -- install term-ime's own "
+                     "rime-data (or set rime_shared_data_dir) instead",
+                     shared_dir, kRimeDataMarker);
+    }
+    spdlog::info("rime shared data dir: {}", shared_dir);
     traits.shared_data_dir = shared_dir.c_str();
 
     // Use default user data dir — term-ime's OWN XDG data dir (never ~/.rime or

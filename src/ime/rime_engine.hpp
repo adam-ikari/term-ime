@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine.hpp"
+#include "rime_data.hpp"
 #include <rime_api.h>
 #include <string>
 #include <vector>
@@ -9,9 +10,9 @@
 // Rime-based input method engine wrapper
 class RimeIme : public ImeEngine {
    public:
-    // Initialize with optional data directories
-    // shared_data_dir: system rime data directory (default: /usr/share/rime-data)
-    // user_data_dir: user config directory (default: ~/.config/term-ime)
+    // Both arguments are optional overrides; empty means detect at initialize().
+    // shared_data_dir: rime shared-data directory (see select_shared_data_dir)
+    // user_data_dir: term-ime's own user data directory (default: XDG data dir)
     explicit RimeIme(const std::string& shared_data_dir = "", const std::string& user_data_dir = "");
     ~RimeIme();
 
