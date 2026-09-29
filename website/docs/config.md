@@ -31,6 +31,7 @@ sidebar_position: 3
 | `max_candidates` | int | `9` | 每页候选词数量上限(1-9,越界自动钳制) |
 | `fuzzy_groups` | array | `["zh_z","n_l","r","hu_f","nose"]` | 模糊音开关（每组独立）：`zh_z` 平翘舌、`n_l` n/l、`r` r 系、`hu_f` h/f、`nose` 前后鼻音；空数组 = 精确拼音。旧配置 `fuzzy_pinyin`（bool）仍兼容读取 |
 | `shell` | string | `$SHELL`，取不到则 `/bin/bash` | 启动时在最外层 PTY 里跑的 shell |
+| `rime_shared_data_dir` | string | 空 | 拼音数据目录。留空自动查找（离二进制最近的 `share/term-ime/rime-data` 优先，见更新日志 v1.1.4）；填了就直接用，不再搜索。数据在非常规位置、或机器上另有系统 `/usr/share/rime-data` 想要强行指定自己那份时才需要填 |
 | `log_level` | string | `warn` | 日志级别: `debug`, `info`, `warn`, `error` |
 | `log_file` | string | 空 | 日志文件路径。留空写到 `~/.cache/term-ime/term-ime.log` |
 
