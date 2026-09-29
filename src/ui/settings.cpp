@@ -71,27 +71,36 @@ Element SettingsPanel(SettingsState& state) {
     content.push_back(Text("  " + I18n::t("settings.title") + "  ") | Bold() | Inverted());
     content.push_back(Text(""));
 
-    // Settings items. Exactly one description line is drawn for whichever row
-    // holds focus, so the panel height does not change as you move up and down —
-    // a row appearing and vanishing would shove the Close item around the screen.
-    bool description_drawn = false;
+    // The fuzzy items form one titled group (an ftxui window) at the tail of
+    // the items list; the first member carries the title in group_header.
+    // The description is a single fixed slot after all items so the window's
+    // height never grows with focus — a taller-when-focused box would shove
+    // the Close row off the 19-row budget (see settings-panel-row-budget).
+    Elements group_rows;
+    bool in_group = false;
+    std::string group_title;
     for (size_t i = 0; i < state.items.size(); ++i) {
         const SettingsItem& item = state.items[i];
         const bool focused = (static_cast<int>(i) == state.focus_index);
         if (!item.group_header.empty()) {
-            content.push_back(Text("  " + item.group_header) | Dim());
+            in_group = true;
+            group_title = item.group_header;
         }
-        content.push_back(SettingsRow(item, focused));
-        if (focused) {
-            content.push_back(Text("    " + item.description) | Dim());
-            description_drawn = true;
+        if (in_group) {
+            group_rows.push_back(SettingsRow(item, focused));
+        } else {
+            content.push_back(SettingsRow(item, focused));
         }
     }
-
-    if (!description_drawn) {
-        // Focus is on Close; keep its explanation in the same slot.
-        content.push_back(Text("    " + I18n::t("settings.close.desc")) | Dim());
+    if (in_group) {
+        content.push_back(ftxui::window(Text(group_title), VBox(std::move(group_rows))));
     }
+    // Fixed description slot: whichever item holds focus (or Close).
+    const int fi = state.focus_index;
+    const std::string desc = (fi >= 0 && fi < static_cast<int>(state.items.size()))
+                                 ? state.items[fi].description
+                                 : I18n::t("settings.close.desc");
+    content.push_back(Text("    " + desc) | Dim());
 
     // Separator
     content.push_back(Text(""));

@@ -182,19 +182,19 @@ def test_settings_panel():
         print(f"  Candidates row focused: {cand_focused}, ui row unfocused: {ui_unfocused}")
         results.append(("Navigate j", cand_focused and ui_unfocused))
 
-        # Test 4: Arrow navigation. Down walks on to the first fuzzy row (平翘舌),
+        # Test 4: Arrow navigation. Down walks on to the first fuzzy row (zh⇄z),
         # then across the five fuzzy rows to Close; up walks back to the
         # candidates row.
         print("\n[Test 4] Navigate with arrow keys")
         drain(master_fd)
-        send(master_fd, b"\x1b[B")  # down -> first fuzzy row (平翘舌)
-        ok, buf = poll_until(master_fd, b"", row_focus_re('平翘舌'), timeout=5.0)
+        send(master_fd, b"\x1b[B")  # down -> first fuzzy row (zh⇄z)
+        ok, buf = poll_until(master_fd, b"", row_focus_re('zh⇄z'), timeout=5.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:150])}")
         # The focused row's description must be on screen, not just in the data:
         # that line is the whole point of the row being selectable.
         desc_shown = '不区分 zh/ch/sh 与 z/c/s' in screen
-        fuzzy_focused = ok and bool(row_focus_re('平翘舌').search(screen)) and desc_shown
+        fuzzy_focused = ok and bool(row_focus_re('zh⇄z').search(screen)) and desc_shown
         print(f"  Fuzzy description visible: {desc_shown}")
         drain(master_fd)
         send(master_fd, b"\x1b[B" * 5)  # across the 5 fuzzy rows -> Close
@@ -229,15 +229,15 @@ def test_settings_panel():
         # default the later tests and the config persistence check assume.
         print("\n[Test 5b] Toggle a fuzzy group off and back on")
         drain(master_fd)
-        send(master_fd, b"\x1b[B")  # 候选词数量 -> 平翘舌 (the header is not focusable)
-        ok, buf = poll_until(master_fd, b"", row_focus_re('平翘舌'), timeout=5.0)
+        send(master_fd, b"\x1b[B")  # 候选词数量 -> zh⇄z (the header is not focusable)
+        ok, buf = poll_until(master_fd, b"", row_focus_re('zh⇄z'), timeout=5.0)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         drain(master_fd)
         send(master_fd, b"\r")
-        ok_off, buf_off = poll_until(master_fd, b"", r'平翘舌:\s*\[关\]', timeout=5.0)
+        ok_off, buf_off = poll_until(master_fd, b"", r'zh⇄z:\s*\[关\]', timeout=5.0)
         drain(master_fd)
         send(master_fd, b"\r")
-        ok_on, buf_on = poll_until(master_fd, b"", r'平翘舌:\s*\[开\]', timeout=5.0)
+        ok_on, buf_on = poll_until(master_fd, b"", r'zh⇄z:\s*\[开\]', timeout=5.0)
         toggled = ok and ok_off and ok_on
         print(f"  Row focused: {ok}, flipped to 关: {bool(ok_off)}, back to 开: {bool(ok_on)}")
         results.append(("Toggle fuzzy group", toggled))

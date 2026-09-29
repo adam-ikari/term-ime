@@ -69,7 +69,7 @@ TEST_F(I18nTest, PartialFileOverlaysBuiltins) {
     EXPECT_EQ(I18n::get("hint.toggle_mode"), "Choose");
     // ...and a key added after the installed file was written still resolves,
     // instead of the panel printing the raw key name.
-    EXPECT_EQ(I18n::get("settings.fuzzy.zh_z"), "zh/z");
+    EXPECT_EQ(I18n::get("settings.fuzzy.zh_z"), "zh⇄z");
 
     I18n::init(I18n::Lang::EN, "/nonexistent/path");
     fs::remove_all(dir);
@@ -194,15 +194,15 @@ TEST_F(I18nTest, FuzzyRowsAreShortUnderTheGroupHeader) {
     // copies of the group name is width spent saying nothing.
     I18n::init(I18n::Lang::ZH_CN, "data/translations");
     EXPECT_EQ(I18n::get("settings.group.fuzzy"), "模糊音");
-    EXPECT_EQ(I18n::get("settings.fuzzy.zh_z"), "平翘舌");
-    EXPECT_EQ(I18n::get("settings.fuzzy.nose"), "前后鼻音");
+    EXPECT_EQ(I18n::get("settings.fuzzy.zh_z"), "zh⇄z");
+    EXPECT_EQ(I18n::get("settings.fuzzy.nose"), "an⇄ang");
     EXPECT_EQ(I18n::get("settings.fuzzy.zh_z.desc"), "不区分 zh/ch/sh 与 z/c/s");
     EXPECT_EQ(I18n::get("settings.fuzzy.zh_z").find("模糊音"), std::string::npos)
         << "row label grew the group name back";
 
     I18n::init(I18n::Lang::EN, "data/translations");
     EXPECT_EQ(I18n::get("settings.group.fuzzy"), "Fuzzy pinyin");
-    EXPECT_EQ(I18n::get("settings.fuzzy.zh_z"), "zh/z");
-    EXPECT_EQ(I18n::get("settings.fuzzy.nose"), "-n/-ng");
+    EXPECT_EQ(I18n::get("settings.fuzzy.zh_z"), "zh⇄z");
+    EXPECT_EQ(I18n::get("settings.fuzzy.nose"), "an⇄ang");
     EXPECT_EQ(I18n::get("settings.fuzzy.nose.desc"), "Treats -n and -ng alike");
 }
