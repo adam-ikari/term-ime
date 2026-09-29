@@ -41,6 +41,36 @@ def check(name, ok, detail=""):
     print("  [%s] %-48s %s" % ("PASS" if ok else "FAIL", name, detail[:70]), flush=True)
 
 
+def wait_file(path, seconds=90.0):
+    """Bounded wait for librime's background deploy to leave this file behind.
+
+    A single os.path.exists() sample reads "not deployed yet" as "never
+    deploys": on a fresh CI runner the prism for a generated schema shows up
+    seconds after the status bar is already usable.
+    """
+    end = time.time() + seconds
+    while time.time() < end:
+        if os.path.exists(path):
+            return True
+        time.sleep(0.25)
+    return False
+
+
+def wait_generated_prism(udir, seconds=90.0):
+    """Wait for the prism of any generated per-combination fuzzy schema."""
+    build = os.path.join(udir, "build")
+    end = time.time() + seconds
+    while time.time() < end:
+        try:
+            names = os.listdir(build)
+        except OSError:
+            names = []
+        if any(n.startswith("luna_pinyin_simp_fuzzy_") and n.endswith(".prism.bin") for n in names):
+            return True
+        time.sleep(0.25)
+    return False
+
+
 def strip_ansi(data: bytes) -> str:
     return OSC.sub("", ANSI.sub("", data.decode("utf-8", "replace")))
 
@@ -156,6 +186,15 @@ def run_group_case(groups, label):
             return
         s.send(b"\x01 ")
         s.wait_for(r"\[拼\]", seconds=8.0)
+        # 部分开启走的是合成出来的 per-combination schema，它要等 librime 后台部署
+        # 完才有 prism；部署没完就打字，拿到的是"这组模糊音不生效"的候选 —— 那是
+        # 就绪窗口，不是缺陷。
+        if 0 < len(groups) < 5:
+            udir = os.path.join(s.home, ".local", "share", "term-ime")
+            if not wait_generated_prism(udir):
+                check(f"{label}: generated prism deployed", False, udir)
+                return
+            time.sleep(0.5)
         for pinyin, char, group in GROUP_PROBES:
             got = s.candidates(pinyin)
             expect = group in groups
@@ -184,8 +223,8 @@ def main() -> int:
         udir = os.path.join(s.home, ".local", "share", "term-ime")
         gen_schema = os.path.join(udir, "luna_pinyin_simp_fuzzy_n_l_nose.schema.yaml")
         gen_prism = os.path.join(udir, "build", "luna_pinyin_simp_fuzzy_n_l_nose.prism.bin")
-        check("subset: generated schema written", os.path.exists(gen_schema), gen_schema)
-        check("subset: prism deployed", os.path.exists(gen_prism), gen_prism)
+        check("subset: generated schema written", wait_file(gen_schema), gen_schema)
+        check("subset: prism deployed", wait_file(gen_prism), gen_prism)
     finally:
         s.close()
 
