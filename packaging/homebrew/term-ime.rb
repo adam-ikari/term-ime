@@ -14,18 +14,18 @@
 class TermIme < Formula
   desc "Linux TTY 终端输入法 — librime 拼音带进 SSH/Docker/WSL 纯终端"
   homepage "https://adam-ikari.github.io/term-ime/"
-  version "1.1.4"
+  version "1.1.5"
   depends_on :linux
   license "MIT"
 
   on_intel do
-    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.4/term-ime-linux-x86_64.tar.gz"
-    sha256 "5ebc864ffbebb2e857b8850c3038a414d27039a6cdf5ea06c0e92e9aee048f43"
+    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.5/term-ime-linux-x86_64.tar.gz"
+    sha256 "012c0694919bf1cd39d1b35775e7421febc3b24fa4d46d286c3a6a3e6d0fa00e"
   end
 
   on_arm do
-    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.4/term-ime-linux-aarch64.tar.gz"
-    sha256 "5830bb2d457c461a5b75aded55b73bff2522bd6a3939dbd36afca8126a529770"
+    url "https://github.com/adam-ikari/term-ime/releases/download/v1.1.5/term-ime-linux-aarch64.tar.gz"
+    sha256 "a38050d6b4983a166271addbb91883df53efa173cea031011ba8a0879fc998a3"
   end
 
   def install
