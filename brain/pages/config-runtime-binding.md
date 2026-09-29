@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [config, shell, logging, rime]
 created: "2026-09-28T14:20:29"
-updated: "2026-09-28T19:35:44"
+updated: "2026-09-29T02:07:04"
 ---
 
 <!-- compiled_truth -->
@@ -41,4 +41,10 @@ updated: "2026-09-28T19:35:44"
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: "2026-09-28 代码评审修复轮（第 4 提交：日志与尺寸 clamp）"
+  affects: [config-runtime-binding]
+
+- time: 2026-09-29T02:07:04
+  kind: note
+  summary: "rime_shared_data_dir 定为显式覆盖：非空即胜出，不看是否含 luna_pinyin_simp_fuzzy.schema.yaml 标记（但缺标记仍 warn，因为症状是零候选）。自动搜索才讲标记优先。"
+  source: "v1.1.4 修复会话"
   affects: [config-runtime-binding]

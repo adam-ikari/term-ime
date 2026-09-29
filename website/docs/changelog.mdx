@@ -6,6 +6,14 @@ sidebar_position: 9
 
 版本号沿用仓库的 Git tag。逐条提交与二进制下载见 [GitHub Releases](https://github.com/adam-ikari/term-ime/releases)。
 
+## v1.1.4
+
+**修一个装完就哑的坑。** 用 tarball 或 Homebrew 安装、且机器上另有系统的 librime 数据目录（`/usr/share/rime-data`，装过 `fcitx5-rime`/`rime-data` 一类包就会有）时，程序会选中那个系统目录：它的文件名里有 `[拼]`，切换也正常，但打字一个候选都不出 —— 因为拼音方案在 term-ime 自带的数据里，不在系统目录里。以前找数据只认一个编译期写死的构建机绝对路径，运行时压根不看可执行文件自己旁边。
+
+现在按「离二进制最近的优先」找：二进制同级的 `../share/term-ime/rime-data`（tarball、Homebrew Cellar、install.sh 装的 `PREFIX` 都是这个形状）、`./share/rime-data`，再往后再轮到常见安装路径，系统目录排最后。而且"是不是 term-ime 自带的数据"要看目录里有没有那份模糊音方案，光目录存在不算。
+
+真的哪里都找不到自带数据时（比如手工拷了个半套），程序照常启动，并在日志里写明当前用的目录缺哪份方案、拼音不会可用，不再让用户对着一空候选栏猜。日志另加一行记录最终选中的目录。
+
 ## v1.1.3
 
 四处用户能直接感觉到的变化。
