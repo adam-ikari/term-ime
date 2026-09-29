@@ -222,6 +222,29 @@ def test_settings_panel():
         print(f"  Candidate cap lowered to 8: {lowered}")
         results.append(("Change value h", lowered))
 
+        # Test 5b: Enter on a fuzzy row actually flips it. The row labels got
+        # shorter in this change (the group name moved to the header), so this is
+        # also the check that the panel still maps each row to its fuzzy_* key.
+        # Toggled twice so the session ends with all five groups on, like the
+        # default the later tests and the config persistence check assume.
+        print("\n[Test 5b] Toggle a fuzzy group off and back on")
+        drain(master_fd)
+        send(master_fd, b"\x1b[B")  # 候选词数量 -> 平翘舌 (the header is not focusable)
+        ok, buf = poll_until(master_fd, b"", row_focus_re('平翘舌'), timeout=5.0)
+        screen = clean_ansi(buf.decode('utf-8', errors='replace'))
+        drain(master_fd)
+        send(master_fd, b"\r")
+        ok_off, buf_off = poll_until(master_fd, b"", r'平翘舌:\s*\[关\]', timeout=5.0)
+        drain(master_fd)
+        send(master_fd, b"\r")
+        ok_on, buf_on = poll_until(master_fd, b"", r'平翘舌:\s*\[开\]', timeout=5.0)
+        toggled = ok and ok_off and ok_on
+        print(f"  Row focused: {ok}, flipped to 关: {bool(ok_off)}, back to 开: {bool(ok_on)}")
+        results.append(("Toggle fuzzy group", toggled))
+        # Back on the candidates row for the next test.
+        send(master_fd, b"k")
+        poll_until(master_fd, b"", row_focus_re('候选词数量'), timeout=5.0)
+
         # Test 6: 'k' back up to the ui-language row, then 'h' switches the UI
         # language; the panel re-labels itself in English.
         print("\n[Test 6] Navigate up (k key) and switch UI language")
