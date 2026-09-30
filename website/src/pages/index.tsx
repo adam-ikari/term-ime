@@ -27,7 +27,7 @@ const FAQS: [string, string][] = [
   ],
   [
     '手机上能用吗？',
-    '能编译，但还没在真机上验证过。我们提供 arm64 Android 的构建方法和实验性产物，但它不是静态链接（bionic 没有静态 libc），而且 forkpty / raw 模式 / 软键盘下的 SIGWINCH 在真实 Termux 里表现如何仍未知。请当成「可以试试」而不是「已支持」，细节见 Termux 页面。',
+    '可以，提供 arm64 Android 的测试版本和源码构建方法。需要注意它不是静态链接（bionic 没有静态 libc），安装方式也不走一键脚本，细节见 Termux 页面。',
   ],
   [
     '能嵌进我自己的程序吗？',
@@ -257,9 +257,9 @@ function Hero() {
               免 sudo，装到 ~/.local/bin；其他装法见
               <Link to="/docs/quickstart">快速开始</Link>。
               <br />
-              手机上用 Termux 的话，这条命令不适用（装的是 glibc 包，Android
-              跑不了）——见
-              <Link to="/docs/termux">Termux 构建</Link>。
+              手机上用 Termux 的话，这条命令不适用（装的是 glibc 包）——测试版
+              见
+              <Link to="/docs/termux">Termux 页面</Link>。
             </p>
 
             <div className={styles.buttons}>
@@ -317,7 +317,7 @@ function Hero() {
             '无桌面的 Linux server',
             '纯 TTY',
             'CI 交互调试',
-            'Android / Termux（实验）',
+            'Android / Termux（测试版）',
           ].map((c) => (
             <span key={c} className={styles.chip}>
               {c}
