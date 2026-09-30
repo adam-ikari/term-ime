@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-09-29T09:59:18"
+updated: "2026-09-30T03:34:17"
 ---
 
 <!-- compiled_truth -->
@@ -49,4 +49,10 @@ updated: "2026-09-29T09:59:18"
   kind: decision
   summary: "test_fuzzy_pinyin 的 per-combination prism 部署在 CI 上长期失败（词库拆仓前 run 0e222cb 同样 10/13，非回归）：n_l-only/zh_z-only/subset 三个组合 240s 内等不到 prism.bin。90s→240s 未能修复，600s 反而撞 job 超时被 cancel（已回退 240s）。这三条是 pre-existing flaky，不阻塞发布；根因（CI 2 核编译 7 万词条词典的耗时 vs deploy 真不完成）待单独排查。"
   source: "2026-09-29 CI flaky 排查"
+  affects: [e2e-harness-contract]
+
+- time: 2026-09-30T03:34:17
+  kind: decision
+  summary: "e2e 断言卡在一个有界等待上时，等待窗口不是修复手段：先确认那个操作是不是异步的。librime deploy_schema 是同步的，240s 全是白等，把「编译慢」当根因会把一次静默失败伪装成 flaky（连续 8 个 run 因此长期红）。另外：应用自身的失败路径必须在失败时留下证据（返回值 + 目录/日志 dump），因为第三方库（librime）的日志在本项目构建里是关掉的。"
+  source: "2026-09-30 CI flaky 排查"
   affects: [e2e-harness-contract]

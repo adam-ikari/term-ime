@@ -188,10 +188,9 @@ bool RimeIme::initialize() {
                 if (!rime_->deploy_schema(p.string().c_str())) {
                     ++failed;
                     // deploy_schema is synchronous, so a false return is final,
-                    // not "still working on it" -- and without this the schema
-                    // is simply missing later with nothing in the log.
-                    spdlog::error("Rime: schema {} failed to deploy; {} will not be available",
-                                  p.string(), prism_name);
+                    // not "still working on it" -- and without this the schema is
+                    // simply missing later with nothing in the log.
+                    spdlog::error("Rime: schema {} failed to deploy; {} unavailable", p.string(), prism_name);
                 }
             }
         }
@@ -199,9 +198,7 @@ bool RimeIme::initialize() {
             spdlog::warn("Rime: cannot scan shared data dir {}: {}", shared_dir, ec.message());
         }
         if (failed > 0) {
-            spdlog::error("Rime: {}/{} schema(s) in {} failed to deploy -- pinyin input may be unavailable "
-                          "until the next start",
-                          failed, deployed, shared_dir);
+            spdlog::error("Rime: {}/{} schema(s) in {} failed to deploy", failed, deployed, shared_dir);
         }
     }
 
@@ -458,9 +455,7 @@ void RimeIme::ensure_fuzzy_schema() {
         std::filesystem::path(resolved_shared_dir_) / "luna_pinyin_simp_fuzzy.schema.yaml";
     std::ifstream in(template_path);
     if (!in) {
-        spdlog::error("Rime: cannot read the fuzzy template {} -- no schema is generated for these groups, "
-                      "so pinyin input will fall back to the exact-pinyin schema",
-                      template_path.string());
+        spdlog::error("Rime: cannot read the fuzzy template {}", template_path.string());
         return;
     }
     std::string line;
@@ -535,32 +530,29 @@ void RimeIme::ensure_fuzzy_schema() {
         return;
     }
     out_file << body;
+    // close() before deploying: the ofstream's buffer is not guaranteed to be
+    // on disk until then, and librime reads this very file back synchronously.
     out_file.close();
-    spdlog::info("Rime: wrote generated fuzzy schema {} ({} bytes, from template {})",
-                 out.string(), std::filesystem::file_size(out, ec), template_path.string());
+    spdlog::info("Rime: wrote generated fuzzy schema {} ({} bytes)", out.string(), std::filesystem::file_size(out, ec));
 
-    // Deploy when the prism is missing (or the schema changed). librime's
-    // deploy_schema runs SchemaUpdate synchronously on this thread, so the
-    // prism is written before it returns -- which makes the return value and
-    // the file's absence the only diagnostics worth having. librime's own
-    // LOG(ERROR) is compiled out (ENABLE_LOGGING=OFF in CMakeLists), so an
-    // unlogged failure here used to look exactly like "still deploying".
+    // Deploy when the prism is missing (or the schema changed). Deploy runs
+    // SchemaUpdate synchronously on this thread, so whatever is true when
+    // deploy_schema returns is final -- a missing prism afterwards means the
+    // compile failed, not that it is still running. librime's own LOG(ERROR) is
+    // compiled out (ENABLE_LOGGING=OFF in CMakeLists), so without the checks
+    // below a failure here is indistinguishable from "still deploying", which
+    // is what sent the CI investigation down a 240s wait for a compile that had
+    // already given up.
     if (!std::filesystem::exists(staging, ec)) {
         spdlog::info("Rime: deploying generated schema {} into {}", out.string(), staging.string());
-        // Deploy is synchronous (librime's deploy_schema runs SchemaUpdate on
-        // this thread), so whatever is true when it returns is final. librime's
-        // own LOG(ERROR) is compiled out (ENABLE_LOGGING=OFF in CMakeLists),
-        // so an unlogged failure here used to be indistinguishable from "still
-        // deploying" -- which is what sent the CI investigation down a 240s
-        // waiting path for a compile that had already given up.
         const bool ok = rime_->deploy_schema(out.string().c_str());
         if (!ok) {
-            spdlog::error("Rime: generated schema {} failed to deploy; the enabled fuzzy groups have no "
-                          "usable prism, so pinyin input yields no candidates at all",
-                          out.string());
+            spdlog::error(
+                "Rime: generated schema {} failed to deploy; no usable prism, so pinyin input "
+                "yields no candidates at all",
+                out.string());
         } else if (!std::filesystem::exists(staging, ec)) {
-            spdlog::error("Rime: generated schema {} reported a successful deploy but {} is still absent",
-                          out.string(), staging.string());
+            spdlog::error("Rime: generated schema {} deployed but {} is absent", out.string(), staging.string());
         } else {
             spdlog::info("Rime: generated prism ready at {}", staging.string());
         }

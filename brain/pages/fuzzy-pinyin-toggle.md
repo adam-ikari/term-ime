@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [rime, config, settings, schema]
 created: "2026-09-15T08:07:37"
-updated: "2026-09-29T02:26:11"
+updated: "2026-09-30T03:34:08"
 ---
 
 <!-- compiled_truth -->
@@ -71,3 +71,9 @@ qian 有枪、wan 有网；面板切「关」→ 全部消失且精确读音仍�
   summary: "仍未解决（发布不受阻，但 master 的 Build and Test 因此长期红）：CI runner 上按开关组合合成的 luna_pinyin_simp_fuzzy_<sig> schema 在 90 秒有界等待内始终没有部署出 prism，n_l-only / zh_z-only / subset 三条都停在「generated prism deployed」这道门上；本地同场景 19/19 全过。有界等待本身是对的（不再把部署没完成伪装成模糊音坏了），缺的是 runner 侧根因：可能是 rime_deployer 在容器里的后台部署线程根本没跑完，或 build/ 目录权限/挂载差异。下次动它先抓 runner 上 <user_dir>/build 的目录列表与 librime 部署日志，而不是再加等待时间。"
   source: "v1.1.4 发布会话"
   affects: [fuzzy-pinyin-toggle]
+
+- time: 2026-09-30T03:34:08
+  kind: reversal
+  summary: "推翻 'prism 是编译慢/后台还在跑' 的假设（d7c20bb 据此加 join 并把 ready 门提到 120s）：librime 的 deploy_schema 走 RunTask，在调用线程上同步跑完 SchemaUpdate，那 240s 里没有任何编译在进行，deploy 早已失败返回且不留痕迹（返回值被丢弃 + ENABLE_LOGGING=OFF 把 librime 的 LOG(ERROR) 编译掉）。已在 4b9db4c 记录返回值、显式 close() 写文件、失败时 dump rime 用户目录+日志；下一次 CI 跑完即可定位到 SchemaUpdate::Run 的具体失败步。"
+  source: "2026-09-30 CI flaky 排查（读 CI 日志 + librime 源码）"
+  affects: [fuzzy-pinyin-toggle, e2e-harness-contract]
