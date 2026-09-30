@@ -268,6 +268,9 @@ jobs:
       # fire -- the Android build is deliberately dynamic. Two of those three
       # regress easily and silently, so pin them here.
       #
+      # This hits the real GitHub releases (the termux asset only exists there),
+      # so it also covers the auto-resolve path that skips glibc-only tags.
+      #
       # `uname -m` is stubbed because the runner is x86_64 while every phone is
       # aarch64 -- the same trap the real Termux check exists to avoid.
       run: |
@@ -295,12 +298,59 @@ jobs:
         # The dynamic-link warning must stay quiet for a correct Termux install.
         ! grep -q "WARNING" /tmp/install-termux.log
 
-        # Without --version it must refuse rather than fall back to the glibc
-        # asset, which cannot run on Android.
-        if PATH="$STUB:$PATH" TERMUX_VERSION=0.118 \
-             bash website/static/install.sh --prefix "$TERMUX_PREFIX" 2>/tmp/nover.log; then
-          echo "ERROR: installer accepted Termux with no --version"
+        # No --version: the installer must still resolve the newest tag that
+        # actually ships a termux asset (plain glibc tags like v1.1.6 have none,
+        # and /releases/latest never returns a prerelease).
+        AUTO="$(mktemp -d)/usr"
+        PATH="$STUB:$PATH" TERMUX_VERSION=0.118 TERMUX_PREFIX="$AUTO" \
+          bash website/static/install.sh --prefix "$AUTO" > /tmp/install-auto.log 2>&1
+        grep -q "Latest Termux build: v1.1.7-termux" /tmp/install-auto.log
+        test -x "$AUTO/bin/ti"
+        file "$AUTO/bin/ti" | grep -q "linker64"
+        ! grep -q "WARNING" /tmp/install-auto.log
+        echo "OK: install-termux-test passed"
+
+    - name: Installer refuses to skip checksum on network errors
+      # A flaky TLS read used to be indistinguishable from "no sidecar
+      # published", silently downgrading an integrity check to nothing. Only a
+      # genuine 404 may skip; any other fetch failure must abort the install.
+      run: |
+        set -euo pipefail
+        STAGE="$(mktemp -d)"
+        mkdir -p "$STAGE/term-ime/bin"
+        cp build/term-ime "$STAGE/term-ime/bin/ti"
+        (cd "$STAGE" && tar -czf term-ime-linux-x86_64.tar.gz term-ime)
+        # deliberately NO .sha256 sidecar for the flaky case, and a 404 one
+        # for the "not published" case
+        python3 -m http.server 8896 --directory "$STAGE" >/dev/null 2>&1 &
+        SRV=$!
+        trap 'kill $SRV 2>/dev/null || true' EXIT
+        sleep 1
+
+        CURLSTUB="$(mktemp -d)"
+        cat > "$CURLSTUB/curl" <<'STUB'
+        #!/bin/sh
+        for a in "$@"; do
+          case "$a" in *.sha256) echo "curl: (35) TLS EOF" >&2; exit 35;; esac
+        done
+        exec /usr/bin/curl "$@"
+        STUB
+        chmod +x "$CURLSTUB/curl"
+
+        # Network error -> refuse, and install nothing.
+        P="$(mktemp -d)/ime"
+        if PATH="$CURLSTUB:$PATH" TERM_IME_DOWNLOAD_BASE="http://127.0.0.1:8896" \
+             bash website/static/install.sh --version v1 --prefix "$P" 2>/tmp/sha-net.log; then
+          echo "ERROR: installer continued past a checksum fetch failure"
           exit 1
         fi
-        grep -q "explicit --version" /tmp/nover.log
-        echo "OK: install-termux-test passed"
+        grep -q "Refusing to install unverified" /tmp/sha-net.log
+        test ! -f "$P/bin/ti" || { echo "ERROR: binary installed without verification"; exit 1; }
+
+        # The documented escape hatch still works.
+        P2="$(mktemp -d)/ime"
+        PATH="$CURLSTUB:$PATH" TERM_IME_ALLOW_UNVERIFIED=1 \
+          TERM_IME_DOWNLOAD_BASE="http://127.0.0.1:8896" \
+          bash website/static/install.sh --version v1 --prefix "$P2" >/tmp/sha-skip.log 2>&1
+        test -x "$P2/bin/ti"
+        echo "OK: install-checksum-test passed"

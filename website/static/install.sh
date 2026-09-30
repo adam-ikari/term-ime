@@ -52,9 +52,13 @@ Install modes:
     curl -fsSL .../install.sh | bash -s -- --prefix /usr/local
     # Installs to /usr/local/bin/term-ime — may need sudo
 
-  Termux / Android (test build, --version required):
-    curl -fsSL .../install.sh | bash -s -- --version v1.1.7-termux
+  Termux / Android:
+    curl -fsSL .../install.sh | bash
+    # Picks the newest Termux build automatically
     # Installs to $PREFIX/bin (already on PATH)
+
+    # or pin a specific one:
+    curl -fsSL .../install.sh | bash -s -- --version v1.1.7-termux
 EOF
 }
 
@@ -75,20 +79,35 @@ if [[ "$IS_TERMUX" -eq 1 ]]; then
         PREFIX="${TERMUX_PREFIX:-/data/data/com.termux/files/usr}"
     fi
     # Termux builds live on prerelease tags, which /releases/latest never
-    # returns, so "latest" cannot be resolved here. Ask for the tag instead of
-    # silently installing the glibc package.
+    # returns. Rather than make the user know that, resolve the newest tag that
+    # actually carries a termux asset and install that -- "latest" means the
+    # same thing on every platform.
     if [[ -z "$VERSION" ]]; then
-        cat >&2 <<'EOF'
-error: the Termux build needs an explicit --version.
+        VERSION="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=30" \
+            | grep -o '"tag_name": *"[^"]*"' | sed -E 's/.*"([^"]*)"$/\1/' \
+            | while read -r tag; do
+                # The /latest endpoint excludes prereleases, so look for the
+                # asset directly rather than trusting the tag's release state.
+                if curl -fsSL -o /dev/null -I \
+                     "https://github.com/${REPO}/releases/download/${tag}/term-ime-termux-arm64.tar.gz" \
+                   2>/dev/null; then
+                    echo "$tag"
+                    break
+                fi
+            done)"
+        if [[ -z "$VERSION" ]]; then
+            cat >&2 <<'EOF'
+error: could not find a published Termux build.
 
-Android packages are published as prereleases, so there is no meaningful
-"latest" for this platform. Use:
+The Android packages ship on their own release tags. Check
+https://github.com/adam-ikari/term-ime/releases for an available tag and pass
+it explicitly:
 
-    curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --version v1.1.7-termux
-
-See https://adam-ikari.github.io/term-ime/docs/termux
+    curl -fsSL .../install.sh | bash -s -- --version v1.1.7-termux
 EOF
-        exit 1
+            exit 1
+        fi
+        echo ">> Latest Termux build: ${VERSION}"
     fi
 fi
 
@@ -131,13 +150,25 @@ trap 'rm -rf "$TMP"' EXIT
 echo ">> Downloading ${URL}"
 curl -fsSL -o "${TMP}/${ASSET}" "$URL"
 
-# Verify checksum if a .sha256 sidecar exists.
+# Verify the checksum. A failure here is fatal, but distinguish the two cases:
+# the sidecar genuinely not existing (older/mirror) is a soft skip, while a
+# network error is NOT — otherwise one flaky TLS read silently downgrades an
+# integrity check to nothing, which is exactly when you least want it.
 SHA_URL="${URL}.sha256"
-if curl -fsSL -o "${TMP}/${ASSET}.sha256" "$SHA_URL"; then
+SHA_ERR="${TMP}/.sha_err"
+if curl -fsSL -o "${TMP}/${ASSET}.sha256" "$SHA_URL" 2>"$SHA_ERR"; then
     echo ">> Verifying checksum"
     (cd "$TMP" && sha256sum -c "${ASSET}.sha256" --status)
+elif grep -qiE '404|not found' "$SHA_ERR" 2>/dev/null; then
+    echo "!! No checksum sidecar published for this asset; skipping verification"
+elif [ "${TERM_IME_ALLOW_UNVERIFIED:-0}" = "1" ]; then
+    echo "!! Checksum fetch failed and TERM_IME_ALLOW_UNVERIFIED=1; skipping verification" >&2
+    cat "$SHA_ERR" >&2 || true
 else
-    echo "!! No checksum sidecar found; skipping verification"
+    echo "error: could not fetch the checksum sidecar:" >&2
+    cat "$SHA_ERR" >&2 || true
+    echo "!! Refusing to install unverified. Retry, or set TERM_IME_ALLOW_UNVERIFIED=1 to override." >&2
+    exit 1
 fi
 
 echo ">> Extracting"
