@@ -142,17 +142,19 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y cmake ninja-build
         # r27 is what this was developed against; a newer r28+ should also work.
-        NDK_VERSION=27.1.12297006
-        curl -fsSL -o /tmp/ndk.zip \
+        # The zip's top-level dir is `android-ndk-r27` (NO version suffix), so
+        # do not assume a directory name -- discover it from the toolchain file.
+        # --http1.1: dl.google.com resets the HTTP/2 stream on this 664MB body.
+        curl -fsSL --http1.1 -o /tmp/ndk.zip \
           "https://dl.google.com/android/repository/android-ndk-r27-linux.zip"
         sudo unzip -q /tmp/ndk.zip -d /opt/ndk
-        # Do NOT append to ANDROID_NDK_ROOT: GitHub's runners already export it
-        # pointing at their own preinstalled NDK, so the result is
-        # ".../ndk/27.3.x/android-ndk-r27.1.x" -- a path that does not exist.
-        # Pin our own root instead, and assert it before using it.
-        NDK=/opt/ndk/android-ndk-r${NDK_VERSION}
+        # GitHub runners already export ANDROID_NDK_ROOT for their own NDK;
+        # appending to it would produce a path that does not exist.
+        # <ndk>/build/cmake/android.toolchain.cmake -> three dirnames back up.
+        NDK="$(find /opt/ndk -name android.toolchain.cmake -path '*/build/cmake/*' -print -quit \
+              | xargs dirname | xargs dirname | xargs dirname)"
         test -f "${NDK}/build/cmake/android.toolchain.cmake" \
-          || { echo "NDK not found at ${NDK}"; exit 1; }
+          || { echo "could not locate an NDK toolchain under /opt/ndk (got '${NDK}')"; exit 1; }
         echo "ANDROID_NDK=${NDK}" >> "$GITHUB_ENV"
 
     - name: Cross-compile for arm64-v8a (API 28)

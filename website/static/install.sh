@@ -59,6 +59,25 @@ fi
 echo ">> Installing term-ime ${VERSION}"
 
 # Detect arch. Prebuilt binaries: x86_64 and aarch64 (see release.yml matrix).
+#
+# The Termux check has to come FIRST. On a phone `uname -m` also reports
+# aarch64, so without this the branch below would happily install the *glibc*
+# build on Android -- a binary that cannot run there at all. Failing loudly with
+# a pointer to the real instructions beats a confusing exec format error (or,
+# worse, a shell that just reports "command not found" for ti).
+if [ -n "${TERMUX_VERSION:-}" ] || [ -d "/data/data/com.termux/files/usr" ]; then
+    cat >&2 <<'EOF'
+error: this looks like Termux (Android).
+
+The one-line installer does not support Termux: the prebuilt packages are glibc
+binaries for Linux, and Android uses bionic -- they will not run here.
+
+To build for your phone instead, see:
+  https://adam-ikari.github.io/term-ime/docs/termux
+EOF
+    exit 1
+fi
+
 ARCH="$(uname -m)"
 case "$ARCH" in
     x86_64|amd64)   ASSET_ARCH="linux-x86_64" ;;
