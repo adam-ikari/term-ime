@@ -185,7 +185,7 @@ def run_group_case(groups, label):
     """以指定组集合启动，逐组探针：开→候选含专属字，关→不含。"""
     s = Session(groups)
     try:
-        if not s.wait_for(r"\[EN\]|\[拼\]"):
+        if not s.wait_for(r"\[EN\]|\[拼\]", seconds=120.0):
             check(f"{label}: ready", False)
             return
         s.send(b"\x01 ")

@@ -199,7 +199,7 @@ bool RimeIme::initialize() {
     }
     // Materialise any per-combination fuzzy schema (a strict subset of groups
     // enabled) now that rime is up, before the caller selects a schema.
-    ensure_fuzzy_schema();
+    ensure_fuzzy_schema(true);
     return true;
 }
 
@@ -412,7 +412,7 @@ std::string RimeIme::fuzzy_signature() const {
     return sig;
 }
 
-void RimeIme::ensure_fuzzy_schema() {
+void RimeIme::ensure_fuzzy_schema(bool join_deploy) {
     // Called after rime is initialized: materialise the per-combination schema
     // (template pruned to the enabled groups) and deploy it when its prism is
     // missing. All-on/all-off use bundled schemas and need nothing here.
@@ -516,10 +516,16 @@ void RimeIme::ensure_fuzzy_schema() {
     out_file << body;
     spdlog::info("Rime: wrote generated fuzzy schema {}", out.string());
 
-    // Deploy when the prism is missing (or the schema changed).
+    // Deploy when the prism is missing (or the schema changed). deploy_schema
+    // enqueues the compile on librime's background maintenance thread and
+    // returns immediately; at initialize() we join so the prism is ready
+    // before the app serves input (matches the bundled start_maintenance+join).
     if (!std::filesystem::exists(staging, ec)) {
         spdlog::info("Rime: deploying generated schema {}", out.string());
         rime_->deploy_schema(out.string().c_str());
+        if (join_deploy && rime_->join_maintenance_thread) {
+            rime_->join_maintenance_thread();
+        }
     }
 }
 

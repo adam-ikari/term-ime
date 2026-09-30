@@ -72,8 +72,12 @@ class RimeIme : public ImeEngine {
     // groups are on or all off (those use the bundled schemas directly).
     std::string fuzzy_signature() const;
     // Write the per-combination schema (template pruned to the enabled groups)
-    // into the user data dir and deploy it when its prism is missing.
-    void ensure_fuzzy_schema();
+    // into the user data dir and deploy it when its prism is missing. When
+    // join_deploy is set, block on librime's maintenance thread until the
+    // prism is compiled — used at initialize() so the prism exists before the
+    // app serves input (the deploy is otherwise async and races on slow/loaded
+    // runners; the bundled schemas already get this via start_maintenance+join).
+    void ensure_fuzzy_schema(bool join_deploy = false);
 
     void update_state();
     std::u32string utf8_to_utf32(const std::string& utf8) const;
