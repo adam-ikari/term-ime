@@ -120,6 +120,72 @@ jobs:
         find src -name "*.cpp" -o -name "*.hpp" | xargs clang-format --dry-run --Werror
       continue-on-error: true
 
+  android-build:
+    # Termux target. term-ime is a TUI program built on forkpty/termios, so
+    # this job exists to prove the CROSS-COMPILE keeps working: the Android
+    # binary must configure, compile and link without a device in the loop.
+    #
+    # What this does NOT cover: running it under Termux. PTY, TIOCGWINSZ and
+    # SIGWINCH behaviour on a real phone is unverified here, so read this as
+    # "still builds for arm64 Android", not "works on a phone".
+    # API 28 is the floor: bionic only gained posix_spawn (libuv's process.c
+    # needs it) at API 28.
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install NDK
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build
+        # r27 is what this was developed against; a newer r28+ should also work.
+        NDK_VERSION=27.1.12297006
+        curl -fsSL -o /tmp/ndk.zip \
+          "https://dl.google.com/android/repository/android-ndk-r27-linux.zip"
+        sudo unzip -q /tmp/ndk.zip -d "${ANDROID_NDK_ROOT}"
+        echo "NDK_VERSION=${NDK_VERSION}" >> "$GITHUB_ENV"
+        echo "ANDROID_NDK=${ANDROID_NDK_ROOT}/android-ndk-r${NDK_VERSION}" >> "$GITHUB_ENV"
+
+    - name: Cross-compile for arm64-v8a (API 28)
+      run: |
+        cmake -B build-android -G Ninja \
+          -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
+          -DANDROID_ABI=arm64-v8a \
+          -DANDROID_PLATFORM=android-28 \
+          -DCMAKE_BUILD_TYPE=Release
+        cmake --build build-android -j$(nproc) --target term-ime
+
+    - name: Verify the Android binary
+      run: |
+        BIN=build-android/term-ime
+        BINUTILS="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+        test -x "$BIN" || { echo "no binary produced"; exit 1; }
+        file "$BIN"
+        # Must be an ARM64 Android ELF using the platform loader...
+        file "$BIN" | grep -q "ARM aarch64" || { echo "not aarch64"; exit 1; }
+        file "$BIN" | grep -q "/system/bin/linker64" || { echo "not an Android binary"; exit 1; }
+        # ...and must NOT be static: a -static bionic link is not loadable by
+        # Android, which is exactly the regression worth failing on.
+        if file "$BIN" | grep -q "statically linked"; then
+          echo "ERROR: Android binary is statically linked; the platform loader rejects that"
+          exit 1
+        fi
+        # Only platform libraries may be needed -- no glibc, no host leftovers.
+        "${BINUTILS}/llvm-readelf" -d "$BIN" | grep NEEDED
+        readelf -d "$BIN" | grep NEEDED | sed 's/.*\[\(.*\)\]/\1/' | while read -r lib; do
+          case "$lib" in
+            libc.so|libm.so|libdl.so|liblog.so) ;;
+            *) echo "ERROR: unexpected runtime dep: $lib"; exit 1 ;;
+          esac
+        done
+        # forkpty is what makes a TUI-in-a-PTY possible on Android at all.
+        "${BINUTILS}/llvm-nm" -D "$BIN" | grep -q "forkpty@LIBC" \
+          || { echo "ERROR: forkpty not bound against bionic's libc"; exit 1; }
+        echo "OK: aarch64 Android binary, platform libs only, forkpty resolved"
+
   install-test:
     # End-to-end check of the one-line installer (curl | bash). Rebuilds the
     # release tarball locally (same layout as release.yml), serves it over a

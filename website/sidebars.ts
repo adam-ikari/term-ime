@@ -9,6 +9,7 @@ const sidebars: SidebarsConfig = {
     'library',
     'tui-component',
     'config',
+    'termux',
     'alternatives',
     'changelog',
   ],

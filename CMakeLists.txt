@@ -72,6 +72,25 @@ if(NOT EXISTS ${_RIME_DEPS_STAMP})
     set(_DEP_COMMON -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=${_RIME_DEPS_STAGE}
                     -DCMAKE_POSITION_INDEPENDENT_CODE=ON)
+    # These four are configured as SEPARATE cmake projects, so they do NOT
+    # inherit our toolchain. When cross-compiling (Android) they would silently
+    # build for the HOST, and the final link then fails with "is incompatible
+    # with aarch64linux" on every object in the staged .a. Forward the
+    # toolchain and the target so the archives match the binary we link.
+    if(CMAKE_TOOLCHAIN_FILE)
+        list(APPEND _DEP_COMMON -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
+    endif()
+    if(ANDROID)
+        list(APPEND _DEP_COMMON
+            -DANDROID_ABI=${ANDROID_ABI} -DANDROID_PLATFORM=${ANDROID_PLATFORM}
+            -DCMAKE_SYSTEM_NAME=Android -DCMAKE_SYSTEM_VERSION=${ANDROID_PLATFORM_LEVEL}
+            -DANDROID_NDK=${ANDROID_NDK} -DANDROID_STL=c++_static)
+        # The same sysroot-only find_* restriction the NDK applies to us would
+        # hide each dep's own staged prefix from the next one.
+        list(APPEND _DEP_COMMON
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH)
+    endif()
     # yaml-cpp
     execute_process(COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/deps/librime/deps/yaml-cpp
                             -B ${CMAKE_BINARY_DIR}/_deps_build/yaml-cpp
@@ -102,6 +121,57 @@ if(NOT EXISTS ${_RIME_DEPS_STAMP})
                                 --target install -j RESULT_VARIABLE _rc)
     endif()
     # opencc (bundled marisa, but not embedded)
+    #
+    # opencc generates its .ocd2 dictionaries at BUILD TIME by *running* its own
+    # `opencc_dict` tool. Cross-compiled, that tool is an Android binary and
+    # cannot execute here, so the build dies with "opencc_dict: not found" /
+    # Error 127. The dictionaries are pure data derived from the .txt sources,
+    # so the right move is to build the generator for the HOST: it runs on the
+    # build machine and its output is target-independent.
+    #
+    # opencc's data/CMakeLists.txt does `set(OPENCC_DICT_BIN opencc_dict)` --
+    # a plain set(), which shadows any -D cache value we pass. So overriding
+    # the variable does not work; the generator is invoked by bare name and
+    # resolves through PATH. Prepending the host build dir to PATH is
+    # therefore the way to hand it over.
+    set(_OPENCC_ENV)
+    if(_rc EQUAL 0 AND ANDROID)
+        set(_OPENCC_HOST_BIN ${CMAKE_BINARY_DIR}/_deps_build/opencc-host)
+        execute_process(COMMAND ${CMAKE_COMMAND}
+                                -S ${CMAKE_SOURCE_DIR}/deps/librime/deps/opencc
+                                -B ${_OPENCC_HOST_BIN}
+                                -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
+                                -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+                                -DUSE_SYSTEM_MARISA=OFF -DBUILD_TESTING=OFF
+                                RESULT_VARIABLE _rc)
+        if(_rc EQUAL 0)
+            execute_process(COMMAND ${CMAKE_COMMAND} --build ${_OPENCC_HOST_BIN}
+                                    --target opencc_dict -j RESULT_VARIABLE _rc)
+        endif()
+        if(_rc EQUAL 0)
+            # Ask the generator where it put the binary rather than guessing a
+            # layout: Make drops it in src/tools/, Ninja in the build root.
+            set(_OPENCC_DICT_HOST "")
+            foreach(_cand
+                    ${_OPENCC_HOST_BIN}/src/tools/opencc_dict
+                    ${_OPENCC_HOST_BIN}/opencc_dict
+                    ${_OPENCC_HOST_BIN}/src/tools/opencc_dict${CMAKE_EXECUTABLE_SUFFIX})
+                if(EXISTS ${_cand})
+                    set(_OPENCC_DICT_HOST ${_cand})
+                    break()
+                endif()
+            endforeach()
+            if(_OPENCC_DICT_HOST)
+                get_filename_component(_OPENCC_HOST_DIR ${_OPENCC_DICT_HOST} DIRECTORY)
+                message(STATUS "Using host opencc_dict for cross-build: ${_OPENCC_DICT_HOST}")
+                set(_OPENCC_ENV "PATH=${_OPENCC_HOST_DIR}:$ENV{PATH}")
+            else()
+                message(FATAL_ERROR
+                    "Cross-building for Android needs a host opencc_dict to generate the "
+                    "OpenCC dictionaries, but no such binary was produced under ${_OPENCC_HOST_BIN}.")
+            endif()
+        endif()
+    endif()
     if(_rc EQUAL 0)
         execute_process(COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/deps/librime/deps/opencc
                                 -B ${CMAKE_BINARY_DIR}/_deps_build/opencc
@@ -109,7 +179,10 @@ if(NOT EXISTS ${_RIME_DEPS_STAMP})
                                 -DOPENCC_BUILD_TOOLS=OFF RESULT_VARIABLE _rc)
     endif()
     if(_rc EQUAL 0)
-        execute_process(COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/_deps_build/opencc
+        # The dictionary generation happens during install, so the host PATH
+        # has to be in place for the build step, not just configure.
+        execute_process(COMMAND ${CMAKE_COMMAND} -E env ${_OPENCC_ENV}
+                                ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/_deps_build/opencc
                                 --target install -j RESULT_VARIABLE _rc)
     endif()
     if(NOT _rc EQUAL 0)
@@ -118,6 +191,18 @@ if(NOT EXISTS ${_RIME_DEPS_STAMP})
     file(WRITE ${_RIME_DEPS_STAMP} "done\n")
 endif()
 list(PREPEND CMAKE_PREFIX_PATH ${_RIME_DEPS_STAGE})
+
+# The NDK toolchain sets CMAKE_FIND_ROOT_PATH_MODE_{LIBRARY,INCLUDE} to ONLY,
+# which confines find_library/find_path to the NDK sysroot. Our vendored deps
+# were just built into _deps_stage (a build-tree path, not a sysroot path), so
+# librime's find modules cannot see libyaml-cpp.a & co. and configure dies with
+# "Could not find yaml-cpp library" even though the .a is sitting right there.
+# BOTH keeps the sysroot first for system headers while still allowing the
+# build tree. Host builds never load a toolchain file, so this is Android-only.
+if(ANDROID)
+    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
+    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
+endif()
 
 # Boost: only the HEADER-ONLY libs are used (signals2, unordered_map/set,
 # algorithm/string, crc) — librime was patched to use std::regex instead of
@@ -215,12 +300,21 @@ target_include_directories(term-terminal
 
 target_link_libraries(term-terminal
     PUBLIC term-ime-lib
-    PRIVATE util
     PRIVATE spdlog::spdlog
     PRIVATE nlohmann_json::nlohmann_json
     PRIVATE ftxui::dom
     PRIVATE ftxui::screen
 )
+
+# forkpty() lives in libutil on glibc, but bionic ships it in libc itself and
+# has no libutil at all — linking -lutil there fails with "unable to find
+# library -lutil". Android also needs liblog, which libuv's Android backend
+# calls (__android_log_print) and which is not part of the default link line.
+if(ANDROID)
+    target_link_libraries(term-terminal PUBLIC log)
+else()
+    target_link_libraries(term-terminal PRIVATE util)
+endif()
 
 # ============================================================
 # Core Event System
@@ -261,7 +355,18 @@ target_link_libraries(term-ime
 # Fully static single-file executable: link glibc/libstdc++/libgcc statically too,
 # so the binary has zero runtime shared-library deps (only the dynamic loader).
 # forkpty (libutil) is part of static glibc, so -lutil resolves to libutil.a.
-target_link_options(term-ime PRIVATE -static -Wl,--gc-sections)
+#
+# Android is the exception. bionic has no static libc to speak of: a -static
+# bionic link either fails outright or produces a binary the Android dynamic
+# loader will not run (it still expects /system/bin/linker64 and the system
+# libc). Termux ships a full userspace anyway, so the binary stays dynamically
+# linked there and depends only on libc/libm/liblog, which the platform always
+# provides. -static stays a glibc-only claim.
+if(NOT ANDROID)
+    target_link_options(term-ime PRIVATE -static -Wl,--gc-sections)
+else()
+    target_link_options(term-ime PRIVATE -Wl,--gc-sections)
+endif()
 
 # ============================================================
 # Install

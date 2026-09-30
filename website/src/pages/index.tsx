@@ -23,7 +23,7 @@ const FAQS: [string, string][] = [
   ],
   [
     '预编译包支持哪些架构？',
-    'install.sh 只发布 linux-x86_64。ARM64、LoongArch、SW64 从源码编译，只需要 gcc / cmake 工具链，不装任何 -dev 包。',
+    '预编译包提供 x86_64 与 aarch64 两种架构，安装脚本按 uname -m 自动识别。其他架构（LoongArch、riscv64 等）请从源码编译，只需要 gcc / cmake 工具链，不装任何 -dev 包。',
   ],
   [
     '能嵌进我自己的程序吗？',
@@ -47,7 +47,7 @@ const structuredData = {
       '@type': 'SoftwareApplication',
       name: 'term-ime',
       applicationCategory: 'UtilityApplication',
-      operatingSystem: 'Linux / Unix (TTY, no desktop required)',
+      operatingSystem: 'Linux (TTY, no desktop required); Android arm64 via Termux',
       description:
         '终端输入法：输入法引擎库（term-ime-lib，封装 librime）加 TUI 输入法组件（候选栏/状态栏/设置面板），静态单文件，直接读写终端字符流。',
       url: SITE_URL,
