@@ -26,6 +26,10 @@ const FAQS: [string, string][] = [
     '预编译包提供 x86_64 与 aarch64 两种架构，安装脚本按 uname -m 自动识别。其他架构（LoongArch、riscv64 等）请从源码编译，只需要 gcc / cmake 工具链，不装任何 -dev 包。',
   ],
   [
+    '手机上能用吗？',
+    '能编译，但还没在真机上验证过。我们提供 arm64 Android 的构建方法和实验性产物，但它不是静态链接（bionic 没有静态 libc），而且 forkpty / raw 模式 / 软键盘下的 SIGWINCH 在真实 Termux 里表现如何仍未知。请当成「可以试试」而不是「已支持」，细节见 Termux 页面。',
+  ],
+  [
     '能嵌进我自己的程序吗？',
     '能。term-ime-lib 用 ImeEngine 接口封装 librime，term-terminal 提供候选栏、状态栏、设置面板，TUI 程序接上就能打拼音。',
   ],
@@ -49,7 +53,7 @@ const structuredData = {
       applicationCategory: 'UtilityApplication',
       operatingSystem: 'Linux (TTY, no desktop required); Android arm64 via Termux',
       description:
-        '终端输入法：输入法引擎库（term-ime-lib，封装 librime）加 TUI 输入法组件（候选栏/状态栏/设置面板），静态单文件，直接读写终端字符流。',
+        '终端输入法：输入法引擎库（term-ime-lib，封装 librime）加 TUI 输入法组件（候选栏/状态栏/设置面板），Linux 上是零依赖的静态单文件，直接读写终端字符流。',
       url: SITE_URL,
       license: 'https://opensource.org/licenses/MIT',
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -233,7 +237,7 @@ function Hero() {
           <div className={styles.heroText}>
             <div className={styles.badges}>
               <span className={styles.brandBadge}>term-ime</span>
-              <span className={styles.badge}>零依赖 · 单文件静态</span>
+              <span className={styles.badge}>零依赖 · 单文件</span>
               <span className={styles.badge}>librime 拼音</span>
               <span className={styles.badge}>MIT</span>
             </div>
@@ -252,6 +256,10 @@ function Hero() {
             <p className={styles.installNote}>
               免 sudo，装到 ~/.local/bin；其他装法见
               <Link to="/docs/quickstart">快速开始</Link>。
+              <br />
+              手机上用 Termux 的话，这条命令不适用（装的是 glibc 包，Android
+              跑不了）——见
+              <Link to="/docs/termux">Termux 构建</Link>。
             </p>
 
             <div className={styles.buttons}>
@@ -278,11 +286,11 @@ function Hero() {
             <div className={styles.stats}>
               <div className={styles.stat}>
                 <span className={styles.statValue}>0</span>
-                <span className={styles.statLabel}>图形栈依赖</span>
+                <span className={styles.statLabel}>运行时依赖（Linux）</span>
               </div>
               <div className={styles.stat}>
                 <span className={styles.statValue}>1</span>
-                <span className={styles.statLabel}>个静态二进制</span>
+                <span className={styles.statLabel}>个文件装完即用</span>
               </div>
               <div className={styles.stat}>
                 <span className={styles.statValue}>70655</span>
@@ -309,6 +317,7 @@ function Hero() {
             '无桌面的 Linux server',
             '纯 TTY',
             'CI 交互调试',
+            'Android / Termux（实验）',
           ].map((c) => (
             <span key={c} className={styles.chip}>
               {c}
@@ -460,8 +469,8 @@ function Features() {
       desc: '平翘舌、n/l、r 系、h/f、前后鼻音，一组一个开关，默认全开。',
     },
     {
-      title: '静态单文件',
-      desc: 'ldd 显示 not a dynamic executable，拷到别的机器也能跑。',
+      title: '单文件',
+      desc: '一个文件就是全部，拷到别的机器照样跑。',
     },
     {
       title: '自适应候选栏',
