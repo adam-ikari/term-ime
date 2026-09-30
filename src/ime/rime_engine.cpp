@@ -173,6 +173,8 @@ bool RimeIme::initialize() {
         // not throw out of here with rime left initialized.
         std::filesystem::path staging = std::filesystem::path(user_dir) / "build";
         std::error_code ec;
+        int deployed = 0;
+        int failed = 0;
         for (auto& entry : std::filesystem::directory_iterator(shared_dir, ec)) {
             auto p = entry.path();
             if (p.filename().string().find(".schema.yaml") == std::string::npos)
@@ -182,11 +184,24 @@ bool RimeIme::initialize() {
             std::string prism_name = schema_id + ".prism.bin";
             if (!std::filesystem::exists(staging / prism_name, ec)) {
                 spdlog::info("Deploying schema: {}", p.string());
-                rime_->deploy_schema(p.string().c_str());
+                ++deployed;
+                if (!rime_->deploy_schema(p.string().c_str())) {
+                    ++failed;
+                    // deploy_schema is synchronous, so a false return is final,
+                    // not "still working on it" -- and without this the schema
+                    // is simply missing later with nothing in the log.
+                    spdlog::error("Rime: schema {} failed to deploy; {} will not be available",
+                                  p.string(), prism_name);
+                }
             }
         }
         if (ec) {
             spdlog::warn("Rime: cannot scan shared data dir {}: {}", shared_dir, ec.message());
+        }
+        if (failed > 0) {
+            spdlog::error("Rime: {}/{} schema(s) in {} failed to deploy -- pinyin input may be unavailable "
+                          "until the next start",
+                          failed, deployed, shared_dir);
         }
     }
 
@@ -199,7 +214,7 @@ bool RimeIme::initialize() {
     }
     // Materialise any per-combination fuzzy schema (a strict subset of groups
     // enabled) now that rime is up, before the caller selects a schema.
-    ensure_fuzzy_schema(true);
+    ensure_fuzzy_schema();
     return true;
 }
 
@@ -412,7 +427,7 @@ std::string RimeIme::fuzzy_signature() const {
     return sig;
 }
 
-void RimeIme::ensure_fuzzy_schema(bool join_deploy) {
+void RimeIme::ensure_fuzzy_schema() {
     // Called after rime is initialized: materialise the per-combination schema
     // (template pruned to the enabled groups) and deploy it when its prism is
     // missing. All-on/all-off use bundled schemas and need nothing here.
@@ -439,9 +454,15 @@ void RimeIme::ensure_fuzzy_schema(bool join_deploy) {
     }
 
     // Prune the template: keep the enabled groups' rule blocks.
-    std::ifstream in(std::filesystem::path(resolved_shared_dir_) / "luna_pinyin_simp_fuzzy.schema.yaml");
-    if (!in)
+    const std::filesystem::path template_path =
+        std::filesystem::path(resolved_shared_dir_) / "luna_pinyin_simp_fuzzy.schema.yaml";
+    std::ifstream in(template_path);
+    if (!in) {
+        spdlog::error("Rime: cannot read the fuzzy template {} -- no schema is generated for these groups, "
+                      "so pinyin input will fall back to the exact-pinyin schema",
+                      template_path.string());
         return;
+    }
     std::string line;
     std::string body;
     std::string block;     // current # BEGIN fuzzy:<block> .. # END fuzzy:<block> body
@@ -514,17 +535,34 @@ void RimeIme::ensure_fuzzy_schema(bool join_deploy) {
         return;
     }
     out_file << body;
-    spdlog::info("Rime: wrote generated fuzzy schema {}", out.string());
+    out_file.close();
+    spdlog::info("Rime: wrote generated fuzzy schema {} ({} bytes, from template {})",
+                 out.string(), std::filesystem::file_size(out, ec), template_path.string());
 
-    // Deploy when the prism is missing (or the schema changed). deploy_schema
-    // enqueues the compile on librime's background maintenance thread and
-    // returns immediately; at initialize() we join so the prism is ready
-    // before the app serves input (matches the bundled start_maintenance+join).
+    // Deploy when the prism is missing (or the schema changed). librime's
+    // deploy_schema runs SchemaUpdate synchronously on this thread, so the
+    // prism is written before it returns -- which makes the return value and
+    // the file's absence the only diagnostics worth having. librime's own
+    // LOG(ERROR) is compiled out (ENABLE_LOGGING=OFF in CMakeLists), so an
+    // unlogged failure here used to look exactly like "still deploying".
     if (!std::filesystem::exists(staging, ec)) {
-        spdlog::info("Rime: deploying generated schema {}", out.string());
-        rime_->deploy_schema(out.string().c_str());
-        if (join_deploy && rime_->join_maintenance_thread) {
-            rime_->join_maintenance_thread();
+        spdlog::info("Rime: deploying generated schema {} into {}", out.string(), staging.string());
+        // Deploy is synchronous (librime's deploy_schema runs SchemaUpdate on
+        // this thread), so whatever is true when it returns is final. librime's
+        // own LOG(ERROR) is compiled out (ENABLE_LOGGING=OFF in CMakeLists),
+        // so an unlogged failure here used to be indistinguishable from "still
+        // deploying" -- which is what sent the CI investigation down a 240s
+        // waiting path for a compile that had already given up.
+        const bool ok = rime_->deploy_schema(out.string().c_str());
+        if (!ok) {
+            spdlog::error("Rime: generated schema {} failed to deploy; the enabled fuzzy groups have no "
+                          "usable prism, so pinyin input yields no candidates at all",
+                          out.string());
+        } else if (!std::filesystem::exists(staging, ec)) {
+            spdlog::error("Rime: generated schema {} reported a successful deploy but {} is still absent",
+                          out.string(), staging.string());
+        } else {
+            spdlog::info("Rime: generated prism ready at {}", staging.string());
         }
     }
 }

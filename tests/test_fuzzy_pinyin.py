@@ -95,7 +95,10 @@ class Session:
         cfg_dir = os.path.join(self.home, ".config", "term-ime")
         os.makedirs(cfg_dir, exist_ok=True)
         with open(os.path.join(cfg_dir, "config.json"), "w") as f:
-            json.dump({"fuzzy_groups": groups}, f)
+            # log_level=info so the deploy lines ("deploying generated schema
+            # ...") reach the log dump below; the default "warn" would leave the
+            # interesting part out exactly when it is needed.
+            json.dump({"fuzzy_groups": groups, "log_level": "info"}, f)
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
             try:
@@ -181,6 +184,42 @@ class Session:
         shutil.rmtree(self.home, ignore_errors=True)
 
 
+def dump_rime_state(home: str, udir: str, label: str, lines: int = 60) -> None:
+    """Print what the app left behind for a session whose prism never showed up.
+
+    The log file lives under HOME, which close() deletes, and the two questions
+    a "prism missing" failure has are (a) did the app say why, and (b) what is
+    actually on disk in the rime user dir. Both are gone by the time the next
+    case starts, so capture them here while the directory still exists.
+    """
+    print(f"----- {label}: rime user dir {udir} -----", flush=True)
+    for sub in ("", "build"):
+        d = os.path.join(udir, sub) if sub else udir
+        try:
+            entries = sorted(os.listdir(d))
+        except OSError as e:
+            print(f"  [{sub or '.'}] cannot list: {e}")
+            continue
+        for name in entries:
+            full = os.path.join(d, name)
+            try:
+                size = os.path.getsize(full)
+            except OSError:
+                size = -1
+            print(f"  [{sub or '.'}] {name} ({size} bytes)")
+    log_path = os.path.join(home, ".cache", "term-ime", "term-ime.log")
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            tail = f.readlines()[-lines:]
+    except OSError as e:
+        print(f"----- {label}: cannot read {log_path}: {e} -----")
+        return
+    print(f"----- {label}: rime log tail ({log_path}) -----")
+    for line in tail:
+        print("  " + line.rstrip())
+    print(f"----- end {label} -----")
+
+
 def run_group_case(groups, label):
     """以指定组集合启动，逐组探针：开→候选含专属字，关→不含。"""
     s = Session(groups)
@@ -196,6 +235,7 @@ def run_group_case(groups, label):
         if 0 < len(groups) < 5:
             udir = os.path.join(s.home, ".local", "share", "term-ime")
             if not wait_generated_prism(udir):
+                dump_rime_state(s.home, udir, label)
                 check(f"{label}: generated prism deployed", False, udir)
                 return
             time.sleep(0.5)
@@ -228,7 +268,11 @@ def main() -> int:
         gen_schema = os.path.join(udir, "luna_pinyin_simp_fuzzy_n_l_nose.schema.yaml")
         gen_prism = os.path.join(udir, "build", "luna_pinyin_simp_fuzzy_n_l_nose.prism.bin")
         check("subset: generated schema written", wait_file(gen_schema), gen_schema)
-        check("subset: prism deployed", wait_file(gen_prism), gen_prism)
+        if not wait_file(gen_prism):
+            dump_rime_state(s.home, udir, "subset")
+            check("subset: prism deployed", False, gen_prism)
+        else:
+            check("subset: prism deployed", True, gen_prism)
     finally:
         s.close()
 
