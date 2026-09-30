@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-09-30T03:34:17"
+updated: "2026-09-30T03:54:06"
 ---
 
 <!-- compiled_truth -->
@@ -17,6 +17,29 @@ updated: "2026-09-30T03:34:17"
 4. **探针式断言**：不要用提示符/cwd 文本判断 shell 是否可用；用算术探针 `echo SHELLVIEW$((6*7))` → 期望 `SHELLVIEW42`（输入行与求值行不同，只有活着的 shell 才会打印结果）。
 5. **读帧收敛**：一帧由多段 `write()` 组成，读侧要等到静默再解析；帧中途采样会得到半帧（不是应用缺陷）。
 6. 关闭面板的验证 = 「面板专有标记消失」+「探针可见」，两者都要。
+
+## 有界等待不是修复手段（2026-09-30）
+
+断言卡在有界等待上时，**先确认那个操作到底是不是异步的**，再谈窗口大小。
+
+反例（本项目真实吃过）：`test_fuzzy_pinyin` 的「生成 prism 是否部署」曾从 90s 一路
+加到 240s、600s，连续 8 个 run 红。实际是 `deploy_schema` **同步**执行、早已失败返回，
+240s 全是白等——把一次确定性失败伪装成了 flaky。
+
+配套判据：
+
+- **同一断言在多个 run 里以完全相同的方式失败 → 那是 bug 的形状，不是竞态的形状。**
+  优先按确定性失败查，别挂 flaky 标签放过去。
+- **「本机绿 / runner 红」先查工具链差异**：文件缓冲与落盘阈值、libstdc++/glibc 版本、
+  locale、路径长度。CI 日志里时间戳的形状（等满整窗口 vs 立刻返回）是关键线索。
+- **失败路径必须留下证据**：被测程序的失败分支若不留日志/返回值，测试就只能靠等。
+  本项目构建关掉了 librime 自身日志（`ENABLE_LOGGING=OFF`），所以测试侧要在失败时
+  dump 应用日志与相关目录，否则下一轮仍然只能猜。
+
+## 对「长期 flaky」的处理
+
+不要因为「不阻塞发布」就长期容忍。master 长期红会掩盖真实回归，也让人对 CI 失去信任。
+该修就修；修不动就把已知失败的 run 标成 flaky 并让它可见，而不是让主线一直红。
 
 
 ## Timeline
@@ -55,4 +78,16 @@ updated: "2026-09-30T03:34:17"
   kind: decision
   summary: "e2e 断言卡在一个有界等待上时，等待窗口不是修复手段：先确认那个操作是不是异步的。librime deploy_schema 是同步的，240s 全是白等，把「编译慢」当根因会把一次静默失败伪装成 flaky（连续 8 个 run 因此长期红）。另外：应用自身的失败路径必须在失败时留下证据（返回值 + 目录/日志 dump），因为第三方库（librime）的日志在本项目构建里是关掉的。"
   source: "2026-09-30 CI flaky 排查"
+  affects: [e2e-harness-contract]
+
+- time: 2026-09-30T03:52:05
+  kind: reversal
+  summary: "撤回「这些 3 个组合是 pre-existing flaky、不阻塞发布」的结论：它不是 flaky，是确定性失败（同一批组合每次都红）。判据是同一断言在多个 run 里以完全相同的方式失败 —— 那是 bug 的形状，不是竞态的形状。下次再看到「长期 flaky」先怀疑确定性失败，并优先找「本地绿/runner 红」的工具链差异（缓冲阈值、文件落盘、locale），而不是加超时。"
+  source: "2026-09-30 CI flaky 收尾"
+  affects: [e2e-harness-contract]
+
+- time: 2026-09-30T03:54:06
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
   affects: [e2e-harness-contract]

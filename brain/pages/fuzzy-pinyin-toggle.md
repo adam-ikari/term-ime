@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [rime, config, settings, schema]
 created: "2026-09-15T08:07:37"
-updated: "2026-09-30T03:34:08"
+updated: "2026-09-30T03:53:27"
 ---
 
 <!-- compiled_truth -->
@@ -21,7 +21,7 @@ updated: "2026-09-30T03:34:08"
 | r/l、r/y | `derive/^r/l/`、`derive/^ren/yin/`、`derive/^r/y/` |
 | hu/f | hu_f_buhun 那组字面量 |
 | en/eng（含 in/ing） | `derive/([ei])n$/$1ng/` + `derive/([ei])ng$/$1n/` |
-| **an/ang（含 ian/iang、uan/uang、üan/üang）** | `derive/an$/ang/` + `derive/ang$/an/` |
+| **an/ang（含 ian/iang、uan/uang、üan/üang）** | `derive/an$/ang/` + `derive/^ang$/an/` |
 
 最后两条是 2026-09-16 补的：`an$/ang` 一条规则就同时覆盖 an/ang、ian/iang（"ian" 以 "an" 结尾）、
 uan/uang、üan/üang（"van"/"üan"），不需要为每个韵母各写一条。
@@ -32,12 +32,38 @@ uan/uang、üan/üang（"van"/"üan"），不需要为每个韵母各写一条�
 1. 在 `luna_pinyin_simp_fuzzy.schema.yaml` 的 algebra 里追加 `derive/.../`；
 2. 重新 configure+build（CMake 会把 data/rime-data 拷进 build/share）；
 3. fuzzy schema 的 prism 会因源文件更新而重编译（冷启动/schema 切换时）；
-4. 在 `tests/test_fuzzy_pinyin.py` 的 FUZZY_ONLY 里加一条断言（开=出现、关=消失）。
+4. 在 `tests/test_fuzzy_pinyin.py` 的 GROUP_PROBES 里加一条断言（开=出现、关=消失）。
+
+## 写生成 schema 的硬约束：close() 之后才能 deploy（2026-09-30 修复 CI 长期红）
+
+`ensure_fuzzy_schema()` 写完 `luna_pinyin_simp_fuzzy_<sig>.schema.yaml` 之后，
+**必须 `out_file.close()` 再调 `deploy_schema`**。原因是两条叠在一起：
+
+1. `std::ofstream` 在 close/destructor 之前不保证已落盘，缓冲阈值由 libstdc++ 决定；
+2. `deploy_schema` 是**同步**的（librime `RunTask` 在调用线程上跑 `SchemaUpdate`），
+   它读的正是刚写的这个文件。
+
+缓冲没落盘 → librime 读到空 schema → `SchemaUpdate::Run` 在
+`config->LoadFromFile` 处返回 false → `deploy_schema` 返回 false → prism 不存在。
+**本机 gcc 11.4 / `__GLIBCXX__=20230528` 对 ≥1024 字节的单次 `<<` 会提前落盘，
+CI runner 的工具链不是这个阈值** —— 所以本地必绿、runner 必红。
+
+配套的两条纪律：
+
+- **deploy 的返回值必须检查**。丢弃它，失败与成功就走同一条路，日志里什么都不留，
+  症状看起来与「还在编译」一模一样（这正是排查被带偏的地方）。
+- **本项目构建里 librime 的 `LOG(ERROR)` 是被编译掉的**（`CMakeLists.txt` 的
+  `ENABLE_LOGGING=OFF`），所以应用自己的日志是唯一证据源；e2e 失败时要 dump
+  rime 用户目录（含 `build/`）与日志尾部。
+
+顺带否掉一个错误结论：`deploy_schema` 之后调 `join_maintenance_thread()` 是 no-op
+（`std::async` 的 future 在第一次 `get()` 后 `valid()` 已为 false），它不是竞态的来源。
 
 ## 证据
-`tests/test_fuzzy_pinyin.py` 20/20：开→ la 有那、fen 有风、fan 有方、lan 有狼、lang 有蓝、
-qian 有枪、wan 有网；面板切「关」→ 全部消失且精确读音仍在；再切「开」→ 恢复。
-全量回归（58 gtest + 3 C++ e2e + 3 py e2e + 简体 40/40 + 翻页 17/17 + 候选数 10/10）绿。
+`tests/test_fuzzy_pinyin.py` 19/19（本地与 CI 皆绿）：开→ la 有那、fen 有风、fan 有方；
+面板切「关」→ 对应字消失且精确读音仍在；再切「开」→ 恢复。
+全量回归：111 gtest + 6 套 py e2e 全绿；CI run 36664971087 五个 job（lint/website/
+build/install-test/e2e）全 success。
 
 
 ## Timeline
@@ -77,3 +103,15 @@ qian 有枪、wan 有网；面板切「关」→ 全部消失且精确读音仍�
   summary: "推翻 'prism 是编译慢/后台还在跑' 的假设（d7c20bb 据此加 join 并把 ready 门提到 120s）：librime 的 deploy_schema 走 RunTask，在调用线程上同步跑完 SchemaUpdate，那 240s 里没有任何编译在进行，deploy 早已失败返回且不留痕迹（返回值被丢弃 + ENABLE_LOGGING=OFF 把 librime 的 LOG(ERROR) 编译掉）。已在 4b9db4c 记录返回值、显式 close() 写文件、失败时 dump rime 用户目录+日志；下一次 CI 跑完即可定位到 SchemaUpdate::Run 的具体失败步。"
   source: "2026-09-30 CI flaky 排查（读 CI 日志 + librime 源码）"
   affects: [fuzzy-pinyin-toggle, e2e-harness-contract]
+
+- time: 2026-09-30T03:51:42
+  kind: reversal
+  summary: "根因确认并已修复：ensure_fuzzy_schema 写完生成 schema 后没有 close()，std::ofstream 的缓冲未落盘，librime 紧接着同步读的正是这个文件 —— 读到空的 schema，SchemaUpdate::Run 在 config->LoadFromFile 失败处返回 false，deploy_schema 返回 false，prism 从未生成，而返回值一直被丢弃，于是表现成「等 240s 也没等到」。本地必绿是因为本机 libstdc++(__GLIBCXX__=20230528/gcc 11.4) 对 >=1024 字节的单次 << 会提前落盘，CI runner 的工具链不是这个阈值 —— 典型的「本机绿、runner 红」。join_maintenance_thread 已证明是 no-op（std::async 的 future 在第一次 get 后 valid()=false），不是原因。修复后 n_l-only 从等满 240s 变成约 2.6s 通过。"
+  source: "2026-09-30 CI 36664971087 全绿（5/5 job），本地复现根因"
+  affects: [fuzzy-pinyin-toggle]
+
+- time: 2026-09-30T03:53:27
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [fuzzy-pinyin-toggle]
