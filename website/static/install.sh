@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # term-ime installer — downloads a prebuilt binary from GitHub Releases.
-# The binary is fully statically linked (zero runtime shared-library deps), so
-# no system runtime shared libraries need to be installed — just drop it on PATH.
+#
+# Same command everywhere; the target is detected automatically:
+#   - Linux  → fully static glibc build, zero runtime shared-library deps
+#   - Termux → arm64 Android build (bionic), a prerelease, so it needs an
+#              explicit --version (see below)
 #
 # Usage (user install, no sudo):
 #   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash
@@ -10,6 +13,9 @@
 # Usage (system install, requires sudo):
 #   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --prefix /usr/local
 #
+# Usage (Termux / Android, prerelease — --version is required):
+#   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --version v1.1.7-termux
+#
 # Defaults: latest release, prefix ~/.local (no sudo needed).
 set -euo pipefail
 
@@ -17,6 +23,16 @@ REPO="adam-ikari/term-ime"
 PREFIX="${HOME}/.local"
 VERSION=""
 SUDO=""
+PREFIX_SET=0
+
+# Termux ships its own aarch64 and the Android tag is a *prerelease*, so it is
+# deliberately not what "latest" resolves to (see below). Detected before the
+# arch check because `uname -m` on a phone also says aarch64 -- without this the
+# arch branch would install the glibc build, which cannot run on Android at all.
+IS_TERMUX=0
+if [ -n "${TERMUX_VERSION:-}" ] || [ -d "/data/data/com.termux/files/usr" ]; then
+    IS_TERMUX=1
+fi
 
 print_usage() {
     cat <<'EOF'
@@ -35,17 +51,46 @@ Install modes:
   System install:
     curl -fsSL .../install.sh | bash -s -- --prefix /usr/local
     # Installs to /usr/local/bin/term-ime — may need sudo
+
+  Termux / Android (test build, --version required):
+    curl -fsSL .../install.sh | bash -s -- --version v1.1.7-termux
+    # Installs to $PREFIX/bin (already on PATH)
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --version) VERSION="$2"; shift 2 ;;
-        --prefix)  PREFIX="$2";  shift 2 ;;
+        --prefix)  PREFIX="$2";  shift 2; PREFIX_SET=1 ;;
         -h|--help) print_usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; print_usage; exit 1 ;;
     esac
 done
+
+if [[ "$IS_TERMUX" -eq 1 ]]; then
+    # $PREFIX/bin is what Termux puts on PATH, and ~/.local/bin is not, so the
+    # Linux default would install a binary the user cannot run. Default to
+    # Termux's own prefix; an explicit --prefix still wins.
+    if [[ "$PREFIX_SET" -eq 0 ]]; then
+        PREFIX="${TERMUX_PREFIX:-/data/data/com.termux/files/usr}"
+    fi
+    # Termux builds live on prerelease tags, which /releases/latest never
+    # returns, so "latest" cannot be resolved here. Ask for the tag instead of
+    # silently installing the glibc package.
+    if [[ -z "$VERSION" ]]; then
+        cat >&2 <<'EOF'
+error: the Termux build needs an explicit --version.
+
+Android packages are published as prereleases, so there is no meaningful
+"latest" for this platform. Use:
+
+    curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --version v1.1.7-termux
+
+See https://adam-ikari.github.io/term-ime/docs/termux
+EOF
+        exit 1
+    fi
+fi
 
 # Resolve latest version via the GitHub API if not pinned.
 if [[ -z "$VERSION" ]]; then
@@ -58,32 +103,21 @@ if [[ -z "$VERSION" ]]; then
 fi
 echo ">> Installing term-ime ${VERSION}"
 
-# Detect arch. Prebuilt binaries: x86_64 and aarch64 (see release.yml matrix).
-#
-# The Termux check has to come FIRST. On a phone `uname -m` also reports
-# aarch64, so without this the branch below would happily install the *glibc*
-# build on Android -- a binary that cannot run there at all. Failing loudly with
-# a pointer to the real instructions beats a confusing exec format error (or,
-# worse, a shell that just reports "command not found" for ti).
-if [ -n "${TERMUX_VERSION:-}" ] || [ -d "/data/data/com.termux/files/usr" ]; then
-    cat >&2 <<'EOF'
-error: this looks like Termux (Android).
-
-The one-line installer does not support Termux: the prebuilt packages are glibc
-binaries for Linux, and Android uses bionic -- they will not run here.
-
-To build for your phone instead, see:
-  https://adam-ikari.github.io/term-ime/docs/termux
-EOF
-    exit 1
+# Detect arch. Prebuilt binaries: x86_64 and aarch64 (see release.yml matrix),
+# plus a Termux/Android arm64 package.
+if [[ "$IS_TERMUX" -eq 1 ]]; then
+    case "$(uname -m)" in
+        aarch64|arm64) ASSET_ARCH="termux-arm64" ;;
+        *) echo "error: Termux on $(uname -m) is not supported; only arm64 is built" >&2; exit 1 ;;
+    esac
+else
+    ARCH="$(uname -m)"
+    case "$ARCH" in
+        x86_64|amd64)   ASSET_ARCH="linux-x86_64" ;;
+        aarch64|arm64)  ASSET_ARCH="linux-aarch64" ;;
+        *) echo "error: unsupported architecture: $ARCH (prebuilt binaries are x86_64/aarch64 only; build from source for other archs)" >&2; exit 1 ;;
+    esac
 fi
-
-ARCH="$(uname -m)"
-case "$ARCH" in
-    x86_64|amd64)   ASSET_ARCH="linux-x86_64" ;;
-    aarch64|arm64)  ASSET_ARCH="linux-aarch64" ;;
-    *) echo "error: unsupported architecture: $ARCH (prebuilt binaries are x86_64/aarch64 only; build from source for other archs)" >&2; exit 1 ;;
-esac
 
 ASSET="term-ime-${ASSET_ARCH}.tar.gz"
 # TERM_IME_DOWNLOAD_BASE lets CI / mirrors point at any HTTP(S) base holding
@@ -179,15 +213,30 @@ INSTALLED="${BIN_DIR}/ti"
 if [[ ":${PATH}:" == *":${BIN_DIR}:"* ]]; then INSTALLED="ti"; fi
 echo ">> Installed: ${INSTALLED} (alias: term-ime)"
 
-# Verify the installed binary is actually statically linked.
+# Verify the installed binary matches the platform it was built for. The Linux
+# package is fully static; the Android one is NOT (bionic has no static libc and
+# the platform loader rejects a -static build), so checking for "statically
+# linked" unconditionally would warn on every correct Termux install.
 echo ">> Verifying binary..."
-if ! file "${PREFIX}/bin/ti" | grep -q "statically linked"; then
-    echo "!! WARNING: Binary does not appear to be fully statically linked."
-    echo "!! This may indicate a build issue. Please report at:"
-    echo "!! https://github.com/${REPO}/issues"
-    echo "!!"
-    echo "!! Dynamic dependencies detected:"
-    ldd "${PREFIX}/bin/ti" 2>/dev/null || true
+if [[ "$IS_TERMUX" -eq 1 ]]; then
+    # `file` does NOT say "Android" for these binaries; the reliable marker is
+    # the platform dynamic loader (/system/bin/linker64), which is exactly what
+    # a glibc build would lack.
+    if ! file "${PREFIX}/bin/ti" | grep -q "ARM aarch64"; then
+        echo "!! WARNING: installed binary is not aarch64." >&2
+    fi
+    if ! file "${PREFIX}/bin/ti" | grep -q "linker64"; then
+        echo "!! WARNING: installed binary does not look like an Android build." >&2
+    fi
+else
+    if ! file "${PREFIX}/bin/ti" | grep -q "statically linked"; then
+        echo "!! WARNING: Binary does not appear to be fully statically linked."
+        echo "!! This may indicate a build issue. Please report at:"
+        echo "!! https://github.com/${REPO}/issues"
+        echo "!!"
+        echo "!! Dynamic dependencies detected:"
+        ldd "${PREFIX}/bin/ti" 2>/dev/null || true
+    fi
 fi
 
 echo ">> Run: ti"

@@ -10,28 +10,34 @@ sidebar_position: 8
 term-ime 的 arm64 Android 测试版本。需要在手机上用 [Termux](https://termux.dev/)
 运行，需要 Android 9（API 28）及以上。
 
+## 当前状态
+
+| 项目 | 状态 |
+|---|---|
+| 交叉编译出 arm64 Android 二进制 | ✅ 已支持，`ci.yml` 的 `android-build` job 每次推送都会验证 |
+| 有可下载的 arm64 预编译包 | ✅ [`v1.1.7-termux`](https://github.com/adam-ikari/term-ime/releases/tag/v1.1.7-termux) |
+| 用 `install.sh` 安装 | ✅ 和 Linux 同一条命令，加 `--version` 即可 |
+
 ## 安装
 
-在 Termux 里执行：
+和 Linux 用的是同一条命令，脚本会自动识别 Termux。区别只是要多指定版本号
+（Android 包是预发布，不参与「最新版」解析）：
 
 ```bash
-pkg install curl
-curl -fsSLO https://github.com/adam-ikari/term-ime/releases/download/v1.1.7-termux/term-ime-termux-arm64.tar.gz
-tar -xzf term-ime-termux-arm64.tar.gz
-cp -r term-ime/* $PREFIX/
-ti
+curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --version v1.1.7-termux
 ```
 
-`$PREFIX/bin` 已经在 `PATH` 里，装完直接用 `ti` 即可（`term-ime` 是兼容别名）。
+装到 `$PREFIX/bin`（已在 `PATH` 里，无需 sudo），装完直接用 `ti`
+（`term-ime` 是兼容别名）。
 
 这是**测试版本**，手机上遇到问题请直接开
 [issue](https://github.com/adam-ikari/term-ime/issues)。
 
 ## 已知限制
 
-- 不走首页那条一键安装命令。`install.sh` 只提供 Linux 的 x86_64 / aarch64
-  glibc 包，手机上跑不了。
-- 需要 Android 9 以上。
+- 需要 Android 9（API 28）及以上。
+- 装的是动态链接的 Android 版本（bionic 没有静态 libc），依赖系统的
+  `libc` / `libm` / `libdl` / `liblog`，这几个平台自带。
 
 ## 从源码编译
 

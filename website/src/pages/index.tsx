@@ -27,7 +27,7 @@ const FAQS: [string, string][] = [
   ],
   [
     '手机上能用吗？',
-    '可以，提供 arm64 Android 的测试版本和源码构建方法。需要注意它不是静态链接（bionic 没有静态 libc），安装方式也不走一键脚本，细节见 Termux 页面。',
+    '可以，提供 arm64 Android 的测试版本。和 Linux 用同一条安装命令，只是要多带一个 --version v1.1.7-termux（Android 包是预发布，不参与「最新版」解析），详见 Termux 页面。',
   ],
   [
     '能嵌进我自己的程序吗？',
@@ -257,8 +257,8 @@ function Hero() {
               免 sudo，装到 ~/.local/bin；其他装法见
               <Link to="/docs/quickstart">快速开始</Link>。
               <br />
-              手机上用 Termux 的话，这条命令不适用（装的是 glibc 包）——测试版
-              见
+              手机上用 Termux 的话，还是同一条命令，加个版本号即可（Android 包是
+              测试版）——见
               <Link to="/docs/termux">Termux 页面</Link>。
             </p>
 

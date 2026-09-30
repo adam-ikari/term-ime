@@ -260,3 +260,47 @@ jobs:
         test -f "$PREFIX/share/term-ime/rime-data/essay.txt"
         test -f "$PREFIX/share/term-ime/translations/zh-CN.json"
         echo "OK: install-test passed"
+
+    - name: Installer picks the Termux asset (simulated phone)
+      # The installer must branch on Termux without a phone: on Android the
+      # asset is `term-ime-termux-arm64`, the prefix defaults to Termux's own
+      # $PREFIX/bin (already on PATH), and the "statically linked" check must NOT
+      # fire -- the Android build is deliberately dynamic. Two of those three
+      # regress easily and silently, so pin them here.
+      #
+      # `uname -m` is stubbed because the runner is x86_64 while every phone is
+      # aarch64 -- the same trap the real Termux check exists to avoid.
+      run: |
+        set -euo pipefail
+        STUB="$(mktemp -d)"
+        cat > "$STUB/uname" <<'EOF'
+        #!/bin/sh
+        [ "$1" = "-m" ] && { echo aarch64; exit 0; }
+        exec /usr/bin/uname "$@"
+        EOF
+        chmod +x "$STUB/uname"
+
+        TERMUX_PREFIX="$(mktemp -d)/usr"
+        PATH="$STUB:$PATH" TERMUX_VERSION=0.118 TERMUX_PREFIX="$TERMUX_PREFIX" \
+          bash website/static/install.sh \
+            --version v1.1.7-termux \
+            --prefix "$TERMUX_PREFIX" | tee /tmp/install-termux.log
+
+        test -x "$TERMUX_PREFIX/bin/ti"
+        test -L "$TERMUX_PREFIX/bin/term-ime"
+        file "$TERMUX_PREFIX/bin/ti" | grep -q "ARM aarch64"
+        # Must be the Android build, not the glibc one.
+        file "$TERMUX_PREFIX/bin/ti" | grep -q "linker64"
+        test -f "$TERMUX_PREFIX/share/term-ime/rime-data/essay.txt"
+        # The dynamic-link warning must stay quiet for a correct Termux install.
+        ! grep -q "WARNING" /tmp/install-termux.log
+
+        # Without --version it must refuse rather than fall back to the glibc
+        # asset, which cannot run on Android.
+        if PATH="$STUB:$PATH" TERMUX_VERSION=0.118 \
+             bash website/static/install.sh --prefix "$TERMUX_PREFIX" 2>/tmp/nover.log; then
+          echo "ERROR: installer accepted Termux with no --version"
+          exit 1
+        fi
+        grep -q "explicit --version" /tmp/nover.log
+        echo "OK: install-termux-test passed"
