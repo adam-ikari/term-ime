@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-09-30T03:54:06"
+updated: "2026-09-30T05:12:10"
 ---
 
 <!-- compiled_truth -->
@@ -90,4 +90,10 @@ updated: "2026-09-30T03:54:06"
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-09-30T05:12:10
+  kind: reversal
+  summary: "撤回「这些都是 pre-existing flaky」式的跳过倾向的另一个实例：连续 8 个 run 红时，标签是「已知 flaky 不阻塞发布」，实际是确定性失败。判据同前——同一断言以完全相同方式重复失败即非竞态。CI 里给未验证的东西建 job 时，要带负例自检（拿已知不合格的输入跑同一段校验，必须失败），否则断言可能是空转的。"
+  source: "2026-09-30 Termux 交叉编译"
   affects: [e2e-harness-contract]
