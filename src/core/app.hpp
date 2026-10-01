@@ -119,7 +119,7 @@ class App {
     };
     ImeSnapshot ime_snapshot_;
     void refresh_ime_snapshot();
-    void render_candidates_bar(bool refresh = true);
+    void render_candidates_bar();
     // Send one byte to librime and forward whatever it committed. Returns false
     // when rime declined the key (caller decides: forward to the PTY or drop).
     bool ime_feed(char ch);

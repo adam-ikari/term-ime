@@ -220,9 +220,7 @@ void App::on_pty_data(const char* data, size_t len) {
     // forward)触发的重复重绘会被跳过,而状态栏真正被 shell 清屏擦除时仍会
     // 重绘恢复(monkey 发现 F4)。scroll region(init 的 DECSTBM)进一步保证
     // shell 输出不落 到状态栏行。
-    // Shell output cannot change the IME context, so reuse the cached snapshot
-    // rather than querying rime three more times (defect 17).
-    render_candidates_bar(false);
+    render_candidates_bar();
 }
 
 void App::refresh_ime_snapshot() {
@@ -292,10 +290,18 @@ bool App::ime_feed(char ch) {
     return true;
 }
 
-void App::render_candidates_bar(bool refresh) {
-    if (refresh) {
-        refresh_ime_snapshot();
-    }
+void App::render_candidates_bar() {
+    // Always re-read the IME context here. It used to take a `refresh` flag, and
+    // the false branch (repaint from a shell-output chunk) was a caching
+    // optimisation: three fewer rime queries per echo. That made correctness
+    // depend on a caller's promise that the IME had not changed — a promise
+    // advance_candidate_window silently broke, since it read this snapshot
+    // while relying on someone else's render() to have refreshed it.
+    //
+    // Querying rime is cheap (a menu lookup) and render_candidates already skips
+    // the actual terminal write when the bar is unchanged, so the optimisation
+    // was buying nothing measurable while costing an invisible coupling.
+    refresh_ime_snapshot();
 
     const std::vector<Candidate>& all = ime_snapshot_.candidates;
 
