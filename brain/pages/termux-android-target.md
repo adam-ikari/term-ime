@@ -5,61 +5,67 @@ category: decision
 status: active
 tags: [termux, android, build, cmake]
 created: "2026-09-30T05:15:49"
-updated: "2026-10-01T07:50:09"
+updated: "2026-10-01T10:46:54"
 ---
 
 <!-- compiled_truth -->
-## 全新 Termux 没有任何 HTTP 客户端（2026-10-01 用户指出）
+## arm64 二进制曾经「从未被执行过」——这个结论是错的（2026-10-01 更正）
 
-`install.sh` 里写的 `curl -fsSL ... | bash` 在**刚装好的 Termux 上直接失败**。
+之前记的「本地只有 x86_64 镜像，无 arm64 镜像，故实测用的是 x86_64 ABI 产物」
+把**没下载**当成了**不存在**。`sdkmanager --list` 里 arm64 镜像一直有：
 
-官方 bootstrap（`termux-packages/scripts/generate-bootstraps.sh`）只含：
+    system-images;android-31;default;arm64-v8a
+    system-images;android-31;aosp_atd;arm64-v8a      # 用这个，体积小、无 Google 依赖
 
-    bash coreutils dash diffutils findutils gawk grep gzip less procps psmisc
-    sed tar termux-core termux-exec termux-keyring termux-tools util-linux
-    xz-utils
+但**模拟器这条路仍然走不通**，原因是硬限制而非缺文件：
 
-**没有 curl，没有 wget。** 这是脚本唯一一条官方安装路径的前提，但它在手机上
-不成立——文档也照抄了同一条命令，用户照做会撞上 `curl: command not found`。
+    FATAL | Avd's CPU Architecture 'arm64' is not supported by the QEMU2
+           emulator on x86_64 host. System image must match the host architecture.
 
-而且不只是取脚本这一步：`install.sh` 自己内部有 11 处 curl（版本查询、下载
-tarball、取 sha256），所以就算脚本是从别处拿到的，**运行期仍然需要 curl**。
+即 x86_64 宿主 + `-accel off` 无法跑 arm64 guest。
 
-`findutils` 在 bootstrap 里，所以脚本用的 `find -type f -name ti -perm -u+x`
-没问题；`tar` / `sha256sum` / `mktemp` / `install` / `ln` 都有。
+## 可行替代：用 qemu-user 跑 aarch64 Linux 构建（已验证有效）
 
-## 顺带发现的第二个坑：file 也不在 bootstrap 里
+**关键洞察**：要验证的是「arm64 指令集上代码是否正确」，不必非得是 Android。
+装 `g++-aarch64-linux-gnu` 后可以交叉编出一份 **aarch64 glibc** 的 term-ime，
+再用 `qemu-aarch64-static` 真跑起来。已实测：
 
-装完的「校验二进制」那步调 `file`。Termux 上没有它，而 `set -o pipefail` 让
-`file ... | grep -q` 整体失败，于是**每一次正确的手机安装**都以两条假警告收尾：
+- 无 TTY 优雅退出（`启动失败 / 初始化失败` 面板，退出码 1，不崩溃）
+- 真 PTY 下完整流程：`nihao` → 候选栏 `1.你好 2.利好 3.立好 4.理好 5.立号`
+  → Enter 提交 → 再 Enter shell 报 `not found`
+- **整套 e2e 在 arm64 上跑**：fuzzy 24/24、e2e 5/5、settings 6/6、
+  settings_panel 8/8、punctuation 7/7、simplified/paste PASS。
+  含 per-combination schema 生成 + prism 部署（当初 `close()` 那个 bug 的位置）。
 
-    install.sh: line 240: file: command not found
-    !! WARNING: installed binary is not aarch64.
-    install.sh: line 243: file: command not found
-    !! WARNING: installed binary does not look like an Android build.
+所以 arm64 从「完全没验证」变成「代码路径全部验证过」，剩下的只有
+**bionic 特有的运行时行为**（真机软键盘、输入法窗口遮挡、长按选词）仍需真机。
 
-二进制完全正常，是检查工具缺席被误报成了检查失败。已用模拟手机环境
-（PATH 只留 bootstrap 工具 + 伪造 `uname -m`=aarch64）实测确认改前改后的对比。
+### 两个必须知道的坑
 
-## 修法
+1. **qemu-user 不能链式 exec aarch64 二进制**：让 arm64 的 harness 去
+   exec 另一个 arm64 程序会 `Exec format error`（没注册 binfmt_misc）。
+   正确做法是让 **x86_64 宿主 harness forkpty 后 exec qemu 本身**，
+   把 arm64 程序作为 qemu 的参数。
 
-1. 脚本开头在任何网络操作之前做 preflight：有 `curl` 用 curl，否则用 `wget`，
-   两者都没有就报错并**直接给出 `pkg install curl`**（Termux）或包管理器提示
-   （其他）。比在管道里炸出 `command not found` 好——后者看不到真正原因。
-   三个 curl 调用点改走 `fetch` / `fetch_to`。
-2. `file` 缺席时输出「跳过平台检查」并提示 `pkg install file`，不再误报。
-3. 文档与首页 FAQ 改成先 `pkg install curl`，Termux 页「已知限制」里说明
-   `file` 缺失导致校验跳过是正常的。
+2. **交叉构建 opencc 会死在 Error 127**：opencc 的 `.ocd2` 词典是**构建期**
+   跑自己的 `opencc_dict` 生成的，交叉编译时那个工具是目标架构、跑不了。
+   CMakeLists 里已有解法（`_deps_build/opencc-host` + PATH 前置），
+   但它被 `if(ANDROID)` 挡住了。
+   做 aarch64-linux 实验时手工复用即可：把 Android 构建产出的
+   `_deps_build/opencc-host/src/tools` 前置到 PATH 再 configure。
 
-## e2e 覆盖
+   注意这不影响已发布配置：CI 的 linux-aarch64 用的是**原生 ARM64 runner**
+   （`ubuntu-22.04-arm`），不是交叉编译，所以 `ANDROID` 门控对现有发布矩阵是够的。
 
-`ci.yml` 新增 step「Installer works on a bare Termux bootstrap」，用只含
-bootstrap 工具的 PATH（无 curl / wget / file）跑完整安装：断言无客户端时报
-`pkg install curl` 且**不含** `command not found`；只给 wget 时全流程走通
-（含 checksum）、有 rime-data、有明确的 skip 信息、**零 WARNING**。
+## arm64 产物本身的静态核对（也已做）
 
-三条断言都用变异验证过不是空转：改提示文案、删 wget 回退、把 skip 改回误报、
-整段删掉 preflight —— 四种变异都会让 step 失败。
+- `llvm-readelf -d`：NEEDED 只有 `liblog/libdl/libm/libc`，解释器 `/system/bin/linker64`
+- 逐个静态库的 `.o` 核对目标架构时，注意两类假警报：
+  - 项目自己的 `.a` 里装的是 **LLVM bitcode**（LTO），`llvm-readelf` 读不了，
+    要看 `llvm-dis` 出来的 `target triple = aarch64-none-linux-android28`
+  - `_deps_build/opencc-host/**` 是 x86_64 宿主工具，**本就不该**链进目标二进制。
+    实际链入的是 `_deps_stage/lib/libopencc.a` 与 `libmarisa.a`，
+    两者都是 AArch64（已核实）
 
 
 ## Timeline
@@ -101,6 +107,12 @@ bootstrap 工具的 PATH（无 curl / wget / file）跑完整安装：断言无�
   affects: [termux-android-target, enter-does-not-commit-composition]
 
 - time: 2026-10-01T07:50:09
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [termux-android-target]
+
+- time: 2026-10-01T10:46:54
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth

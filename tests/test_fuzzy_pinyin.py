@@ -262,6 +262,62 @@ def run_commit_case():
         s.close()
 
 
+def run_multi_commit_case():
+    """Each Enter must commit ITS OWN segment and leave nothing behind.
+
+    run_commit_case only ever commits one segment, so it cannot see whether the
+    composition is actually torn down between commits. Two failure modes need
+    their own coverage:
+
+      - Enter does not end the composition: the next segment's pinyin lands in
+        the *old* buffer, and one commit later swallows everything typed so far.
+      - Enter commits twice: the shell's line carries a stray duplicate.
+
+    Probe: for each segment, send the pinyin, Enter (commit), Enter again (run
+    the line, exposing what the first Enter put there). Then `not found` must
+    appear once per segment, and each occurrence must name exactly one segment.
+
+    The second Enter is not optional bookkeeping. Without it the final line only
+    shows the LAST commit, and the broken build — which never commits at all —
+    looks identical: nothing to distinguish. Verified against the pre-fix binary
+    (`git show '30c0e2f^:src/core/app.cpp'`): the fixed build reports three
+    separate `not found` lines, the broken build reports zero.
+    """
+    segments = [(b"nihao", "你好"), (b"shijie", "世界"), (b"zhongguo", "中国")]
+    s = Session([])
+    try:
+        if not s.wait_for(r"\[EN\]|\[拼\]", seconds=120.0):
+            check("multi-commit: ready", False)
+            return
+        s.send(b"\x01 ")
+        s.wait_for(r"\[拼\]", seconds=8.0)
+        collected = []
+        for pinyin, _ in segments:
+            s.send(pinyin)
+            time.sleep(1.4)
+            s.send(b"\r")                        # 提交本段
+            time.sleep(1.2)
+            s.send(b"\r")                        # 执行行首，暴露本段内容
+            time.sleep(1.4)
+            collected.append(strip_ansi(s.read(0.6)))
+        hits = [ln.strip() for seg in collected
+                for ln in seg.splitlines() if "not found" in ln]
+        check("multi-commit: one commit per segment, not one for all",
+              len(hits) == len(segments),
+              "got %d: %s" % (len(hits), hits[-3:]))
+        for idx, (pinyin, want) in enumerate(segments):
+            # Index rather than zip: with fewer `hits` than segments a zip loop
+            # body would simply not run and every assertion below would pass
+            # vacuously — the count check would catch it, but this one would not.
+            hit = hits[idx] if idx < len(hits) else ""
+            others = [w for _, w in segments if w != want]
+            check("multi-commit: %s committed on its own" % pinyin.decode(),
+                  bool(hit) and want in hit and not any(o in hit for o in others),
+                  hit[-40:] or "(no commit seen)")
+    finally:
+        s.close()
+
+
 def run_group_case(groups, label):
     """以指定组集合启动，逐组探针：开→候选含专属字，关→不含。"""
     s = Session(groups)
@@ -302,6 +358,7 @@ def main() -> int:
     run_group_case(["zh_z"], "zh_z-only")
 
     run_commit_case()
+    run_multi_commit_case()
 
     # 动态组合 schema 物化：部分开启时用户目录应有生成的 schema + prism
     s = Session(["n_l", "nose"])
