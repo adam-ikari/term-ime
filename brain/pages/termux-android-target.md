@@ -5,82 +5,61 @@ category: decision
 status: active
 tags: [termux, android, build, cmake]
 created: "2026-09-30T05:15:49"
-updated: "2026-10-01T07:35:39"
+updated: "2026-10-01T07:50:09"
 ---
 
 <!-- compiled_truth -->
-## 目标与现状（2026-10-01 更新：已在模拟器实测跑通）
+## 全新 Termux 没有任何 HTTP 客户端（2026-10-01 用户指出）
 
-term-ime 的机制是 `forkpty()` + termios + `TIOCGWINSZ`/`SIGWINCH`。在 Android
-API 31 模拟器（x86_64 ABI）上实测：**forkpty、librime 全流程、per-combination
-生成 schema、候选栏渲染、模糊音，全部工作正常**，打出 `nihao` → `1.你好
-2.利好 3.立好 4.理好 5.立号`，与 Linux 一致；`la` → `1.那`（n/l 模糊音生效）。
+`install.sh` 里写的 `curl -fsSL ... | bash` 在**刚装好的 Termux 上直接失败**。
 
-仍未知的是**真机**（非模拟器）特有部分：软键盘弹起/收起时的 `SIGWINCH`、
-状态栏是否被输入法窗口挤压、长按选词交互。这些模拟器测不出来。
+官方 bootstrap（`termux-packages/scripts/generate-bootstraps.sh`）只含：
 
-| 项目 | 状态 |
-|---|---|
-| 交叉编译 arm64 Android | ✅ NDK r27，strip 后 3.1M |
-| **在 Android 用户空间实跑** | ✅ **模拟器实测通过**（x86_64 ABI，API 31） |
-| 真机（软键盘/resize） | ⚠️ 未验证，需真机 |
-| `install.sh` 安装 | ✅ 同一条命令，脚本自动识别平台 |
+    bash coreutils dash diffutils findutils gawk grep gzip less procps psmisc
+    sed tar termux-core termux-exec termux-keyring termux-tools util-linux
+    xz-utils
 
-CI 的 `android-build` 只验交叉编译；实跑验证靠模拟器（`ANDROID_ABI=x86_64`
-交叉编译一份再 `adb push`，用 `forkpty` 包一层提供 PTY 注入按键）。
+**没有 curl，没有 wget。** 这是脚本唯一一条官方安装路径的前提，但它在手机上
+不成立——文档也照抄了同一条命令，用户照做会撞上 `curl: command not found`。
 
-## Android 与 glibc 的差异（全部 `if(ANDROID)` 隔离，宿主零回归）
+而且不只是取脚本这一步：`install.sh` 自己内部有 11 处 curl（版本查询、下载
+tarball、取 sha256），所以就算脚本是从别处拿到的，**运行期仍然需要 curl**。
 
-宿主产物 BuildID 与加这些分支之前完全一致，仍全静态 —— 这是判断「有没有误伤
-宿主构建」的硬判据，比跑测试更直接。
+`findutils` 在 bootstrap 里，所以脚本用的 `find -type f -name ti -perm -u+x`
+没问题；`tar` / `sha256sum` / `mktemp` / `install` / `ln` 都有。
 
-1. **不再 `-static`**。bionic 无可静态链接的 libc；`-static` 出来的二进制
-   Android 加载器不认。改为只依赖 `libc/libm/libdl/liblog`。
-2. **`forkpty` 在 libc 不在 libutil**。bionic 根本没有 libutil，硬链报
-   `unable to find library -lutil`。同时要链 `log`。
-3. **vendored 依赖要转发 toolchain**。yaml-cpp/leveldb/marisa/opencc 是
-   `execute_process` 起的**独立 cmake 工程**，不继承 toolchain，会悄悄按宿主
-   架构编译，最后链接报 `is incompatible with aarch64linux`。
-4. **NDK 的 find 路径要放开**。`CMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY` 让
-   `find_library` 看不到刚建好的 `_deps_stage`，报 `Could not find yaml-cpp
-   library`，而那个 `.a` 就在旁边。改 `BOTH`。
-5. **OpenCC 词典要用宿主工具生成**。opencc 在**构建期靠运行**自己的
-   `opencc_dict` 生成 `.ocd2`；交叉编译后它是 Android 二进制，跑不了
-   （`opencc_dict: not found` + `Error 127`）。词典与目标无关，故为宿主另编
-   一份并**前置到 PATH**——`data/CMakeLists.txt` 里是普通 `set()` 写
-   `OPENCC_DICT_BIN`，会遮蔽我们传的 `-D` 缓存变量，**改变量不生效，只能走 PATH**。
+## 顺带发现的第二个坑：file 也不在 bootstrap 里
 
-**API 28 是下限**：libuv 的 `process.c` 需要 `posix_spawn`，bionic 到 API 28
-才有。实测 API 31 模拟器无问题。
+装完的「校验二进制」那步调 `file`。Termux 上没有它，而 `set -o pipefail` 让
+`file ... | grep -q` 整体失败，于是**每一次正确的手机安装**都以两条假警告收尾：
 
-## 模拟器实测方法（可复用）
+    install.sh: line 240: file: command not found
+    !! WARNING: installed binary is not aarch64.
+    install.sh: line 243: file: command not found
+    !! WARNING: installed binary does not look like an Android build.
 
-```bash
-# 1. 为 x86_64 交叉编译（模拟器只有这个 ABI）
-cmake -B build-and -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
-      -DANDROID_ABI=x86_64 -DANDROID_PLATFORM=android-28 -DCMAKE_BUILD_TYPE=Release
-cmake --build build-and --target term-ime
-# 2. 起模拟器（本机无 KVM，需 -accel off，软件模拟慢：词典部署约 5 秒）
-emulator -avd <name> -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -accel off
-# 3. push 二进制 + share/，用 forkpty 包一层提供 PTY 注入按键
-```
+二进制完全正常，是检查工具缺席被误报成了检查失败。已用模拟手机环境
+（PATH 只留 bootstrap 工具 + 伪造 `uname -m`=aarch64）实测确认改前改后的对比。
 
-**坑**：无 TTY 时 term-ime 会在 renderer 初始化处优雅退出（`Not a TTY`），
-词典根本没机会部署 —— 所以验证必须给 PTY。`drain()` 若用局部 `total`
-累加，多次调用只会保留最后一次的输出（我踩过，表现为「捕获 290 字节」）。
+## 修法
 
-## 下一步
+1. 脚本开头在任何网络操作之前做 preflight：有 `curl` 用 curl，否则用 `wget`，
+   两者都没有就报错并**直接给出 `pkg install curl`**（Termux）或包管理器提示
+   （其他）。比在管道里炸出 `command not found` 好——后者看不到真正原因。
+   三个 curl 调用点改走 `fetch` / `fetch_to`。
+2. `file` 缺席时输出「跳过平台检查」并提示 `pkg install file`，不再误报。
+3. 文档与首页 FAQ 改成先 `pkg install curl`，Termux 页「已知限制」里说明
+   `file` 缺失导致校验跳过是正常的。
 
-1. **真机验证**——模拟器测不出软键盘 resize 与输入法窗口遮挡。
-2. **软键盘适配**——无物理键盘时方向键选词不友好，需长按/数字直选。
-3. **`install.sh` 的 Termux tag 常量需随发版更新**（见下）。
+## e2e 覆盖
 
-## install.sh 的坑（发版时要记得改）
+`ci.yml` 新增 step「Installer works on a bare Termux bootstrap」，用只含
+bootstrap 工具的 PATH（无 curl / wget / file）跑完整安装：断言无客户端时报
+`pkg install curl` 且**不含** `command not found`；只给 wget 时全流程走通
+（含 checksum）、有 rime-data、有明确的 skip 信息、**零 WARNING**。
 
-Termux 版本解析用**已知 tag 常量**而非 API 探测：`VERSION="${TERM_IME_TERMUX_TAG:-v1.1.7-termux}"`。
-原因是 API 探测每次安装要 1 次 API + 最多 30 次 HEAD，而未认证限额仅 60 次/小时/IP，
-几个人同时装就耗尽，之后所有手机安装以裸 403 失败（CI 绿灯是虚假信心）。
-**代价：每发一版 Termux 包都要改这个常量**，可用环境变量覆盖。
+三条断言都用变异验证过不是空转：改提示文案、删 wget 回退、把 skip 改回误报、
+整段删掉 preflight —— 四种变异都会让 step 失败。
 
 
 ## Timeline
@@ -120,3 +99,9 @@ Termux 版本解析用**已知 tag 常量**而非 API 探测：`VERSION="${TERM_
   summary: "Enter 修复在 Android 上确认生效，逐帧证据：nihao → 候选栏 1.你好 2.利好 3.立好 4.理好 5.立号；Enter 那帧 296 字节且「你好」进入 shell 输入行；再按一次 Enter shell 执行「你好」报 inaccessible or not found —— 即「Enter 只提交、再按一次才执行」，与 fcitx5/ibus+rime 及 Linux 行为一致。修复前该场景第二次 Enter 执行的是空行、什么都不发生。模拟器实测的坑：软件模拟（无 KVM）下 leveldb 重编 70k 词条要几分钟，调试时应复用已编译的 build/ 目录，否则会误判成「词典没部署」。"
   source: "2026-10-01 修复后 Android 模拟器复测（x86_64 ABI, API 31）"
   affects: [termux-android-target, enter-does-not-commit-composition]
+
+- time: 2026-10-01T07:50:09
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [termux-android-target]

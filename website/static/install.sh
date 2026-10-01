@@ -14,6 +14,7 @@
 #   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --prefix /usr/local
 #
 # Usage (Termux / Android, prerelease — --version is required):
+#   pkg install curl                                  # a fresh Termux has no HTTP client
 #   curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --version v1.1.7-termux
 #
 # Defaults: latest release, prefix ~/.local (no sudo needed).
@@ -53,6 +54,9 @@ Install modes:
     # Installs to /usr/local/bin/term-ime — may need sudo
 
   Termux / Android:
+    # a fresh Termux ships no curl and no wget, so install one first:
+    pkg install curl
+
     curl -fsSL .../install.sh | bash
     # Picks the newest Termux build automatically
     # Installs to $PREFIX/bin (already on PATH)
@@ -70,6 +74,36 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1" >&2; print_usage; exit 1 ;;
     esac
 done
+
+# Pick an HTTP client up front, before anything needs the network.
+#
+# curl is the documented one, but wget is an equally good substitute and this
+# script also runs on BusyBox-ish systems where only wget exists.
+#
+# Note this check exists because a fresh Termux ships NEITHER: its bootstrap is
+# bash/coreutils/dash/diffutils/findutils/gawk/grep/gzip/less/procps/psmisc/sed/
+# tar/termux-*/util-linux/xz-utils — no curl, no wget. That is why the Termux
+# docs lead with `pkg install curl`; there is no way to pull a script over HTTP
+# without one of these two. Failing here with the exact command to run beats
+# letting it blow up later with a bare "curl: command not found" from inside a
+# pipeline, where the real cause is invisible.
+if command -v curl >/dev/null 2>&1; then
+    fetch()    { curl -fsSL "$1"; }
+    fetch_to() { curl -fsSL -o "$2" "$1"; }
+elif command -v wget >/dev/null 2>&1; then
+    fetch()    { wget -q -O - "$1"; }
+    fetch_to() { wget -q -O "$2" "$1"; }
+else
+    echo "error: need curl or wget to download term-ime" >&2
+    if [[ "$IS_TERMUX" -eq 1 ]]; then
+        echo "     a fresh Termux has neither; run this first:" >&2
+        echo "         pkg install curl" >&2
+    else
+        echo "     install one with your package manager, e.g.:" >&2
+        echo "         apt install curl    # or: apk add curl / dnf install curl" >&2
+    fi
+    exit 1
+fi
 
 if [[ "$IS_TERMUX" -eq 1 ]]; then
     # $PREFIX/bin is what Termux puts on PATH, and ~/.local/bin is not, so the
@@ -97,7 +131,7 @@ fi
 
 # Resolve latest version via the GitHub API if not pinned.
 if [[ -z "$VERSION" ]]; then
-    VERSION="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
+    VERSION="$(fetch "https://api.github.com/repos/${REPO}/releases/latest" \
         | grep -m1 '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')"
     if [[ -z "$VERSION" ]]; then
         echo "error: could not determine latest release" >&2
@@ -132,7 +166,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 echo ">> Downloading ${URL}"
-curl -fsSL -o "${TMP}/${ASSET}" "$URL"
+fetch_to "$URL" "${TMP}/${ASSET}"
 
 # Verify the checksum. A failure here is fatal, but distinguish the two cases:
 # the sidecar genuinely not existing (older/mirror) is a soft skip, while a
@@ -140,7 +174,7 @@ curl -fsSL -o "${TMP}/${ASSET}" "$URL"
 # integrity check to nothing, which is exactly when you least want it.
 SHA_URL="${URL}.sha256"
 SHA_ERR="${TMP}/.sha_err"
-if curl -fsSL -o "${TMP}/${ASSET}.sha256" "$SHA_URL" 2>"$SHA_ERR"; then
+if fetch_to "$SHA_URL" "${TMP}/${ASSET}.sha256" 2>"$SHA_ERR"; then
     echo ">> Verifying checksum"
     (cd "$TMP" && sha256sum -c "${ASSET}.sha256" --status)
 elif grep -qiE '404|not found' "$SHA_ERR" 2>/dev/null; then
@@ -232,8 +266,15 @@ echo ">> Installed: ${INSTALLED} (alias: term-ime)"
 # package is fully static; the Android one is NOT (bionic has no static libc and
 # the platform loader rejects a -static build), so checking for "statically
 # linked" unconditionally would warn on every correct Termux install.
+#
+# `file` is not in Termux's bootstrap either, so a missing one has to mean
+# "check skipped", not "check failed" — otherwise every correct phone install
+# ends in two alarming warnings about a binary that is in fact fine.
 echo ">> Verifying binary..."
-if [[ "$IS_TERMUX" -eq 1 ]]; then
+if ! command -v file >/dev/null 2>&1; then
+    echo ">> 'file' not installed; skipping the platform check"
+    echo ">> (Termux: pkg install file — otherwise this check cannot run)"
+elif [[ "$IS_TERMUX" -eq 1 ]]; then
     # `file` does NOT say "Android" for these binaries; the reliable marker is
     # the platform dynamic loader (/system/bin/linker64), which is exactly what
     # a glibc build would lack.

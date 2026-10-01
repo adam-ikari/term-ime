@@ -322,6 +322,70 @@ jobs:
         ! grep -q "WARNING" /tmp/install-auto.log
         echo "OK: install-termux-test passed"
 
+    - name: Installer works on a bare Termux bootstrap
+      # A fresh Termux has no curl and no wget -- its bootstrap is
+      # bash/coreutils/dash/diffutils/findutils/gawk/grep/gzip/less/procps/
+      # psmisc/sed/tar/termux-*/util-linux/xz-utils. The documented one-liner
+      # is `curl ... | bash`, so it must not be the ONLY thing a phone can run:
+      # wget has to work as a substitute, and with neither one the failure must
+      # name `pkg install curl` instead of dying on "command not found" from
+      # inside a pipeline.
+      #
+      # `file` is absent too, which used to make every correct phone install end
+      # in two bogus "binary is not aarch64" warnings -- the check could not run,
+      # not the binary being wrong.
+      run: |
+        set -euo pipefail
+        STAGE="$(mktemp -d)"
+        mkdir -p "$STAGE/term-ime/bin" \
+                 "$STAGE/term-ime/share/term-ime/rime-data" \
+                 "$STAGE/term-ime/share/term-ime/translations"
+        cp build/term-ime "$STAGE/term-ime/bin/ti"
+        cp build/share/rime-data/essay.txt "$STAGE/term-ime/share/term-ime/rime-data/"
+        cp data/translations/zh-CN.json "$STAGE/term-ime/share/term-ime/translations/"
+        (cd "$STAGE" && tar -czf term-ime-termux-arm64.tar.gz term-ime)
+        (cd "$STAGE" && sha256sum term-ime-termux-arm64.tar.gz > term-ime-termux-arm64.tar.gz.sha256)
+        python3 -m http.server 8897 --directory "$STAGE" >/dev/null 2>&1 &
+        SRV=$!
+        trap 'kill $SRV 2>/dev/null || true' EXIT
+        sleep 1
+
+        # A PATH with the bootstrap's tools but no curl, no wget, no file.
+        BARE="$(mktemp -d)"
+        for t in bash sh env sed grep cat uname mktemp tar gzip gunzip install ln \
+                 sha256sum find ls dirname rm cp head mkdir readlink chmod basename; do
+          p="$(command -v "$t" 2>/dev/null || true)"
+          [ -n "$p" ] && ln -sf "$p" "$BARE/$t"
+        done
+        # uname -m must report aarch64 or the arch check rejects the run.
+        rm -f "$BARE/uname"
+        printf '#!/bin/sh\n[ "$1" = "-m" ] && echo aarch64 || exec /usr/bin/uname "$@"\n' > "$BARE/uname"
+        chmod +x "$BARE/uname"
+        ! PATH="$BARE" command -v curl >/dev/null 2>&1
+        ! PATH="$BARE" command -v wget >/dev/null 2>&1
+        ! PATH="$BARE" command -v file  >/dev/null 2>&1
+
+        # 1. Neither HTTP client -> tell the user the one command they need.
+        if PATH="$BARE" TERMUX_VERSION=0.118 TERM_IME_DOWNLOAD_BASE="http://127.0.0.1:8897" \
+             bash website/static/install.sh --prefix "$(mktemp -d)/ime" >/tmp/bare-none.log 2>&1; then
+          echo "ERROR: installer ran with no HTTP client at all"; exit 1
+        fi
+        grep -q "pkg install curl" /tmp/bare-none.log
+        ! grep -q "command not found" /tmp/bare-none.log
+
+        # 2. wget only -> the whole install must still work.
+        ln -sf "$(command -v wget)" "$BARE/wget"
+        WP="$(mktemp -d)/ime"
+        PATH="$BARE" TERMUX_VERSION=0.118 TERM_IME_DOWNLOAD_BASE="http://127.0.0.1:8897" \
+          bash website/static/install.sh --prefix "$WP" 2>&1 | tee /tmp/bare-wget.log
+        test -x "$WP/bin/ti"
+        grep -q "Verifying checksum" /tmp/bare-wget.log
+        grep -q "Installed rime-data" /tmp/bare-wget.log
+        # No `file` means the check is skipped, never reported as a failure.
+        grep -q "skipping the platform check" /tmp/bare-wget.log
+        ! grep -q "WARNING" /tmp/bare-wget.log
+        echo "OK: install-bare-termux-test passed"
+
     - name: Installer refuses to skip checksum on network errors
       # A flaky TLS read used to be indistinguishable from "no sidecar
       # published", silently downgrading an integrity check to nothing. Only a

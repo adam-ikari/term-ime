@@ -20,7 +20,14 @@ term-ime 的 arm64 Android 测试版本。需要在手机上用 [Termux](https:/
 
 ## 安装
 
-和 Linux 用的是同一条命令，脚本会自动识别 Termux 并装对应的 Android 版本：
+刚装好的 Termux 里没有 `curl` 也没有 `wget`（官方 bootstrap 不含这两个），
+所以第一条命令得先补一个下载工具：
+
+```bash
+pkg install curl
+```
+
+然后就和 Linux 用同一条命令了，脚本会自动识别 Termux 并装对应的 Android 版本：
 
 ```bash
 curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash
@@ -43,6 +50,8 @@ curl -fsSL https://adam-ikari.github.io/term-ime/install.sh | bash -s -- --versi
 - 需要 Android 9（API 28）及以上。
 - 装的是动态链接的 Android 版本（bionic 没有静态 libc），依赖系统的
   `libc` / `libm` / `libdl` / `liblog`，这几个平台自带。
+- `file` 同样不在 bootstrap 里，所以装完的「校验二进制」那一步会直接跳过并提示
+  装 `pkg install file`——跳过是正常的，不影响使用。
 
 ## 从源码编译
 
