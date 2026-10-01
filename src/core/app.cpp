@@ -268,6 +268,16 @@ void App::write_to_pty(const std::vector<uint8_t>& bytes) {
     }
 }
 
+void App::send_committed(const std::u32string& text) {
+    if (text.empty())
+        return;
+    std::string utf8;
+    for (char32_t c : text) {
+        utf8 += utf8::encode(c);
+    }
+    send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+}
+
 bool App::ime_feed(char ch) {
     if (!ime_)
         return false;
@@ -276,13 +286,7 @@ bool App::ime_feed(char ch) {
     // Rain / selectless commit: librime can emit text as a direct side effect
     // of a key (full-width punctuation, auto-commit). Forward it now; the
     // composition state is irrelevant once the bytes are out.
-    if (auto committed = ime_->take_commit(); !committed.empty()) {
-        std::string utf8;
-        for (char32_t c : committed) {
-            utf8 += utf8::encode(c);
-        }
-        send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
-    }
+    send_committed(ime_->take_commit());
     return true;
 }
 
@@ -353,6 +357,11 @@ void App::render_candidates_bar(bool refresh) {
 void App::advance_candidate_window(int direction) {
     if (!ime_)
         return;
+    // Read the candidate count from rime directly. It used to come from
+    // ime_snapshot_, which only render() refreshes — an implicit dependency
+    // that made paging wrong the moment renders were batched, and would have
+    // silently paged against a stale candidate list.
+    refresh_ime_snapshot();
     const size_t step = static_cast<size_t>(std::max(1, candidate_slots_));
     if (direction > 0) {
         if (candidate_window_ + step < ime_snapshot_.candidates.size()) {
@@ -368,6 +377,126 @@ void App::advance_candidate_window(int direction) {
         // Ask for the tail window; render clamps to the last full one.
         candidate_window_ = std::numeric_limits<size_t>::max();
     }
+}
+
+// Which way a completed escape sequence pages the candidate list: -1 previous,
+// +1 next, 0 not a paging key. Both ANSI (ESC [ …) and application (ESC O …)
+// cursor mode are accepted, matching what the settings panel handles.
+static int sequence_paging_direction(const std::vector<uint8_t>& seq) {
+    if (seq.size() == 3 && (seq[1] == '[' || seq[1] == 'O')) {
+        switch (seq[2]) {
+        case 'A':  // up
+        case 'D':  // left
+            return -1;
+        case 'B':  // down
+        case 'C':  // right
+            return 1;
+        default:
+            return 0;
+        }
+    }
+    if (seq.size() == 4 && seq[1] == '[' && seq[3] == '~') {
+        if (seq[2] == '5')
+            return -1;  // PageUp
+        if (seq[2] == '6')
+            return 1;  // PageDown
+    }
+    return 0;
+}
+
+// Dispatch one byte while a composition is up. Caller has already dealt with
+// escape sequences as a unit and with Ctrl+C/D/Z, so this sees plain bytes.
+//
+// The single rule every branch obeys: a key the IME does not claim belongs to
+// the PTY. Every swallowed-input bug fixed here was a branch that quietly
+// continued past a key it had not handled — `[7` lost its digit, and Delete
+// committed the user's half-typed pinyin while injecting a literal `[3~`. So a
+// branch that cannot claim a key returns Forward instead of dropping it, and
+// Drop is reserved for the one case where dropping is the right answer.
+App::KeyClaim App::handle_composing_key(uint8_t byte) {
+    const char ch = static_cast<char>(byte);
+
+    if (ch >= '1' && ch <= '9') {
+        // The slot index maps to rime's page through the window offset, so a
+        // narrow bar can never select something the user does not see. Past the
+        // last slot there is nothing to select, so the digit is not ours.
+        const int slot = ch - '1';
+        if (slot >= candidate_slots_) {
+            spdlog::debug("Candidate slot {} beyond the {} shown", slot + 1, candidate_slots_);
+            return KeyClaim::Forward;
+        }
+        auto committed = ime_->select(candidate_window_ + slot);
+        selected_candidate_ = 0;
+        if (committed.empty())
+            return KeyClaim::Forward;  // rime took nothing, so we did not use it
+        send_committed(committed);
+        return KeyClaim::Consumed;
+    }
+
+    if (ch == ' ') {
+        auto committed = ime_->select(static_cast<int>(candidate_window_));
+        if (committed.empty())
+            return KeyClaim::Forward;
+        send_committed(committed);
+        return KeyClaim::Consumed;
+    }
+
+    if (ch == '\r' || ch == '\n') {
+        // Enter confirms the composition — the gesture every other terminal IME
+        // has. It used to fall through to the generic forwarding branch, so the
+        // pinyin buffer was never committed and the shell ran an empty line; and
+        // because a digit-select left the composition open, the next Enter
+        // committed it a second time, making the shell try to execute 「你好」.
+        //
+        // Only claim the key when a composition is actually up — otherwise Enter
+        // must reach the shell untouched, or running commands in Chinese mode
+        // would stop working. That is why this returns Forward rather than
+        // committing unconditionally.
+        send_committed(ime_->select(static_cast<int>(candidate_window_) + selected_candidate_));
+        // A commit can leave rime reporting Composing with an empty buffer;
+        // without this the next Enter commits the stale context a second time.
+        ime_->cancel();
+        selected_candidate_ = 0;
+        return KeyClaim::Consumed;
+    }
+
+    if (ch == '\b' || ch == 127) {
+        // Delete one syllable character, not the whole composition. XK_BackSpace
+        // lets rime do it internally so the remaining input survives.
+        ime_->backspace();
+        selected_candidate_ = 0;
+        return KeyClaim::Consumed;
+    }
+
+    if ((ch >= 'a' && ch <= 'z') || ch == '\'') {
+        // ' is the pinyin syllable separator (ni'hao); rime declines it when the
+        // composition cannot use it, and then it is not ours.
+        selected_candidate_ = 0;
+        return ime_->input(ch) ? KeyClaim::Consumed : KeyClaim::Forward;
+    }
+
+    if (ch == ',' || ch == '<' || ch == '.' || ch == '>') {
+        // Selecting: page by one group (same grouping as the arrow keys).
+        // Composing: punctuation, so librime's punctuator commits the full-width
+        // form instead.
+        if (ime_->state() == ImeState::Selecting) {
+            advance_candidate_window(ch == ',' || ch == '<' ? -1 : 1);
+            return KeyClaim::Consumed;
+        }
+        return ime_feed(ch) ? KeyClaim::Consumed : KeyClaim::Forward;
+    }
+
+    if (is_punct_key(ch)) {
+        // Punctuation mid-composition goes through librime's punctuator so the
+        // full-width form is committed while the composition stays up. A byte
+        // rime does not map is dropped rather than leaked to the shell, which
+        // would splice a stray character into the middle of a half-typed word —
+        // the one place here where discarding input is deliberate.
+        return ime_feed(ch) ? KeyClaim::Consumed : KeyClaim::Drop;
+    }
+
+    spdlog::debug("IME composing: ignoring key 0x{:02x}", byte);
+    return KeyClaim::Drop;
 }
 
 void App::on_keyboard_data(const char* data, size_t len) {
@@ -472,210 +601,62 @@ void App::on_keyboard_data(const char* data, size_t len) {
             }
         }
 
-        // If IME is composing, intercept all input except selection keys
+        // While a composition is up the IME owns the keyboard. Two things are
+        // handled out here rather than in handle_composing_key, because they are
+        // about the byte stream rather than about the IME:
         if (ime_->state() == ImeState::Composing || ime_->state() == ImeState::Selecting) {
-            // Ctrl+C / Ctrl+D / Ctrl+Z must still reach the shell while a
-            // composition is in progress: cancel the pinyin and pass the byte
-            // straight through (it is a plain control byte, not an escape).
+            // Ctrl+C / Ctrl+D / Ctrl+Z must still reach the shell mid-composition:
+            // cancel the pinyin and pass the byte straight through.
             if (byte == 0x03 || byte == 0x04 || byte == 0x1a) {
-                if (ime_->state() != ImeState::Inactive) {
-                    ime_->cancel();
-                }
+                ime_->cancel();
                 selected_candidate_ = 0;
                 send_to_shell(std::vector<uint8_t>{byte});
-                render();
+                need_render_ = true;
                 continue;
             }
-            // Arrow keys and PageUp/PageDown page through the candidates while
-            // composing (same grouping as ','/'.'), so the whole page stays.
-            //
+
             // An escape sequence has to be handled as ONE unit. Dispatch is per
             // byte, and when the leading ESC arrives the state machine has not
-            // completed anything yet — so reading bytes individually dropped the
-            // ESC and then offered the remainder to the IME one byte at a time.
-            // Delete (ESC [ 3 ~) thereby committed a 「 *and* typed a literal
-            // `[3~` into the shell. Mid-sequence bytes are therefore swallowed
-            // here: the IME must not see any part of a sequence it has not been
-            // asked about yet.
+            // completed anything yet — so reading bytes one at a time dropped the
+            // ESC and then offered the remainder to the IME individually. Delete
+            // (ESC [ 3 ~) thereby committed a 「 *and* typed a literal `[3~` into
+            // the shell. Mid-sequence bytes are swallowed here: the IME must not
+            // see any part of a sequence it has not been asked about yet.
             if (input_processor_.in_escape()) {
                 continue;
             }
             if (is_escape_sequence && input_result.forward) {
-                const auto& seq = input_result.data;  // vector<unsigned char>
-                int direction = 0;
-                if (seq.size() == 3 && (seq[1] == '[' || seq[1] == 'O')) {
-                    switch (seq[2]) {
-                    case 'D':  // left
-                    case 'A':  // up
-                        direction = -1;
-                        break;
-                    case 'C':  // right
-                    case 'B':  // down
-                        direction = 1;
-                        break;
-                    default:
-                        break;
-                    }
-                } else if (seq.size() == 4 && seq[1] == '[' && seq[3] == '~') {
-                    if (seq[2] == '5') {  // PageUp
-                        direction = -1;
-                    } else if (seq[2] == '6') {  // PageDown
-                        direction = 1;
-                    }
-                }
+                const int direction = sequence_paging_direction(input_result.data);
                 if (direction != 0) {
+                    // Arrow keys and PageUp/PageDown page through the candidates
+                    // while composing (same grouping as ','/'.'), so the whole
+                    // page stays reachable.
                     if (ime_->state() == ImeState::Selecting) {
                         advance_candidate_window(direction);
                     }
-                    render();
-                    continue;
+                } else {
+                    // Home/End/Delete/Insert/F-keys and the like: not ours, so
+                    // the shell gets the sequence verbatim rather than it being
+                    // dropped or torn apart by the IME.
+                    queue_for_shell(input_result.data);
                 }
-                // Not a paging key — Home/End/Delete/Insert/F-keys and the
-                // like. The IME never claimed it, so the shell gets it verbatim,
-                // same rule as an unconsumed punctuation byte. Dropping it (as
-                // this branch used to) makes those keys vanish mid-composition.
-                spdlog::debug("IME composing: forwarding unhandled sequence");
-                queue_for_shell(seq);
-                render();
+                need_render_ = true;
                 continue;
             }
 
-            char ch = static_cast<char>(byte);
-            if (ch >= '1' && ch <= '9') {
-                // Select the candidate in the visible slot: the slot index maps
-                // to rime's page through the window offset, so a narrow bar can
-                // never select something the user does not see.
-                int slot = ch - '1';
-                if (slot >= candidate_slots_) {
-                    spdlog::debug("Candidate slot {} beyond the {} shown", slot + 1, candidate_slots_);
-                    // There is no candidate in this slot, so this keystroke was
-                    // NOT used to select anything. Hand it to the shell rather
-                    // than dropping it — see the note on the punctuation branch
-                    // below; silently discarding input is what made `[7]` come
-                    // out as 「」 with the digit gone.
-                    send_to_shell(std::vector<uint8_t>{byte});
-                    render();
-                    continue;
-                }
-                auto committed = ime_->select(static_cast<int>(candidate_window_) + slot);
-                if (!committed.empty()) {
-                    std::string utf8;
-                    for (char32_t c : committed) {
-                        utf8 += utf8::encode(c);
-                    }
-                    send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
-                } else {
-                    // Slot existed but rime committed nothing, so the digit was
-                    // not consumed. Same rule: unclaimed bytes belong to the PTY.
-                    send_to_shell(std::vector<uint8_t>{byte});
-                }
-                render();
-                continue;
-            } else if (ch == ' ') {
-                // Space selects the first visible candidate.
-                auto committed = ime_->select(static_cast<int>(candidate_window_));
-                if (!committed.empty()) {
-                    std::string utf8;
-                    for (char32_t c : committed) {
-                        utf8 += utf8::encode(c);
-                    }
-                    send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
-                } else {
-                    // rime committed nothing, so this space was not consumed.
-                    // Same rule as the digit branch: unclaimed bytes belong to
-                    // the PTY. (Could not construct an observable case for this
-                    // one -- whenever select() returns empty here the IME is
-                    // mid-commit and swallows the space anyway -- so this is
-                    // the branch being consistent rather than a demonstrated fix.
-                    send_to_shell(std::vector<uint8_t>{byte});
-                }
-                render();
-                continue;
-            } else if (ch == '\r' || ch == '\n') {
-                // Enter confirms the composition — the gesture every other
-                // terminal IME has. It used to fall through to the generic
-                // branch below, which forwards a bare \r to the child: the
-                // pinyin buffer was never committed, the shell ran an empty
-                // line, and after a digit-select the still-open composition
-                // committed a SECOND time on the next Enter (the shell then
-                // tried to execute 「你好」 as a command).
-                //
-                // Only claim the key when a composition is actually up —
-                // otherwise Enter must reach the shell untouched, or running
-                // commands in Chinese mode would stop working.
-                if (ime_->state() != ImeState::Inactive) {
-                    auto committed = ime_->select(static_cast<int>(candidate_window_) + selected_candidate_);
-                    if (!committed.empty()) {
-                        std::string utf8;
-                        for (char32_t c : committed) {
-                            utf8 += utf8::encode(c);
-                        }
-                        send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
-                    }
-                    // A commit can leave rime reporting Composing with an empty
-                    // buffer; without this the next Enter commits the stale
-                    // context a second time.
-                    ime_->cancel();
-                    selected_candidate_ = 0;
-                    render();
-                    continue;
-                }
-                // No composition: fall through so the shell sees the Enter.
-            } else if (ch == '\b' || ch == 127) {
-                // Backspace: delete one syllable character, not the whole
-                // composition. Send XK_BackSpace to rime so it handles the
-                // deletion internally (preserving remaining input).
-                ime_->backspace();
-                selected_candidate_ = 0;
-                render();
-                continue;
-            } else if (ch >= 'a' && ch <= 'z') {
-                bool accepted = ime_->input(ch);
-                selected_candidate_ = 0;
-                if (accepted) {
-                    // 输入被接受，延迟渲染
+            // Everything else is one plain byte; the handler names what became of
+            // it so nothing is dropped by accident.
+            switch (handle_composing_key(byte)) {
+                case KeyClaim::Consumed:
                     need_render_ = true;
-                } else {
-                    // 输入未被接受（如无效拼音组合），立即渲染显示当前状态
-                    render();
-                }
-                continue;
-            } else if (ch == '\'') {
-                // 单引号作为拼音分隔符，传递给 rime 处理
-                bool accepted = ime_->input(ch);
-                if (accepted) {
+                    break;
+                case KeyClaim::Forward:
+                    queue_for_shell(std::vector<uint8_t>{byte});
                     need_render_ = true;
-                } else {
-                    render();
-                }
-                continue;
-            } else if (ch == ',' || ch == '<') {
-                // Selecting: page to the previous group. Composing: the byte is
-                // punctuation, so librime's punctuator commits '，' instead.
-                if (ime_->state() == ImeState::Selecting) {
-                    advance_candidate_window(-1);
-                    render();
-                    continue;
-                }
-                if (ime_feed(ch)) continue;
-            } else if (ch == '.' || ch == '>') {
-                // Selecting: page to the next group. Composing: commit '。'.
-                if (ime_->state() == ImeState::Selecting) {
-                    advance_candidate_window(1);
-                    render();
-                    continue;
-                }
-                if (ime_feed(ch)) continue;
-            } else if (is_punct_key(ch)) {
-                // Punctuation mid-composition goes through librime's punctuator
-                // so the full-width form is committed while the composition
-                // stays up. A byte rime does not map is dropped rather than
-                // leaked to the shell, which would splice a stray character
-                // into the middle of a half-typed word.
-                if (ime_feed(ch)) continue;
+                    break;
+                case KeyClaim::Drop:
+                    break;
             }
-            // Other keys are ignored while composing
-            spdlog::debug("IME composing: ignoring key 0x{:02x}", byte);
             continue;
         }
 

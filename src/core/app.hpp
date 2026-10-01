@@ -126,6 +126,23 @@ class App {
     // Send one byte to librime and forward whatever it committed. Returns false
     // when rime declined the key (caller decides: forward to the PTY or drop).
     bool ime_feed(char ch);
+    // Forward IME-committed text (UTF-32) to the child process. Single place
+    // where the UTF-32 -> UTF-8 conversion happens.
+    void send_committed(const std::u32string& text);
+    // What became of one keypress during IME dispatch.
+    //
+    // Making this an explicit enum is the point: every input-swallowing bug
+    // fixed so far came from a branch that quietly `continue`d, so the outcome
+    // was invisible at the call site. Now every branch must name one of these,
+    // and `grep KeyClaim::Drop` lists every place input is destroyed on purpose.
+    enum class KeyClaim {
+        Consumed,  // the IME or UI used it; nothing left to forward
+        Forward,   // not ours — the shell gets it
+        Drop,      // deliberately discarded (see the punctuation branch)
+    };
+    // Dispatch one byte while a composition is up. Never renders: the caller
+    // batches a single render per input batch.
+    KeyClaim handle_composing_key(uint8_t byte);
     // Shift the visible candidate window by one group; rolls onto the previous /
     // next rime page when the window would run past the page edge.
     void advance_candidate_window(int direction);  // <0 previous, >0 next
