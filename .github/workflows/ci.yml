@@ -268,8 +268,9 @@ jobs:
       # fire -- the Android build is deliberately dynamic. Two of those three
       # regress easily and silently, so pin them here.
       #
-      # This hits the real GitHub releases (the termux asset only exists there),
-      # so it also covers the auto-resolve path that skips glibc-only tags.
+      # This hits the real GitHub releases (the termux asset only exists there).
+      # The no---version case additionally asserts the installer never calls the
+      # GitHub API, so it cannot be broken by (or break on) API rate limiting.
       #
       # `uname -m` is stubbed because the runner is x86_64 while every phone is
       # aarch64 -- the same trap the real Termux check exists to avoid.
@@ -298,13 +299,24 @@ jobs:
         # The dynamic-link warning must stay quiet for a correct Termux install.
         ! grep -q "WARNING" /tmp/install-termux.log
 
-        # No --version: the installer must still resolve the newest tag that
-        # actually ships a termux asset (plain glibc tags like v1.1.6 have none,
-        # and /releases/latest never returns a prerelease).
+        # No --version: the installer must still resolve the Termux build on its
+        # own, WITHOUT touching the GitHub API. That matters because the
+        # unauthenticated API allows only 60 req/hour per IP -- a discovery
+        # approach that lists releases and probes assets burns that quota and
+        # then fails every install with a bare 403. Assert the API is unused.
         AUTO="$(mktemp -d)/usr"
-        PATH="$STUB:$PATH" TERMUX_VERSION=0.118 TERMUX_PREFIX="$AUTO" \
+        NOAPI="$(mktemp -d)"
+        cat > "$NOAPI/curl" <<'STUB'
+        #!/bin/sh
+        for a in "$@"; do
+          case "$a" in *api.github.com*) echo "api.github.com must not be used" >&2; exit 7;; esac
+        done
+        exec /usr/bin/curl "$@"
+        STUB
+        chmod +x "$NOAPI/curl"
+        PATH="$NOAPI:$STUB:$PATH" TERMUX_VERSION=0.118 TERMUX_PREFIX="$AUTO" \
           bash website/static/install.sh --prefix "$AUTO" > /tmp/install-auto.log 2>&1
-        grep -q "Latest Termux build: v1.1.7-termux" /tmp/install-auto.log
+        grep -q "Termux build: v1.1.7-termux" /tmp/install-auto.log
         test -x "$AUTO/bin/ti"
         file "$AUTO/bin/ti" | grep -q "linker64"
         ! grep -q "WARNING" /tmp/install-auto.log

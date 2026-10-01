@@ -79,36 +79,20 @@ if [[ "$IS_TERMUX" -eq 1 ]]; then
         PREFIX="${TERMUX_PREFIX:-/data/data/com.termux/files/usr}"
     fi
     # Termux builds live on prerelease tags, which /releases/latest never
-    # returns. Rather than make the user know that, resolve the newest tag that
-    # actually carries a termux asset and install that -- "latest" means the
-    # same thing on every platform.
+    # returns, so there is no "latest" to look up.
+    #
+    # TERM_IME_TERMUX_TAG is the escape hatch for that, and it is a plain
+    # constant rather than something discovered at install time. The obvious
+    # alternative -- list releases via the GitHub API and probe each tag for a
+    # termux asset -- was tried and is a bad idea: it costs 1 API call plus up to
+    # 30 HEAD requests per install, and the unauthenticated GitHub API allows
+    # only 60/hour per IP, so a handful of concurrent installs (or a CI job
+    # re-running) exhausts the quota and every phone then fails to install with
+    # a bare 403. One known-good tag costs zero requests and never rate-limits.
     if [[ -z "$VERSION" ]]; then
-        VERSION="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=30" \
-            | grep -o '"tag_name": *"[^"]*"' | sed -E 's/.*"([^"]*)"$/\1/' \
-            | while read -r tag; do
-                # The /latest endpoint excludes prereleases, so look for the
-                # asset directly rather than trusting the tag's release state.
-                if curl -fsSL -o /dev/null -I \
-                     "https://github.com/${REPO}/releases/download/${tag}/term-ime-termux-arm64.tar.gz" \
-                   2>/dev/null; then
-                    echo "$tag"
-                    break
-                fi
-            done)"
-        if [[ -z "$VERSION" ]]; then
-            cat >&2 <<'EOF'
-error: could not find a published Termux build.
-
-The Android packages ship on their own release tags. Check
-https://github.com/adam-ikari/term-ime/releases for an available tag and pass
-it explicitly:
-
-    curl -fsSL .../install.sh | bash -s -- --version v1.1.7-termux
-EOF
-            exit 1
-        fi
-        echo ">> Latest Termux build: ${VERSION}"
+        VERSION="${TERM_IME_TERMUX_TAG:-v1.1.7-termux}"
     fi
+    echo ">> Termux build: ${VERSION}"
 fi
 
 # Resolve latest version via the GitHub API if not pinned.
