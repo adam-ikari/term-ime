@@ -247,9 +247,14 @@ case ":${PATH}:" in
             RC="${HOME}/.bashrc"
         fi
         if [[ -n "$RC" ]]; then
-            echo "" >> "$RC"
-            echo "# term-ime" >> "$RC"
-            echo "export PATH=\"${BIN_DIR}:\$PATH\"" >> "$RC"
+            # One grouped append rather than three separate ones: a shell rc is
+            # read by every future shell, so a partially-written line (interrupted
+            # mid-install) is worse than the trivial cost of one open().
+            {
+                echo ""
+                echo "# term-ime"
+                echo "export PATH=\"${BIN_DIR}:\$PATH\""
+            } >> "$RC"
             echo ">> Added ${BIN_DIR} to PATH in ${RC}"
             echo ">> Start a new shell or run: source ${RC}"
         else
