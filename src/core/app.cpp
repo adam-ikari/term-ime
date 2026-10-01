@@ -236,6 +236,16 @@ void App::refresh_ime_snapshot() {
 }
 
 void App::queue_for_shell(const std::vector<uint8_t>& bytes) {
+    // The one and only way bytes reach the child. Appending preserves arrival
+    // order by construction, and flush_tx_batch() writes the batch in that
+    // order — so a commit can never overtake the paste that preceded it, which
+    // is the whole reason the immediate-write variant used to exist.
+    //
+    // There is no "write it now" path on purpose. Two ways to emit bytes meant
+    // every call site had to know which one it was, and picking wrong is silent
+    // (a reordered stream, not a crash). The one caller that genuinely runs
+    // outside a keyboard batch — the orphaned-ESC timer — calls this and then
+    // flushes, which is one extra line instead of a permanent second mechanism.
     tx_batch_.insert(tx_batch_.end(), bytes.begin(), bytes.end());
 }
 
@@ -249,14 +259,6 @@ void App::flush_tx_batch() {
     write_to_pty(batch);
 }
 
-void App::send_to_shell(const std::vector<uint8_t>& bytes) {
-    // Bytes batched earlier in this same keyboard read are older than these and
-    // must reach the pty first, otherwise a commit or a control key overtakes the
-    // paste it came after.
-    flush_tx_batch();
-    write_to_pty(bytes);
-}
-
 void App::write_to_pty(const std::vector<uint8_t>& bytes) {
     if (bytes.empty())
         return;
@@ -268,14 +270,14 @@ void App::write_to_pty(const std::vector<uint8_t>& bytes) {
     }
 }
 
-void App::send_committed(const std::u32string& text) {
+void App::queue_committed(const std::u32string& text) {
     if (text.empty())
         return;
     std::string utf8;
     for (char32_t c : text) {
         utf8 += utf8::encode(c);
     }
-    send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+    queue_for_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
 }
 
 bool App::ime_feed(char ch) {
@@ -286,7 +288,7 @@ bool App::ime_feed(char ch) {
     // Rain / selectless commit: librime can emit text as a direct side effect
     // of a key (full-width punctuation, auto-commit). Forward it now; the
     // composition state is irrelevant once the bytes are out.
-    send_committed(ime_->take_commit());
+    queue_committed(ime_->take_commit());
     return true;
 }
 
@@ -429,7 +431,7 @@ App::KeyClaim App::handle_composing_key(uint8_t byte) {
         selected_candidate_ = 0;
         if (committed.empty())
             return KeyClaim::Forward;  // rime took nothing, so we did not use it
-        send_committed(committed);
+        queue_committed(committed);
         return KeyClaim::Consumed;
     }
 
@@ -437,7 +439,7 @@ App::KeyClaim App::handle_composing_key(uint8_t byte) {
         auto committed = ime_->select(static_cast<int>(candidate_window_));
         if (committed.empty())
             return KeyClaim::Forward;
-        send_committed(committed);
+        queue_committed(committed);
         return KeyClaim::Consumed;
     }
 
@@ -452,7 +454,7 @@ App::KeyClaim App::handle_composing_key(uint8_t byte) {
         // must reach the shell untouched, or running commands in Chinese mode
         // would stop working. That is why this returns Forward rather than
         // committing unconditionally.
-        send_committed(ime_->select(static_cast<int>(candidate_window_) + selected_candidate_));
+        queue_committed(ime_->select(static_cast<int>(candidate_window_) + selected_candidate_));
         // A commit can leave rime reporting Composing with an empty buffer;
         // without this the next Enter commits the stale context a second time.
         ime_->cancel();
@@ -610,7 +612,7 @@ void App::on_keyboard_data(const char* data, size_t len) {
             if (byte == 0x03 || byte == 0x04 || byte == 0x1a) {
                 ime_->cancel();
                 selected_candidate_ = 0;
-                send_to_shell(std::vector<uint8_t>{byte});
+                queue_for_shell(std::vector<uint8_t>{byte});
                 need_render_ = true;
                 continue;
             }
@@ -717,7 +719,10 @@ void App::on_keyboard_data(const char* data, size_t len) {
             [this]() {
                 spdlog::debug("Orphaned-ESC timeout: forwarding lone ESC");
                 input_processor_.reset();
-                send_to_shell(std::vector<uint8_t>{0x1b});
+                // Queued, then flushed: this runs outside a keyboard batch, so
+                // nothing else will flush for us.
+                queue_for_shell(std::vector<uint8_t>{0x1b});
+                flush_tx_batch();
                 // Reap this fired single-shot timer's handle so it does not
                 // linger in EventLoop::timers_ until shutdown. clear_timer on
                 // a fired/unknown id is a safe no-op; calling it from inside

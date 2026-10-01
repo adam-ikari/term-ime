@@ -102,12 +102,9 @@ class App {
     // byte plus a fresh copy of the unsent queue each time (65536-byte paste:
     // 65652 master writes, against 20 once batched).
     std::vector<uint8_t> tx_batch_;
-    // Append to the batch being assembled (the pass-through path).
+    // The single way bytes reach the child: append to the batch being assembled.
+    // Order is preserved by the append itself; flush_tx_batch() writes it out.
     void queue_for_shell(const std::vector<uint8_t>& bytes);
-    // Send `bytes` to the pty now, after first releasing anything batched
-    // earlier in this read -- those bytes are older. Every write path that is
-    // not itself the batch flush must go through this.
-    void send_to_shell(const std::vector<uint8_t>& bytes);
     void flush_tx_batch();
     void write_to_pty(const std::vector<uint8_t>& bytes);
     void on_language_change(const LanguageConfig& lang);
@@ -126,9 +123,9 @@ class App {
     // Send one byte to librime and forward whatever it committed. Returns false
     // when rime declined the key (caller decides: forward to the PTY or drop).
     bool ime_feed(char ch);
-    // Forward IME-committed text (UTF-32) to the child process. Single place
-    // where the UTF-32 -> UTF-8 conversion happens.
-    void send_committed(const std::u32string& text);
+    // Queue IME-committed text (UTF-32) for the child process. Single place where
+    // the UTF-32 -> UTF-8 conversion happens.
+    void queue_committed(const std::u32string& text);
     // What became of one keypress during IME dispatch.
     //
     // Making this an explicit enum is the point: every input-swallowing bug
