@@ -351,6 +351,88 @@ def run_escape_sequence_case():
         s.close()
 
 
+def run_key_exhaustion_case():
+    """Every key the IME does not claim must reach the shell.
+
+    This is the invariant behind all three swallowed-input fixes (Enter forwarded
+    bare, digits vanished, escape sequences tore apart). The three per-key tests
+    already cover it, so this is a table over key CLASSES rather than more
+    hand-picked keys: the value is in the class it pins down.
+
+    Crucially the table encodes *when a digit is a digit*. Pressing 7 while the
+    candidate bar is up means "select candidate 7" in every IME ever — my first
+    draft of this test wrongly expected the digit at the shell and failed on the
+    correct build. The digit is only unclaimed when the IME has nothing to select
+    with, which is the state `[` leaves behind (it commits 「 and opens a
+    bracket-picker menu).
+
+    Observation method: whatever sits on the shell's input line gets executed by
+    the final Enter and echoed back in the error, so that text is a direct
+    read-out of what the child received. The candidate bar cannot be used — a
+    build that never repaints leaves a stale bar that reads the same as a
+    correct one.
+    """
+    s = Session([])
+    try:
+        if not s.wait_for(r"\[EN\]|\[拼\]", seconds=120.0):
+            check("exhaustion: ready", False)
+            return
+
+        # --- digit with nothing to select: must arrive verbatim ---
+        s.send(b"\x01 ")                          # 中文
+        s.wait_for(r"\[拼\]", seconds=6.0)
+        s.send(b"[7")                             # 「 opens a menu, 7 has no slot
+        time.sleep(1.6)
+        s.send(b"\x1b")                           # drop the composition
+        time.sleep(1.0)
+        s.send(b"\x01 ")                          # 英文
+        time.sleep(0.5)
+        s.send(b"\r")
+        time.sleep(1.3)
+        out = strip_ansi(s.read(1.4))
+        executed = next((l for l in out.splitlines() if "not found" in l), "")
+        check("exhaustion: digit with no candidate reached the shell",
+              "7" in executed and "「" not in executed,
+              executed.strip()[-44:])
+
+        # --- digits with NO composition open: straight to the shell ---
+        # No composition means no candidate bar, so no digit can be a selection.
+        s.send(b"\x01 ")                          # 中文
+        s.wait_for(r"\[拼\]", seconds=6.0)
+        s.send(b"12345")
+        time.sleep(1.4)
+        s.send(b"\x1b")
+        time.sleep(0.9)
+        s.send(b"\x01 ")                          # 英文
+        time.sleep(0.5)
+        s.send(b"\r")
+        time.sleep(1.3)
+        out = strip_ansi(s.read(1.4))
+        executed = next((l for l in out.splitlines() if "not found" in l), "")
+        check("exhaustion: digits with no composition reached the shell",
+              "12345" in executed, executed.strip()[-44:])
+
+        # --- uppercase is never pinyin, even mid-composition ---
+        s.send(b"\x01 ")                          # 中文
+        s.wait_for(r"\[拼\]", seconds=6.0)
+        s.send(b"ni")
+        time.sleep(1.2)
+        s.send(b"A7B8C")
+        time.sleep(1.5)
+        s.send(b"\x1b")                           # composition still holds `ni`
+        time.sleep(0.9)
+        s.send(b"\x01 ")                          # 英文
+        time.sleep(0.5)
+        s.send(b"\r")
+        time.sleep(1.3)
+        out = strip_ansi(s.read(1.4))
+        executed = next((l for l in out.splitlines() if "not found" in l), "")
+        check("exhaustion: uppercase digits passed through",
+              "B8C" in executed, executed.strip()[-44:])
+    finally:
+        s.close()
+
+
 def run_unswallowed_digit_case():
     """A digit the IME did not consume must still reach the shell.
 
@@ -490,6 +572,7 @@ def main() -> int:
     run_multi_commit_case()
     run_unswallowed_digit_case()
     run_escape_sequence_case()
+    run_key_exhaustion_case()
 
     # 动态组合 schema 物化：部分开启时用户目录应有生成的 schema + prism
     s = Session(["n_l", "nose"])
