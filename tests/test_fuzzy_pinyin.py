@@ -262,6 +262,95 @@ def run_commit_case():
         s.close()
 
 
+def run_escape_sequence_case():
+    """An escape sequence must reach the shell whole, and must not tear.
+
+    Dispatch is per byte, but an escape sequence is one unit: at the leading ESC
+    the state machine has not completed anything yet. Reading bytes one at a
+    time dropped the ESC and then offered the remainder to the IME — so Delete
+    (ESC [ 3 ~) committed a 「 *and* typed a literal `[3~` into the shell, while
+    the pinyin the user was in the middle of typing got committed for them.
+
+    Two things are asserted, because the fix could plausibly break either:
+      1. the composition is untouched by the sequence, and
+      2. the sequence arrives at the shell as one piece, not split into
+         punctuation commits plus stray characters.
+
+    The probe puts ABCDEF on the shell line first, opens a composition, presses
+    Delete, then cancels the composition and runs the line. dash has no Delete
+    binding so it echoes the sequence back, which is what makes the difference
+    readable: intact shows `ABCDEF` followed by the raw sequence, torn shows a
+    committed 「 and a `[3~` fragment spliced in.
+
+    Arrow paging is asserted in the same case: it shares this code path and had
+    no coverage at all, so a fix here could silently have broken it.
+    """
+    s = Session([])
+    try:
+        if not s.wait_for(r"\[EN\]|\[拼\]", seconds=120.0):
+            check("escape: ready", False)
+            return
+        s.send(b"ABCDEF")                     # 英文模式（默认）：进 shell 行
+        time.sleep(1.0)
+        s.send(b"\x01 ")                      # 切中文
+        s.wait_for(r"\[拼\]", seconds=6.0)
+        s.send(b"ni")
+        time.sleep(1.4)
+        page1 = s.bar()
+        check("escape: composition open",
+              "你" in page1, page1[:4])
+        s.send(b"\x1b[3~")                    # Delete
+        time.sleep(1.6)
+        after = s.bar()
+        # Assert the composition SURVIVED, not that two separately-captured
+        # frames list the identical number of candidates — the frames can be cut
+        # at different points mid-redraw. What matters is that the sequence did
+        # not commit anything: the bar is still showing ni's first candidate.
+        check("escape: Delete left the composition alone",
+              bool(after) and bool(page1) and after[0] == page1[0] == "你",
+              "%s -> %s" % (page1[:3], after[:3]))
+        s.send(b"\x1b")                       # ESC 取消组合
+        time.sleep(1.2)
+        s.send(b"\x01 ")                      # 英文
+        time.sleep(0.6)
+        s.send(b"\r")                         # 执行行首
+        time.sleep(1.4)
+        out = strip_ansi(s.read(1.5))
+        # What the shell tried to run is the ground truth for "did the IME
+        # commit anything". Assert on the absence of CJK rather than on any
+        # particular bracket glyph: the torn-apart version commits both the
+        # pending pinyin (你) and the '[' of the sequence (〔), and guessing one
+        # specific glyph is how an assertion here ends up passing on the broken
+        # build.
+        executed = next((l for l in out.splitlines() if "not found" in l), "")
+        has_cjk = any("一" <= ch <= "鿿" or "＀" <= ch <= "￯"
+                      for ch in executed)
+        check("escape: sequence committed nothing from the IME", not has_cjk,
+              executed.strip()[-50:])
+        check("escape: ABCDEF still intact", "ABCDEF" in executed,
+              executed.strip()[-50:])
+
+        # Arrow paging shares this path and had no coverage.
+        s.send(b"\x01 ")
+        s.wait_for(r"\[拼\]", seconds=6.0)
+        s.send(b"nin")
+        time.sleep(1.6)
+        first = s.bar()
+        s.send(b"\x1b[B")                    # Down
+        time.sleep(1.4)
+        second = s.bar()
+        check("escape: Down pages the candidates",
+              bool(first) and bool(second) and first != second,
+              "%s -> %s" % (first[:3], second[:3]))
+        s.send(b"\x1b[A")                    # Up
+        time.sleep(1.4)
+        back = s.bar()
+        check("escape: Up pages back", back == first,
+              "%s vs %s" % (first[:3], back[:3]))
+    finally:
+        s.close()
+
+
 def run_unswallowed_digit_case():
     """A digit the IME did not consume must still reach the shell.
 
@@ -400,6 +489,7 @@ def main() -> int:
     run_commit_case()
     run_multi_commit_case()
     run_unswallowed_digit_case()
+    run_escape_sequence_case()
 
     # 动态组合 schema 物化：部分开启时用户目录应有生成的 schema + prism
     s = Session(["n_l", "nose"])

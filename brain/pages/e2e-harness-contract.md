@@ -5,62 +5,53 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-01T12:04:21"
+updated: "2026-10-01T13:58:59"
 ---
 
 <!-- compiled_truth -->
-## 「IME 吞掉命令」是我的误诊，但顺着查出了一个真 bug（2026-10-01）
+## 组合态下的转义序列被拆散（同一个吞键家族，第二次）
 
-此前记的「中文模式下执行命令被 IME 吃掉」（`GOT——￥（（6*））——END`）
-**不是缺陷**。分发链那段有个我先前没注意到的门控：
+顺着「未被消费的按键」继续查，找到第二个更严重的：**转义序列在组合态下被逐字节
+拆散喂给 IME**。
 
-    if (ime_->state() == ImeState::Composing || ime_->state() == ImeState::Selecting) {
+`on_keyboard_data` 是逐字节循环。状态机在收到前导 ESC 时还没组成任何序列
+（`forward == false`），于是组合态分支把 ESC 当「未知键」丢掉，接着 `[`、`3`、
+`~` 被**逐个**交给 IME：`[` 是标点 → rime 提交 `〔`；`3` 走进选词分支；`~` 再一次
+标点。结果 Delete（`ESC [ 3 ~`）不但把用户正在打的拼音替他提交了，还往 shell 里
+打进一个字面量 `[3~`：
 
-数字 / 空格 / Enter / 退格 / 字母 / 标点这一整条链都包在这个条件里。
-没有组合态时空格根本不会进选词分支，会落到转发分支正常发给 shell。
-实测中文模式无组合态输入 `A7B8C` → shell 原样收到 `A7B8C`。
+    修复前  /bin/sh: 1: ABCDEF你〔[3~: not found
+    修复后  /bin/sh: 1: ABCDEF[3~: not found
 
-而 `echo` 变成 `恶臭` 是**正确行为**：`echo` 是合法拼音，中文模式下打拼音
-出中文，任何输入法都这样。要打 ASCII 就切英文（Ctrl+A Space，文档已写）。
+日志现场是 `IME composing: ignoring key 0x1b` —— 只丢了 ESC，尾巴照单全收。
 
-### 顺着查出来的真 bug：未被消费的按键被静默丢弃
+修法：序列必须当**一个整体**处理。组合态下 `input_processor_.in_escape()` 为真
+时直接吞掉该字节（IME 不能看到序列的任何一部分），等序列完成后再决定：方向键 /
+PageUp/PageDown 翻页（保持原样），其余（Home/End/Delete/Insert/F 键）原样转发
+给 shell。
 
-`[` 是标点键，rime 提交 `「` 的同时会**打开一个括号候选组合**（菜单是
-`「 【 〔 ［`）。此时下一个数字键走进选词分支：
+Esc 取消组合的逻辑在 `on_keyboard_data` **批次末尾**用 `in_escape()` 判断，所以吞
+中间字节不影响它：孤立 ESC 时批次末尾仍在 Escape 态 → 照常取消组合。
 
-    if (slot >= candidate_slots_) {   // slot 6 >= 4
-        spdlog::debug("Candidate slot {} beyond the {} shown", ...);
-        continue;                     // ← 数字被丢掉
-    }
+方向键翻页此前**零覆盖**，而这次动的正是那条路径，所以同一个用例里补了
+Down/Up 翻页断言（并且它确实抓到了问题：修复前 Down 把候选翻成了 `「 【 〔`）。
 
-于是中文模式输入 `[7`，`7` **凭空消失**。日志里那行
-`Candidate slot 7 beyond the 0 shown` 就是现场。
+## 又一次空转断言——第四次，这次栽在「猜字形」上
 
-修法遵循代码里标点分支已有的规则（"An unmapped byte is not ours: fall
-through and hand it to the PTY"）：**IME 没消费的字节属于 PTY**。数字分支
-的 `slot >= candidate_slots_` 提前退出改为 `send_to_shell`；空格分支
-`select()` 返回空时同样转发。
+我写 `check("sequence not torn apart", "「" not in out)`，在**未修复**的二进制上
+**通过**了。原因：rime 把 `[` 映射成的是 `〔`（乌龟壳括号）不是 `「`，我凭印象
+写了个对不上的字形。
 
-空格那一条我**没能构造出可观测用例**（select() 返回空的场合 IME 正在提交，
-空格照样被吞），所以它只是与数字分支保持一致，不是已证实的修复——代码注释
-里如实写了这点。
+改成断言**性质**而不是某个字形：取 shell 报的 `not found` 那一行，检查里面
+**没有任何 CJK 字符**。撕裂版会带出 `你`（拼音被提交）和 `〔`，整体版没有。这样
+就不依赖具体映射表。
 
-## 教训：先确认「门控在哪」，再判定行为
+顺带记一条：`bar()` 返回的是**字符串列表**（`re.findall` 两个组时列表元素是
+tuple，但函数返回的是 `m[1]`），不是 (序号, 文本) 的二元组。我按二元组写就崩了。
+另外断言「两次抓帧的候选列表完全相等」太脆（重绘中途截断会导致长度不同），
+应该断言**组合态存活**（首个候选不变）。
 
-我一开始看到 shell 输入行变成中文就断定是 bug，实际是拼音被正确消费。
-**在断言某行为是缺陷之前，先把该分支的进入条件读清楚**。同类误判我已经犯过
-一次（把「librime 没部署词典」当成「词典部署慢」）。
-
-## 新增 e2e 断言
-
-`run_unswallowed_digit_case`：中文模式发 `[7` → ESC 取消组合 → 切英文 →
-回车执行行首。数字被转发则 shell 报 `7: not found`；被丢弃则行为空、
-什么都不报。已双向核实：修复版 25/25 PASS，未修复版该条 FAIL。
-
-顺带记一条会反复咬人的坑：**改完测试文件里的 `BIN` 指向 arm64 产物后，
-不要 `git checkout tests/`** —— 会连同新加的断言一起还原掉。已经因此
-丢过两次（`run_multi_commit_case` 和 `run_unswallowed_digit_case` 各一次），
-要还原 BIN 就精确替换那一行。
+修好后 3 条断言在未修复二进制上 FAIL，修复后 31/31 PASS，arm64 上同样 31/31。
 
 
 ## Timeline
@@ -138,6 +129,12 @@ through and hand it to the PTY"）：**IME 没消费的字节属于 PTY**。数�
   affects: [e2e-harness-contract]
 
 - time: 2026-10-01T12:04:21
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-01T13:58:59
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth

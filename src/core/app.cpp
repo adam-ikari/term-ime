@@ -487,7 +487,19 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 continue;
             }
             // Arrow keys and PageUp/PageDown page through the candidates while
-            // composing (same grouping as ','/'.'), so the whole page stays
+            // composing (same grouping as ','/'.'), so the whole page stays.
+            //
+            // An escape sequence has to be handled as ONE unit. Dispatch is per
+            // byte, and when the leading ESC arrives the state machine has not
+            // completed anything yet — so reading bytes individually dropped the
+            // ESC and then offered the remainder to the IME one byte at a time.
+            // Delete (ESC [ 3 ~) thereby committed a 「 *and* typed a literal
+            // `[3~` into the shell. Mid-sequence bytes are therefore swallowed
+            // here: the IME must not see any part of a sequence it has not been
+            // asked about yet.
+            if (input_processor_.in_escape()) {
+                continue;
+            }
             if (is_escape_sequence && input_result.forward) {
                 const auto& seq = input_result.data;  // vector<unsigned char>
                 int direction = 0;
@@ -511,13 +523,19 @@ void App::on_keyboard_data(const char* data, size_t len) {
                         direction = 1;
                     }
                 }
-                if (direction == 0) {
-                    spdlog::debug("IME composing: ignoring escape sequence");
+                if (direction != 0) {
+                    if (ime_->state() == ImeState::Selecting) {
+                        advance_candidate_window(direction);
+                    }
+                    render();
                     continue;
                 }
-                if (ime_->state() == ImeState::Selecting) {
-                    advance_candidate_window(direction);
-                }
+                // Not a paging key — Home/End/Delete/Insert/F-keys and the
+                // like. The IME never claimed it, so the shell gets it verbatim,
+                // same rule as an unconsumed punctuation byte. Dropping it (as
+                // this branch used to) makes those keys vanish mid-composition.
+                spdlog::debug("IME composing: forwarding unhandled sequence");
+                queue_for_shell(seq);
                 render();
                 continue;
             }
