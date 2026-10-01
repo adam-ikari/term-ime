@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [termux, android, build, cmake]
 created: "2026-09-30T05:15:49"
-updated: "2026-10-01T06:36:44"
+updated: "2026-10-01T07:35:39"
 ---
 
 <!-- compiled_truth -->
@@ -113,4 +113,10 @@ Termux 版本解析用**已知 tag 常量**而非 API 探测：`VERSION="${TERM_
   kind: evidence
   summary: "修正上一条 evidence 的过头表述：模拟器里「nihao → 候选栏显示 1.你好」是实测成立的，但「提交成功」不成立——回车那次是 0 字节。进一步用同一 harness 在 Linux 上做对照，确认这是 term-ime 自身的 Enter 缺陷（见 [[enter-does-not-commit-composition]]），不是 Android 平台问题，也不是我 harness 的问题。模拟器验证的准确范围：二进制可加载执行、forkpty 正常、librime 全流程、per-combination schema 生成、候选栏渲染正确、无 TTY 时优雅退出。提交链路与真机交互仍未通过。"
   source: "2026-10-01 逐帧 harness 复测"
+  affects: [termux-android-target, enter-does-not-commit-composition]
+
+- time: 2026-10-01T07:35:39
+  kind: evidence
+  summary: "Enter 修复在 Android 上确认生效，逐帧证据：nihao → 候选栏 1.你好 2.利好 3.立好 4.理好 5.立号；Enter 那帧 296 字节且「你好」进入 shell 输入行；再按一次 Enter shell 执行「你好」报 inaccessible or not found —— 即「Enter 只提交、再按一次才执行」，与 fcitx5/ibus+rime 及 Linux 行为一致。修复前该场景第二次 Enter 执行的是空行、什么都不发生。模拟器实测的坑：软件模拟（无 KVM）下 leveldb 重编 70k 词条要几分钟，调试时应复用已编译的 build/ 目录，否则会误判成「词典没部署」。"
+  source: "2026-10-01 修复后 Android 模拟器复测（x86_64 ABI, API 31）"
   affects: [termux-android-target, enter-does-not-commit-composition]
