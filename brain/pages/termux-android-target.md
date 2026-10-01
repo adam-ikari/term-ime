@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [termux, android, build, cmake]
 created: "2026-09-30T05:15:49"
-updated: "2026-10-01T06:07:13"
+updated: "2026-10-01T06:36:44"
 ---
 
 <!-- compiled_truth -->
@@ -108,3 +108,9 @@ Termux 版本解析用**已知 tag 常量**而非 API 探测：`VERSION="${TERM_
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
   affects: [termux-android-target]
+
+- time: 2026-10-01T06:36:44
+  kind: evidence
+  summary: "修正上一条 evidence 的过头表述：模拟器里「nihao → 候选栏显示 1.你好」是实测成立的，但「提交成功」不成立——回车那次是 0 字节。进一步用同一 harness 在 Linux 上做对照，确认这是 term-ime 自身的 Enter 缺陷（见 [[enter-does-not-commit-composition]]），不是 Android 平台问题，也不是我 harness 的问题。模拟器验证的准确范围：二进制可加载执行、forkpty 正常、librime 全流程、per-combination schema 生成、候选栏渲染正确、无 TTY 时优雅退出。提交链路与真机交互仍未通过。"
+  source: "2026-10-01 逐帧 harness 复测"
+  affects: [termux-android-target, enter-does-not-commit-composition]
