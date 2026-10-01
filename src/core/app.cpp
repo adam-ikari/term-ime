@@ -530,6 +530,13 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 int slot = ch - '1';
                 if (slot >= candidate_slots_) {
                     spdlog::debug("Candidate slot {} beyond the {} shown", slot + 1, candidate_slots_);
+                    // There is no candidate in this slot, so this keystroke was
+                    // NOT used to select anything. Hand it to the shell rather
+                    // than dropping it — see the note on the punctuation branch
+                    // below; silently discarding input is what made `[7]` come
+                    // out as 「」 with the digit gone.
+                    send_to_shell(std::vector<uint8_t>{byte});
+                    render();
                     continue;
                 }
                 auto committed = ime_->select(static_cast<int>(candidate_window_) + slot);
@@ -539,6 +546,10 @@ void App::on_keyboard_data(const char* data, size_t len) {
                         utf8 += utf8::encode(c);
                     }
                     send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+                } else {
+                    // Slot existed but rime committed nothing, so the digit was
+                    // not consumed. Same rule: unclaimed bytes belong to the PTY.
+                    send_to_shell(std::vector<uint8_t>{byte});
                 }
                 render();
                 continue;
@@ -551,6 +562,14 @@ void App::on_keyboard_data(const char* data, size_t len) {
                         utf8 += utf8::encode(c);
                     }
                     send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+                } else {
+                    // rime committed nothing, so this space was not consumed.
+                    // Same rule as the digit branch: unclaimed bytes belong to
+                    // the PTY. (Could not construct an observable case for this
+                    // one -- whenever select() returns empty here the IME is
+                    // mid-commit and swallows the space anyway -- so this is
+                    // the branch being consistent rather than a demonstrated fix.
+                    send_to_shell(std::vector<uint8_t>{byte});
                 }
                 render();
                 continue;

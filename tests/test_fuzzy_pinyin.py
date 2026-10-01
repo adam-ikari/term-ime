@@ -262,6 +262,46 @@ def run_commit_case():
         s.close()
 
 
+def run_unswallowed_digit_case():
+    """A digit the IME did not consume must still reach the shell.
+
+    `[` is a punctuation key, and rime answers it by committing 「 and *opening a
+    bracket-picker composition* whose menu holds 「 【 〔 ［. The digit branch
+    then treats the next key as a slot selection, finds slot 7 past the 4 shown,
+    logs "Candidate slot 7 beyond the 0 shown" and drops the byte. So typing
+    `[7` produced 「 with the 7 silently gone — the user cannot see that a
+    keystroke was eaten and cannot recover it.
+
+    The rule this asserts is the same one the punctuation branch already
+    follows: a byte the IME did not use belongs to the PTY.
+
+    How to see it: send `[7`, ESC to drop the composition, switch back to
+    English so later keys bypass the IME, then Enter to run whatever is on the
+    shell's line. With the digit forwarded the shell reports `7: not found`;
+    with it dropped the line is empty and nothing is reported at all.
+    """
+    s = Session([])
+    try:
+        if not s.wait_for(r"\[EN\]|\[拼\]", seconds=120.0):
+            check("swallow: ready", False)
+            return
+        s.send(b"\x01 ")                      # Ctrl+Space → 中文
+        s.wait_for(r"\[拼\]", seconds=8.0)
+        s.send(b"[7")
+        time.sleep(1.6)
+        s.send(b"\x1b")                       # ESC：取消括号候选组合
+        time.sleep(1.2)
+        s.send(b"\x01 ")                      # 切回英文，后续按键直达 shell
+        time.sleep(0.6)
+        s.send(b"\r")                         # 执行行首，暴露内容
+        time.sleep(1.4)
+        out = strip_ansi(s.read(1.5))
+        check("swallow: unclaimed digit reached the shell",
+              "7: not found" in out, out[-60:].replace("\n", " "))
+    finally:
+        s.close()
+
+
 def run_multi_commit_case():
     """Each Enter must commit ITS OWN segment and leave nothing behind.
 
@@ -359,6 +399,7 @@ def main() -> int:
 
     run_commit_case()
     run_multi_commit_case()
+    run_unswallowed_digit_case()
 
     # 动态组合 schema 物化：部分开启时用户目录应有生成的 schema + prism
     s = Session(["n_l", "nose"])

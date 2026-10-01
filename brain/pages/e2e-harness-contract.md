@@ -5,41 +5,62 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-01T10:47:12"
+updated: "2026-10-01T12:04:21"
 ---
 
 <!-- compiled_truth -->
-## 约束（违反即脆性测试）
+## 「IME 吞掉命令」是我的误诊，但顺着查出了一个真 bug（2026-10-01）
 
-1. **hermetic**：每次 `mkdtemp` 后设 `HOME` / `XDG_CONFIG_HOME` / `XDG_DATA_HOME` / `TERM=xterm-256color`，结束清理；断言失败必须反映到 exit code。
-2. **固定 SHELL**：必须显式 `os.environ["SHELL"] = "/bin/sh"`。继承调用者 `$SHELL` 会让断言随开发者环境飘——全新 HOME 下 zsh 会进 `zsh-newuser-install` 向导，永不打印提示符。
-3. **就绪门**：断言前轮询目标标记（有界重试）；启动窗口内按键会被丢弃（见 `startup-readiness-window`）。
-4. **探针式断言**：不要用提示符/cwd 文本判断 shell 是否可用；用算术探针 `echo SHELLVIEW$((6*7))` → 期望 `SHELLVIEW42`（输入行与求值行不同，只有活着的 shell 才会打印结果）。
-5. **读帧收敛**：一帧由多段 `write()` 组成，读侧要等到静默再解析；帧中途采样会得到半帧（不是应用缺陷）。
-6. 关闭面板的验证 = 「面板专有标记消失」+「探针可见」，两者都要。
+此前记的「中文模式下执行命令被 IME 吃掉」（`GOT——￥（（6*））——END`）
+**不是缺陷**。分发链那段有个我先前没注意到的门控：
 
-## 有界等待不是修复手段（2026-09-30）
+    if (ime_->state() == ImeState::Composing || ime_->state() == ImeState::Selecting) {
 
-断言卡在有界等待上时，**先确认那个操作到底是不是异步的**，再谈窗口大小。
+数字 / 空格 / Enter / 退格 / 字母 / 标点这一整条链都包在这个条件里。
+没有组合态时空格根本不会进选词分支，会落到转发分支正常发给 shell。
+实测中文模式无组合态输入 `A7B8C` → shell 原样收到 `A7B8C`。
 
-反例（本项目真实吃过）：`test_fuzzy_pinyin` 的「生成 prism 是否部署」曾从 90s 一路
-加到 240s、600s，连续 8 个 run 红。实际是 `deploy_schema` **同步**执行、早已失败返回，
-240s 全是白等——把一次确定性失败伪装成了 flaky。
+而 `echo` 变成 `恶臭` 是**正确行为**：`echo` 是合法拼音，中文模式下打拼音
+出中文，任何输入法都这样。要打 ASCII 就切英文（Ctrl+A Space，文档已写）。
 
-配套判据：
+### 顺着查出来的真 bug：未被消费的按键被静默丢弃
 
-- **同一断言在多个 run 里以完全相同的方式失败 → 那是 bug 的形状，不是竞态的形状。**
-  优先按确定性失败查，别挂 flaky 标签放过去。
-- **「本机绿 / runner 红」先查工具链差异**：文件缓冲与落盘阈值、libstdc++/glibc 版本、
-  locale、路径长度。CI 日志里时间戳的形状（等满整窗口 vs 立刻返回）是关键线索。
-- **失败路径必须留下证据**：被测程序的失败分支若不留日志/返回值，测试就只能靠等。
-  本项目构建关掉了 librime 自身日志（`ENABLE_LOGGING=OFF`），所以测试侧要在失败时
-  dump 应用日志与相关目录，否则下一轮仍然只能猜。
+`[` 是标点键，rime 提交 `「` 的同时会**打开一个括号候选组合**（菜单是
+`「 【 〔 ［`）。此时下一个数字键走进选词分支：
 
-## 对「长期 flaky」的处理
+    if (slot >= candidate_slots_) {   // slot 6 >= 4
+        spdlog::debug("Candidate slot {} beyond the {} shown", ...);
+        continue;                     // ← 数字被丢掉
+    }
 
-不要因为「不阻塞发布」就长期容忍。master 长期红会掩盖真实回归，也让人对 CI 失去信任。
-该修就修；修不动就把已知失败的 run 标成 flaky 并让它可见，而不是让主线一直红。
+于是中文模式输入 `[7`，`7` **凭空消失**。日志里那行
+`Candidate slot 7 beyond the 0 shown` 就是现场。
+
+修法遵循代码里标点分支已有的规则（"An unmapped byte is not ours: fall
+through and hand it to the PTY"）：**IME 没消费的字节属于 PTY**。数字分支
+的 `slot >= candidate_slots_` 提前退出改为 `send_to_shell`；空格分支
+`select()` 返回空时同样转发。
+
+空格那一条我**没能构造出可观测用例**（select() 返回空的场合 IME 正在提交，
+空格照样被吞），所以它只是与数字分支保持一致，不是已证实的修复——代码注释
+里如实写了这点。
+
+## 教训：先确认「门控在哪」，再判定行为
+
+我一开始看到 shell 输入行变成中文就断定是 bug，实际是拼音被正确消费。
+**在断言某行为是缺陷之前，先把该分支的进入条件读清楚**。同类误判我已经犯过
+一次（把「librime 没部署词典」当成「词典部署慢」）。
+
+## 新增 e2e 断言
+
+`run_unswallowed_digit_case`：中文模式发 `[7` → ESC 取消组合 → 切英文 →
+回车执行行首。数字被转发则 shell 报 `7: not found`；被丢弃则行为空、
+什么都不报。已双向核实：修复版 25/25 PASS，未修复版该条 FAIL。
+
+顺带记一条会反复咬人的坑：**改完测试文件里的 `BIN` 指向 arm64 产物后，
+不要 `git checkout tests/`** —— 会连同新加的断言一起还原掉。已经因此
+丢过两次（`run_multi_commit_case` 和 `run_unswallowed_digit_case` 各一次），
+要还原 BIN 就精确替换那一行。
 
 
 ## Timeline
@@ -114,4 +135,10 @@ updated: "2026-10-01T10:47:12"
   kind: decision
   summary: "上一条 timeline 里的 'git show 30c0e2f^:src/core/app.cpp' 因为在 shell 里未加引号，尖括号被当成重定向，命令名丢失。完整写法：git show '30c0e2f^:src/core/app.cpp' > app_prefix.cpp（路径含冒号，必须整体加引号）。"
   source: "补记：上一条里命令名被 shell 吃掉了"
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-01T12:04:21
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
   affects: [e2e-harness-contract]
