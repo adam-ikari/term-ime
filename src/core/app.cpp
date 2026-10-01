@@ -554,6 +554,36 @@ void App::on_keyboard_data(const char* data, size_t len) {
                 }
                 render();
                 continue;
+            } else if (ch == '\r' || ch == '\n') {
+                // Enter confirms the composition — the gesture every other
+                // terminal IME has. It used to fall through to the generic
+                // branch below, which forwards a bare \r to the child: the
+                // pinyin buffer was never committed, the shell ran an empty
+                // line, and after a digit-select the still-open composition
+                // committed a SECOND time on the next Enter (the shell then
+                // tried to execute 「你好」 as a command).
+                //
+                // Only claim the key when a composition is actually up —
+                // otherwise Enter must reach the shell untouched, or running
+                // commands in Chinese mode would stop working.
+                if (ime_->state() != ImeState::Inactive) {
+                    auto committed = ime_->select(static_cast<int>(candidate_window_) + selected_candidate_);
+                    if (!committed.empty()) {
+                        std::string utf8;
+                        for (char32_t c : committed) {
+                            utf8 += utf8::encode(c);
+                        }
+                        send_to_shell(std::vector<uint8_t>(utf8.begin(), utf8.end()));
+                    }
+                    // A commit can leave rime reporting Composing with an empty
+                    // buffer; without this the next Enter commits the stale
+                    // context a second time.
+                    ime_->cancel();
+                    selected_candidate_ = 0;
+                    render();
+                    continue;
+                }
+                // No composition: fall through so the shell sees the Enter.
             } else if (ch == '\b' || ch == 127) {
                 // Backspace: delete one syllable character, not the whole
                 // composition. Send XK_BackSpace to rime so it handles the

@@ -220,6 +220,48 @@ def dump_rime_state(home: str, udir: str, label: str, lines: int = 60) -> None:
     print(f"----- end {label} -----")
 
 
+def run_commit_case():
+    """Enter must commit the composition to the SHELL, and only commit.
+
+    Every other check here reads the candidate bar, so the whole commit path
+    (take_commit() → send_to_shell()) had no coverage at all — which is how
+    Enter could forward a bare \\r to the child while the pinyin buffer stayed
+    up, and a digit-select could commit a second time on the next Enter.
+
+    How to observe it without looking at the bar: press Enter twice.
+      - correct: the first Enter commits 「你好」 onto the shell's input line
+        (no newline — same as fcitx5/ibus + rime), so the second Enter *runs*
+        「你好」 and the shell reports `not found`.
+      - broken: the first Enter is forwarded as a bare \\r, committing nothing;
+        the pinyin is still in the IME, so the second Enter runs an empty line
+        and nothing is reported.
+
+    So `not found` after the second Enter is the positive signal that the commit
+    reached the shell. Asserting on a fresh frame instead (does the bar still
+    show candidates?) does NOT work: the broken build never repaints after
+    Enter, so the old bar is simply still on screen and a fresh read is empty —
+    identical to the fixed build. That distinction is why this probe exists.
+    """
+    s = Session([])  # 精确拼音，避免 per-combination prism 干扰这条断言
+    try:
+        if not s.wait_for(r"\[EN\]|\[拼\]", seconds=120.0):
+            check("commit: ready", False)
+            return
+        s.send(b"\x01 ")                      # Ctrl+Space → 中文
+        s.wait_for(r"\[拼\]", seconds=8.0)
+        s.send(b"nihao")
+        time.sleep(1.2)
+        s.send(b"\r")                         # Enter 提交（不执行）
+        time.sleep(1.0)
+        s.send(b"\r")                         # 再回车：把行首内容暴露出来
+        time.sleep(1.2)
+        out = strip_ansi(s.read(1.5))
+        check("commit: Enter committed pinyin to the shell",
+              "not found" in out, out[-60:].replace("\n", " "))
+    finally:
+        s.close()
+
+
 def run_group_case(groups, label):
     """以指定组集合启动，逐组探针：开→候选含专属字，关→不含。"""
     s = Session(groups)
@@ -258,6 +300,8 @@ def main() -> int:
     run_group_case(["n_l"], "n_l-only")
     # 只开 zh_z：反向验证
     run_group_case(["zh_z"], "zh_z-only")
+
+    run_commit_case()
 
     # 动态组合 schema 物化：部分开启时用户目录应有生成的 schema + prism
     s = Session(["n_l", "nose"])
