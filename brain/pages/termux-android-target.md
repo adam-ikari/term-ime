@@ -5,39 +5,36 @@ category: decision
 status: active
 tags: [termux, android, build, cmake]
 created: "2026-09-30T05:15:49"
-updated: "2026-10-02T01:05:12"
+updated: "2026-10-02T02:48:22"
 ---
 
 <!-- compiled_truth -->
-## 发版负担自动化（2026-10-02）
+## Termux：实验性支持，就此搁置（2026-10-02 用户定）
 
-Termux 发一版原本要**手改两处**，漏掉任何一处都是静默故障：
+**Termux 定位为实验性支持，工作到此为止。** 不要在没有新指示时重启它。
 
-1. `website/static/install.sh` 的 `TERM_IME_TERMUX_TAG:-v1.1.7-termux`
-   —— 漏改则网站继续指向旧 tag，用户装到上一个版本，且没有任何报错。
-2. `release.yml` 的 `prerelease: startsWith(github.ref, 'refs/tags/v1.1.7-termux')`
-   —— 漏改则**手机产物被当作正式 release 发布**，进 `/releases/latest`，
-   Linux 用户会拿到未经真机验证的 Android 二进制。
+搁置时的状态（不是「已验证」，是「已知的已知」）：
 
-现在两处都不含版本字面量：
+| 项 | 状态 |
+|---|---|
+| arm64 Android 二进制能否交叉编译 | ✅ CI 每次推送验证 |
+| 产物能否下载安装 | ✅ release 资产 + install.sh，实测装过 |
+| 发版是否还要手改 | ✅ 已自动化，两处版本字面量都去掉了 |
+| **arm64 Android 二进制能否实际运行** | ❌ **从未执行过** |
+| 交互层（软键盘/窗口遮挡/长按选词） | 明确不在范围内 |
 
-- prerelease 条件改为 `endsWith(github.ref, '-termux')`，按 tag 形状判断，永不需要改。
-- install.sh 的常量由 release job 用 sed 改写，并在发布前断言改写生效。
-  顺序是 **改写 → 发布（含 install.sh 附件）→ 提交到 master**：
-  附件是改写后的那份，而提交到 master 才能让 Pages 部署（文档里那条安装命令
-  实际抓的是 Pages，不是 release 附件）。
+唯一的技术空白是「arm64 编码 × bionic 运行时」这个组合没跑过。两个维度分别
+验证过（bionic 侧用 x86_64 Android 产物在模拟器里真跑；arm64 侧用 Linux/glibc
+交叉编译 + qemu-aarch64 真跑），所以残差风险判断为小。为它去挖 system 镜像的
+LP 元数据手工抽 bionic sysroot，属于对实验性目标的过度投入 —— 已评估，不做。
 
-**为什么改写放在 release job 而不是 build-android**：release job 才发布
-install.sh 附件，附件必须是改写后的副本。
+下次有人提 Termux，先确认他是否知道这一条：**它能装、能跑起来这件事本身还没
+被验证过**，只是在两个维度上分别间接验证过。
 
-### CI 守卫（每次 push 都跑，不等到打 tag）
-
-`install-test` 新增一步，断言 `TERM_IME_TERMUX_TAG:-v<n>` 这个默认值仍然存在、
-且 release.yml 里那条 sed 真能改写成功。因为 release job 的 grep 只在打 tag 时
-才跑 —— 变量一旦被改名，要等到下一次发版才暴露，而那时 release 已经发布一半。
-
-变异验证：把变量改名后守卫按预期失败（`::error:: ... lost its ... default`），
-还原后恢复通过。
+已知的范围外事项（提过、被明确排除，不要再翻出来做）：
+- 设置面板加「中/英文模式」项（软键盘没 Ctrl → 范围外，只面向键盘设备）
+- 软键盘交互适配
+- 为手机缺失的物理键补绑定
 
 
 ## Timeline
@@ -106,4 +103,16 @@ install.sh 附件，附件必须是改写后的副本。
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
+  affects: [termux-android-target]
+
+- time: 2026-10-02T02:48:07
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [termux-android-target]
+
+- time: 2026-10-02T02:48:22
+  kind: decision
+  summary: "Termux 收尾，工作区干净，master 已推送。当前 master 顶部是 5b84240（SIGWINCH 断言）。CI run 36955323672 全绿（6/6 job），e2e 含 resize 四条断言。fuzz 驱动的活性探测（十行）**未做** —— 用户质疑必要性后我判断收益仅限手动工具，且 5000 动作未出现挂起，代码内循环均有界。这是主动放弃，不是遗漏。"
+  source: "2026-10-02 收尾"
   affects: [termux-android-target]
