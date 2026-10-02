@@ -8,16 +8,55 @@
 
 | 测试文件 | 测试内容 | 用例数 |
 |---------|---------|--------|
-| `test_utf8.cpp` | UTF-8 编解码、CJK 宽度、RoundTrip | 6 |
-| `test_config.cpp` | 配置加载/保存、语言配置序列化、默认值 | 6 |
-| `test_ime_state.cpp` | ImeState/ImeMode 枚举、Candidate 结构体 | 4 |
-| `test_i18n.cpp` | 翻译加载、默认翻译、语言切换、key 完整性 | 8 |
-| `test_input_processor.cpp` | 输入处理器状态机、Ctrl+A 组合、ESC 序列 | 13 |
-| `test_input_processor.cpp` | 边界条件：非 ASCII 字节、连续 ESC 序列 | 7 |
+| `test_utf8.cpp` | UTF-8 编解码、CJK 宽度、RoundTrip | 48 |
+| `test_input_processor.cpp` | 输入处理器状态机、Ctrl+A 组合、ESC 序列、非 ASCII 边界 | 23 |
+| `test_config.cpp` | 配置加载/保存、语言配置序列化、默认值 | 12 |
+| `test_i18n.cpp` | 翻译加载、默认翻译、语言切换、key 完整性 | 11 |
+| `test_ime_contract.cpp` | `ImeEngine` 公开契约：状态推进、`input()` 拒绝、`select()`/`cancel()`、`take_commit()` 排空 | 8 |
+| `test_pty.cpp` | `TxByteQueue` 出站队列单元行为 | 5 |
+| `test_rime_data.cpp` | 词典数据目录解析 | 5 |
+| `test_event_loop.cpp` | libuv 事件循环 | 3 |
+| `test_pty_stall.cpp` | 出站队列溢出：连续前缀不变量（PTY 集成） | 3 |
+| **合计** | | **118** |
 
-**运行**: `./build/term-ime-tests`
+**运行**: `./build/term-ime-tests`（或 `ctest --test-dir build`）
 
-### 2. 端到端测试（plain assert）— `test-input-e2e`
+> 用例数由 `./build/term-ime-tests --gtest_list_tests` 得出，不要手工维护 —— 
+> 之前这张表写的是 6/6/4/8/13，与实际的 48/12/8/11/23 几乎全错，且列了一个
+> 已删除的文件。
+>
+> **同义反复的断言会被删掉，不补测试。** 曾经的 `test_ime_state.cpp` 整个文件都是
+> `EXPECT_NE(ImeState::Inactive, ImeState::Composing)` 和「赋值后断言自己等于自己」——
+> 测的是 C++ 语言不是 term-ime，永远不会失败。它撑起「114 个测试」这个数字，让人
+> 以为 IME 状态被覆盖了。新增断言前先问：**观测量在有 bug 和无 bug 时是否不同？**
+
+### 2. 端到端测试（python + PTY）— **CI 实际跑的就是这一批**
+
+这 7 个套件跑真实二进制：独立 HOME + 一次性 rime 用户目录 + PTY。它们是本项目
+最有价值的测试 —— 三个吞键 bug（Enter 不提交、`[7` 丢 7、转义序列被拆散）全是在这里
+被 e2e 断言逮住的，不是靠单元测试。
+
+| 套件 | 覆盖 |
+|------|------|
+| `test_fuzzy_pinyin.py` | 模糊音 5 组独立开关契约；提交、多段提交、**转义序列整体性**、**按键耗尽**、**未吞数字**、**resize** |
+| `test_e2e.py` | 基本流程：模式切换、组词、选中 |
+| `test_settings_e2e.py` | 设置面板读写与持久化 |
+| `test_settings_panel_e2e.py` | 设置面板键盘导航（指纹字串 `Esc/Tab`，改提示文案要同步） |
+| `test_simplified_candidates.py` | 候选栏必须给简体形式 |
+| `test_punctuation.py` | 中文模式标点交给 librime punctuator，提交全角 |
+| `test_paste_delivery.py` | 大段粘贴到达率与**字节序**；`--stall` 让读者先睡，覆盖出站队列溢出 |
+
+**运行**: `python3 tests/<name>.py`
+
+断言用 `check(name, ok, detail)`，不是裸 `assert` —— 因为要打印失败细节并累计
+通过数，裸 `assert` 在 `-O` 下还会被优化掉。
+
+> `tests/fuzz_drive.py`（手动，不在 CI）驱动 `tests/monkey_sequences.py` 的动作模型
+> 与四个定向探针，检查不变量是**进程必须活着**。它**不检查输出对错、不检查 hang**
+> （卡死但没退出的进程读作 ok）、每轮结束就 kill 所以看不见关机崩溃。
+> 结论只能读作「没找到崩溃」，不是「没有问题」。
+
+### 3. 端到端测试（plain assert）— `test-input-e2e`
 
 | 测试 | 内容 |
 |------|------|
@@ -33,7 +72,7 @@
 
 **运行**: `./build/test-input-e2e`
 
-### 3. UI 渲染测试（plain assert）— `test-ui-jsx` / `test-settings`
+### 4. UI 渲染测试（plain assert）— `test-ui-jsx` / `test-settings`
 
 | 测试 | 内容 |
 |------|------|
@@ -42,7 +81,7 @@
 
 **运行**: `./build/test-ui-jsx` 和 `./build/test-settings`
 
-### 4. TUI 自动化验收测试（agent-browser / tui-debug 驱动）
+### 5. TUI 自动化验收测试（agent-browser / tui-debug 驱动，手动）
 
 每次发布前用 agent 驱动 TUI 测试，记录每个步骤的截图和结果。
 
@@ -267,10 +306,11 @@ Ctrl+A → 按 'x'
 - [ ] `ldd build/term-ime` 显示 "not a dynamic executable"
 
 ### 自动化测试
-- [ ] `./build/term-ime-tests` — 全部通过
+- [ ] `./build/term-ime-tests` — 全部通过（118）
 - [ ] `./build/test-input-e2e` — 全部通过
 - [ ] `./build/test-ui-jsx` — 全部通过
 - [ ] `./build/test-settings` — 全部通过
+- [ ] 7 套 python e2e 全通过（见第 2 节，与 CI 跑的是同一批）
 
 ### 手动 TUI 验收
 - [ ] 启动正常

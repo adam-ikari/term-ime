@@ -14,12 +14,6 @@
   "error.init_failed": "Initialization failed",
   "error.config_load_failed": "Config load failed",
 
-  "kaomoji.happy": "Happy",
-  "kaomoji.sad": "Sad",
-  "kaomoji.love": "Love",
-  "kaomoji.angry": "Angry",
-  "kaomoji.cute": "Cute",
-  "kaomoji.search": "Search Kaomoji",
 
   "settings.language": "Language",
   "settings.title": "Settings",

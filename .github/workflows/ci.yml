@@ -85,6 +85,8 @@ jobs:
         python3 tests/test_fuzzy_pinyin.py
         echo ">> test_punctuation"
         python3 tests/test_punctuation.py
+        echo ">> test_paste_delivery"
+        python3 tests/test_paste_delivery.py
 
   website:
     # The docs are user-facing: a broken build (bad mdx, broken links) must
