@@ -454,6 +454,7 @@ add_executable(term-ime-tests
     tests/test_i18n.cpp
     tests/test_input_processor.cpp
     tests/test_pty.cpp
+    tests/test_pty_stall.cpp
     tests/test_event_loop.cpp
     tests/test_rime_data.cpp
 )
