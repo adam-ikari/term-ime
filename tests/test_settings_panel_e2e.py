@@ -189,6 +189,12 @@ def test_settings_panel():
         drain(master_fd)
         send(master_fd, b"\x1b[B")  # down -> first fuzzy row (zh⇄z)
         ok, buf = poll_until(master_fd, b"", row_focus_re('zh⇄z'), timeout=5.0)
+        # poll_until returns the moment the focus marker matches, but the frame
+        # arrives in several reads and the description line can still be in
+        # flight. Asserting on that half-read frame made this check fail on a
+        # loaded runner while the focus itself was correct — the two checks that
+        # do not look at the description (Close, navigate back) always passed.
+        buf += read_all(master_fd, 0.3)
         screen = clean_ansi(buf.decode('utf-8', errors='replace'))
         print(f"  Screen preview: {repr(screen[:150])}")
         # The focused row's description must be on screen, not just in the data:
