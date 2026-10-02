@@ -5,61 +5,57 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-01T17:00:35"
+updated: "2026-10-02T00:13:25"
 ---
 
 <!-- compiled_truth -->
-## 极简化：把「隐式」的东西显式化，而不是把代码写短（2026-10-01）
+## 空转断言的第五次、第六次：pty 溢出集成测试（2026-10-02）
 
-按极简哲学（减少维护负担、潜在问题、运行开销、攻击面）复查了 IME 按键分发，
-做了三件事。**每件都先量后改，不预设收益。**
+查 `tx_queue_` 溢出策略时补集成测试，又栽了两次，且**都是自己写的测试的问题**。
 
-### 1. 按键类别的不变量测试（护栏，必须先做）
+### 第六次：断言在两种实现下都通过（无效）
 
-我已被空转断言坑过 4 次，所以任何重构之前先建能真的抓到 bug 的网。
-`run_key_exhaustion_case` 按**按键类别**而非逐个键穷举。
+第一版集成测试断言「child 收到的是原流的连续前缀」。但 drain 只等 fd 安静，
+**从不 flush** —— 而队列里的字节要等下一次 write()/flush() 才出去。于是 child
+只看到内核已交付的那部分，那是**两种溢出策略下都连续的前缀**，测试区分不了。
+变异（改成丢最旧）后仍然全绿。
 
-写第一版时我把前提搞错了，值得记：我断言「组合态下打 7 应该原样到 shell」，
-在**正确的**构建上失败。候选栏亮着时 7 的含义是「选第 7 个候选」，任何输入法
-都是这个语义 —— 我的断言在要求一个错误行为。数字只有在 IME 无候选可选时才是
-「不被认领」，而 `[` 正是制造这个状态的键。
+是我自己先发现的吗？不是。是变异测试暴露的 —— 变异通过才说明断言抓不到东西。
 
-修正后三类各自钉住前提：有组合但无候选槽位 / 无组合态 / 大写字母永不是拼音。
-双向核实（修复前 29/34 FAIL，修复后 34/34 PASS）。
+**根修**：drain 每轮先 `pty.flush(20)` 再 poll，并且要求连续 3 轮安静才停。
+改完变异立刻被抓：`child's stream diverges at byte 32256 of 97792`。
 
-### 2. 删掉 send_to_shell，写出只留一条路径
+### 第五次：断言在 got 为空时真空通过
 
-原来两条：`send_to_shell`（先 flush 再立即 write）与 `queue_for_shell`（追加到
-批次）。两条都保序 —— **保序是追加本身提供的，不是立即写提供的**，那条注释
-（"否则提交会越过它之前的粘贴"）把功劳记错了地方。立即写只是多一次 write
-系统调用。
+`RepeatedWritesStayBoundedAndOrdered` 没有「got 非空」的断言，空结果比对任何
+流都成立，所以它在我把 child 搞死之后「通过」了。
 
-两条路径的真实代价：每个调用点都要知道自己该用哪条，选错的后果是**静默的**
-（字节流乱序，不是崩溃）。组合态里两条同时在用。
+**任何对 `got`/`received` 做比对的断言，必须先断言非空**，否则「全丢光」也是
+通过。这条应该固化成习惯。
 
-删掉后：唯一在键盘批次外写字节的是孤立 ESC 定时器，改成 queue + flush。
-顺序保真实测（PTY 探针，改前/改后对照）：同批「nihao Z」两版都收到「你好Z」；
-8KB 粘贴 8280 字节完整 3ms；孤立 ESC 两版都 387 字节。
+## pty harness 的四个坑（全是终端语义，不是逻辑）
 
-### 3. 删掉 render_candidates_bar 的 refresh 开关
+测停滞 slave 时连踩四个，症状全都是「看起来像被测的 bug」：
 
-那个 bool 是一次缓存优化（shell 输出触发的重绘不重查 rime，defect 17）。代价是
-正确性依赖调用方保证「IME 没变」—— 而这个保证**已经被打破过一次**：
-`advance_candidate_window` 读 `ime_snapshot_` 却靠别人的 `render()` 刷新它。
-把它改成显式 `refresh_ime_snapshot()` 之后，那条隐式耦合就没必要了。
+1. **`Pty::spawn(shell)` 不带参数 exec**。想用 `sleep` 让 child 不读，结果无参数
+   的 sleep 立刻打印 usage 退出 —— pty 是 hangup 而非停滞。
+   正确做法：`/bin/cat` + 不读 master（cat 输出缓冲填满 → 阻塞 → 不排空输入）。
+2. **字节流不能带终端语义**。pattern 用 `i % 251`，其中 0x03 是 VINTR，被行规程
+   变成发给 child 进程组的 **SIGINT**，cat 死掉。诊断线索是 `waitpid` 报
+   `signaled=1 sig=2` —— 看到 signaled 就该想到信号，而不是 pty 逻辑。
+3. **行规程默认 ECHO + 行缓冲**。读 master 读到的是**自己输入的回显**，child 一个
+   字节都收不到。必须在 master fd 上 `tcsetattr` 清 `ECHO|ICANON|ISIG`
+   （slave 的 termios 在 master fd 上配置）。
+4. **`flush` 必须在 poll 之前**，否则测不出拼接（见上）。
 
-量了那个优化当初要救的场景（40 轮 x 512B 高频 shell 回显）：
-**改动前 2ms / 改动后 2ms**。查询 rime 是廉价 menu 查表，且 `render_candidates`
-本身在状态栏没变时跳过终端写入 —— 那个优化本来就没买到可测收益。
+## 结论：单元测试的「前提」也需要集成验证
 
-## 三条通用教训
+`TxByteQueue` 的单元测试覆盖得不错，但它把「child 收到的始终是连续前缀」当作
+**前提**。整个「只丢最新」策略的正当性都压在这条性质上 —— 一旦流被拼接，child
+的解析器会追着垃圾跑完整个会话。这条性质只能对着真实 pty 测。
 
-1. **量了再说**：本轮两次「我以为有收益」都被实测否掉（渲染批量化、
-   rime 快照缓存）。报告里必须给数字，不能把「结构更干净」说成「更快」。
-2. **极简 ≠ 行数少**：这三处的净变化是 +26/−24、+14/−8，行数几乎没变。真正
-   减的是**隐式状态**：两个 bool 参数、一个依赖别人副作用的缓存。
-3. **重构之前先建网**：先有能抓到 bug 的断言，再动代码。否则「重构后测试全绿」
-   毫无信息量 —— 我前面就是这么把空转断言当成安全网用过的。
+三个用例的分工：两条测停滞下的连续性与有界性，第三条是**对照组**（正常排空必须
+完整有序），否则前两条可能仅仅因为「全丢光」而通过。
 
 
 ## Timeline
@@ -149,6 +145,12 @@ updated: "2026-10-01T17:00:35"
   affects: [e2e-harness-contract]
 
 - time: 2026-10-01T17:00:35
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-02T00:13:25
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
