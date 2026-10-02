@@ -359,7 +359,7 @@ add_executable(term-ime-tests
     tests/test_main.cpp
     tests/test_utf8.cpp
     tests/test_config.cpp
-    tests/test_ime_state.cpp
+    tests/test_ime_contract.cpp
     tests/test_i18n.cpp
     tests/test_input_processor.cpp
     tests/test_pty.cpp
