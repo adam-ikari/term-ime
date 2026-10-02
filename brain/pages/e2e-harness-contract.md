@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-02T11:23:01"
+updated: "2026-10-02T11:52:10"
 ---
 
 <!-- compiled_truth -->
@@ -119,6 +119,32 @@ shell」**。它一旦返回 true，按键就会被静默吞掉 —— 与本轮
 成本：每个 fixture 都要 `initialize()` 部署词典（~3s），gtest 从 4s 涨到 32s。
 
 
+## 一个存在但不在 CI 里的测试，等于没有测试（2026-10-02）
+
+收尾扫残留时发现 `tests/test_paste_delivery.py` **从来没在 CI 里跑过** ——
+`grep -rn test_paste_delivery .github/` 为空。
+
+它测大段粘贴的**到达率与字节序**（`--stall` 让读者先睡，覆盖出站队列溢出），
+本机连跑三次都是 7-8s 稳定通过。这正是「本地绿 + 守护力为零」的形态：
+维护者以为覆盖了粘贴路径，实际上改坏粘贴不会有任何东西变红。已加入 ci.yml。
+
+判据很简单：**`grep <套件名> .github/workflows/` 为空 = 这个测试不保护任何东西。**
+新增套件时必须同时改 ci.yml，否则它只是本机的一个脚本。
+
+## 文档里没写的测试，等于不存在的测试
+
+`TESTING.md` 花了大量篇幅逐条列出 3 个 C++ e2e 二进制的用例名，而**完全没有提**
+7 个 python e2e 套件 —— 那才是 CI 真正跑的一批，也是三个吞键 bug 唯一被逮住的地方。
+同期它的 gtest 用例表写的是 6/6/4/8/13，实际值 48/12/8/11/23，并且列了一个已删除的
+`test_ime_state.cpp`。
+
+**测试文档会塑造「哪里有覆盖」的判断。** 照着它去找漏洞，会去查 UI 组件渲染，
+而不会想到去查按键分发 —— 而按键分发恰恰是三个真实 bug 的所在地。
+表格里的数字改为从 `--gtest_list_tests` 得出并标注「不要手工维护」；
+fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kill 所以看不见关机崩溃）
+也一并写进去，避免被读成「跑过了所以没问题」。
+
+
 ## Timeline
 
 - time: 2026-09-15T03:17:45
@@ -230,6 +256,18 @@ shell」**。它一旦返回 true，按键就会被静默吞掉 —— 与本轮
   affects: [e2e-harness-contract]
 
 - time: 2026-10-02T11:23:01
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-02T11:51:47
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-02T11:52:10
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
