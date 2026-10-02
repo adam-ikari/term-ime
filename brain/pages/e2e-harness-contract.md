@@ -5,57 +5,46 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-02T00:13:25"
+updated: "2026-10-02T02:02:12"
 ---
 
 <!-- compiled_truth -->
-## 空转断言的第五次、第六次：pty 溢出集成测试（2026-10-02）
+## 仓库里早就有 fuzz 模型，只是没人驱动它（2026-10-02）
 
-查 `tx_queue_` 溢出策略时补集成测试，又栽了两次，且**都是自己写的测试的问题**。
+`tests/monkey_sequences.py` 一直在建模动作空间 —— 字母、数字、Ctrl+A 组合、
+**畸形 CSI**、方向键、**resize**、wait，外加四个定向探针
+（`_p1_escapecsi` / `_p2_toggle_mid_composition` / `_p3_settings_esc` /
+`_p6_exit_hang`）。但**没有任何东西驱动它**：只通过 MCP 工具交互式用过，
+而且 `grep monkey_sequences ci.yml` 为空 —— 不在 CI 里，等于只活在文档中。
 
-### 第六次：断言在两种实现下都通过（无效）
+新增 `tests/fuzz_drive.py`：import 那个模型（不重新实现），检查不变量是
+**进程必须活着**。
 
-第一版集成测试断言「child 收到的是原流的连续前缀」。但 drain 只等 fd 安静，
-**从不 flush** —— 而队列里的字节要等下一次 write()/flush() 才出去。于是 child
-只看到内核已交付的那部分，那是**两种溢出策略下都连续的前缀**，测试区分不了。
-变异（改成丢最旧）后仍然全绿。
+### 这个驱动抓不到什么 —— 必须写清楚，否则会被当成「跑过了所以没问题」
 
-是我自己先发现的吗？不是。是变异测试暴露的 —— 变异通过才说明断言抓不到东西。
+- **不检查输出对错**。存活不代表字节到达了 shell；行为不变量在具名 e2e 里。
+- **不检查 hang**。卡死但没退出的进程读作 ok（用 `sleep 600` 替身验证过，确实 ok）。
+- 每轮结束就 kill，所以关机崩溃、空闲后首个按键崩溃看不见。
 
-**根修**：drain 每轮先 `pty.flush(20)` 再 poll，并且要求连续 3 轮安静才停。
-改完变异立刻被抓：`child's stream diverges at byte 32256 of 97792`。
+不进 CI：一轮约 6s librime 部署 + 每步 20ms，属手动工具。
 
-### 第五次：断言在 got 为空时真空通过
+### 又一次空转断言（第七次），而且是我自己当场看出来的
 
-`RepeatedWritesStayBoundedAndOrdered` 没有「got 非空」的断言，空结果比对任何
-流都成立，所以它在我把 child 搞死之后「通过」了。
+先只跑 2 轮就看到「8/8 clean」。原因是报告里一旦有 finding 就把
+`PROBES` 清空，后续轮次**回落到随机序列**，于是「定向探针通过」变成了
+「随机序列通过」。断言空转。删掉重写。
 
-**任何对 `got`/`received` 做比对的断言，必须先断言非空**，否则「全丢光」也是
-通过。这条应该固化成习惯。
+**这已经是我在同一轮工作里第二次因为「看到全绿就信」而差点交出空转断言。**
+判断标准只能是：**这个观测量在有 bug 和无 bug 时是否真的不同**，
+而不是「跑出来是什么结果」。
 
-## pty harness 的四个坑（全是终端语义，不是逻辑）
+### 变异验证（存活检查必须先证明自己抓得住）
 
-测停滞 slave 时连踩四个，症状全都是「看起来像被测的 bug」：
+- `BIN` 指向 `exit 3` → 报 `exited at step 0 (code 3)`
+- `BIN` 指向 `kill -SEGV` → 报 `exited at step 0 (signal 11)`
 
-1. **`Pty::spawn(shell)` 不带参数 exec**。想用 `sleep` 让 child 不读，结果无参数
-   的 sleep 立刻打印 usage 退出 —— pty 是 hangup 而非停滞。
-   正确做法：`/bin/cat` + 不读 master（cat 输出缓冲填满 → 阻塞 → 不排空输入）。
-2. **字节流不能带终端语义**。pattern 用 `i % 251`，其中 0x03 是 VINTR，被行规程
-   变成发给 child 进程组的 **SIGINT**，cat 死掉。诊断线索是 `waitpid` 报
-   `signaled=1 sig=2` —— 看到 signaled 就该想到信号，而不是 pty 逻辑。
-3. **行规程默认 ECHO + 行缓冲**。读 master 读到的是**自己输入的回显**，child 一个
-   字节都收不到。必须在 master fd 上 `tcsetattr` 清 `ECHO|ICANON|ISIG`
-   （slave 的 termios 在 master fd 上配置）。
-4. **`flush` 必须在 poll 之前**，否则测不出拼接（见上）。
-
-## 结论：单元测试的「前提」也需要集成验证
-
-`TxByteQueue` 的单元测试覆盖得不错，但它把「child 收到的始终是连续前缀」当作
-**前提**。整个「只丢最新」策略的正当性都压在这条性质上 —— 一旦流被拼接，child
-的解析器会追着垃圾跑完整个会话。这条性质只能对着真实 pty 测。
-
-三个用例的分工：两条测停滞下的连续性与有界性，第三条是**对照组**（正常排空必须
-完整有序），否则前两条可能仅仅因为「全丢光」而通过。
+跑过量：45 轮随机（约 5000 动作，en/zh 交替）+ 8 轮定向探针，全部干净。
+**结论是「没找到崩溃」，不是「没有问题」** —— 覆盖面受上面三条局限约束。
 
 
 ## Timeline
@@ -151,6 +140,12 @@ updated: "2026-10-02T00:13:25"
   affects: [e2e-harness-contract]
 
 - time: 2026-10-02T00:13:25
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-02T02:02:12
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
