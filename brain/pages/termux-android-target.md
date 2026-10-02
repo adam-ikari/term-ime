@@ -1,23 +1,24 @@
 ---
 id: termux-android-target
-title: "Termux/Android 目标：交叉编译已支持，真机未验证"
+title: "Termux/Android：已删除（实验性支持期间未在真机验证）"
 category: decision
 status: active
 tags: [termux, android, build, cmake]
 created: "2026-09-30T05:15:49"
-updated: "2026-10-02T03:28:04"
+updated: "2026-10-02T11:23:28"
 ---
 
 <!-- compiled_truth -->
-## Termux 支持已删除（2026-10-02）
+## 结论：Termux 支持已彻底删除（2026-10-02）
 
-不只是「搁置」，是**从仓库里删干净了**。
+不只是「搁置」，是**从仓库里删干净了，并且把已发布的产物也撤了**。
 
-删除范围：
+### 仓库内删除范围
+
 - `ci.yml`：`android-build` job + `install-test` 里三段 Termux 步骤
   （模拟手机安装、tag 常量守卫、裸 bootstrap 安装）
 - `release.yml`：`build-android` job、termux 资产上传行、`prerelease` 逻辑
-  （它存在的唯一理由就是「未验证的手机产物不能进 /releases/latest」）、
+  （它存在的唯一理由就是「未验证的手机产物不能进 `/releases/latest`」）、
   tag 自动 pin 步骤（上一轮刚做的自动化，一并作废）
 - `website/static/install.sh`：平台检测、prefix/tag 分支、termux 资产、
   校验段的 termux 分支、`pkg install curl` 提示
@@ -25,15 +26,44 @@ updated: "2026-10-02T03:28:04"
 - `website/src/pages/index.tsx`：FAQ 那条、hero 提示、chip、
   结构化数据里的 `Android arm64 via Termux`
 - `CMakeLists.txt`：五处 `if(ANDROID)`（依赖 toolchain 转发、opencc 宿主
-  工具、find_root_path_mode、liblog vs libutil、-static 分支），
+  工具、`find_root_path_mode`、liblog vs libutil、`-static` 分支），
   以及解释这些分支存在的注释
 
 验证：Linux 重新 configure + 全量重建，产物仍 **statically linked**，
-二进制 4225007 → 4224803 字节（差 204，纯死代码），114 gtest + 7 套 py e2e 全绿，
-install.sh 用本地镜像完整装通且 `shellcheck -S style` 干净。
+114 gtest + 7 套 py e2e 全绿，install.sh 用本地镜像完整装通且
+`shellcheck -S style` 干净。CI 收敛到 5 个 job，release 只发 linux x86_64/aarch64。
 
-**外部未动**：GitHub 上已发布的 `v1.1.7-termux` prerelease 及其 arm64 资产
-仍然存在。删除它是对外不可逆操作，未执行 —— 需要用户明确同意。
+### 外部也已撤销（需要用户明确同意后才做的那一步，已执行）
+
+`v1.1.7-termux` prerelease 及其 arm64 资产已删除（资产 HTTP 404），
+git tag 本地与远端都已删除 —— **tag 页面本身仍在对外广告 Termux**，
+只删 release 不删 tag 等于留了个指向已删内容的入口。
+`v1.1.6` 的 Linux 资产与线上 install.sh 不受影响（HTTP 200）。
+
+### 未验证就删除的理由
+
+arm64 Android 二进制**从未在真机执行过**。bionic 只在 x86_64 模拟器上验证过，
+arm64 侧是用 Linux 上的 `qemu-aarch64` + glibc 验证的。曾考虑手解 LP metadata
+来提取 bionic sysroot 以补真验证，判定收益不足以抵消复杂度，未做。
+即「实验性支持」这个定位本身就是准确描述，从未声称过真机可用。
+
+## 遗留：这一轮的修复一个都没进 release（2026-10-02 收尾时发现）
+
+删 Termux 的副作用是 `/releases/latest` 回到 **v1.1.6**，而 v1.1.6 落后 master
+**48 个提交**。这一轮修的三个吞键 bug **一个都没进任何 release**，用户现在装到的
+仍是坏的：
+
+| bug | 用户可见后果 |
+|---|---|
+| Enter 裸转发 `\r` | **候选词永远上不了屏** —— 最严重 |
+| 未消费按键被丢弃 | 中文模式 `[7` 丢掉 `7` |
+| 转义序列被拆散 | Delete 提交拼音并注入字面量 `[3~` |
+
+另有 `d7c20bb`（generated fuzzy schema 在 init 时 join，消除 prism 赛跑）同样未发布。
+
+**注意这里有个反直觉的因果：删 Termux 本身不是 bug，但删完之后 latest 指向的
+v1.1.6 里三个吞键 bug 都还在**，所以「Termux 已清理干净」不等于「发布物是干净的」。
+补发版是必要的收尾动作，但打 tag 属于对外发布，需要用户明确授权，未擅自执行。
 
 
 ## Timeline
@@ -117,6 +147,18 @@ install.sh 用本地镜像完整装通且 `shellcheck -S style` 干净。
   affects: [termux-android-target]
 
 - time: 2026-10-02T03:28:04
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [termux-android-target]
+
+- time: 2026-10-02T11:19:16
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [termux-android-target]
+
+- time: 2026-10-02T11:23:28
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth

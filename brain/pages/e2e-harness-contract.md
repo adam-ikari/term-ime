@@ -1,50 +1,122 @@
 ---
 id: e2e-harness-contract
-title: "python PTY 端到端脚本契约（tests/*_e2e.py）"
+title: "测试有效性契约：e2e / gtest / fuzz（判定标准是观测量有无区分度）"
 category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-02T02:02:12"
+updated: "2026-10-02T11:23:01"
 ---
 
 <!-- compiled_truth -->
-## 仓库里早就有 fuzz 模型，只是没人驱动它（2026-10-02）
+## 这一页的判定标准（贯穿全部内容）
+
+**测试只有在「观测量在有 bug 和无 bug 时确实不同」时才有效。** 全绿本身不是证据 ——
+一个永远为真的断言同样全绿。同义反复、空转断言、行为等价的变异，都是同一个错：
+在没有区分度的观测上宣布通过。
+
+已发生的八次空转断言，每一次的形态都不同，所以不能靠记 checklist 防住：
+预测错字符（「」vs 实际「〔」）；比对两帧分别捕获的图像；`hits` 比 `segments` 短导致
+`zip` 循环体不执行；`drain()` 把承载证据的输出丢掉；断言在半读完的一帧上；
+probe 列表中途被清空退化成随机序列；`got` 为空导致 `zip` 空转通过；helper 的 `read()`
+吃掉重绘。
+
+## e2e 脚本必须满足的契约（2026-09-15 起，至今有效）
+
+- hermetic 环境（独立 HOME），**就绪门**等 librime 部署完成再开测
+- 固定 `SHELL=/bin/sh`，probe 式断言（**不得匹配提示符文本**）
+- **不得写死开发机绝对路径**：二进制与工作目录由 `__file__` 推仓库根。
+  `test_settings_panel_e2e.py` 曾写死 `/home/gem/project/term-ime`，让 ci.yml 的 e2e
+  job 从接入那天起每次都在第一步 `ERROR: ... not found` 退出 —— 连续 4 次红与代码无关，
+  而**本机永远跑不出**，这类缺陷只在 runner 上暴露
+- 应用自身的失败路径必须在失败时留下证据（返回值 + 目录/日志 dump），因为 librime
+  的日志在本项目构建里是关掉的
+- 卡在有界等待上时，**等待窗口不是修复手段**：先确认那个操作是不是异步的。
+  librime `deploy_schema` 是同步的，240s 全是白等
+
+### 「长期 flaky」优先怀疑确定性失败
+
+同一断言在多个 run 里以**完全相同的方式**失败 —— 那是 bug 的形状，不是竞态的形状。
+连续 8 次红被贴上「已知 flaky 不阻塞发布」，实际是确定性失败。判据同前。
+
+给未验证的东西在 CI 里建 job 时，要带**负例自检**（拿已知不合格的输入跑同一段校验，
+必须失败），否则断言可能是空转的。
+
+### CI 绿灯不等于依赖外部配额的服务可靠
+
+install.sh 曾用 GitHub API 列 release 再逐个探测资产：每次安装 1 次 API + 最多 30 次
+HEAD，而未认证限额仅 60 次/小时/IP，几个人同时装就耗尽，之后所有安装以裸 403 失败。
+CI 绿灯是虚假信心（额度还没用完），直到把 rate_limit 打到 0/60 才暴露。
+
+验证方式应选「**把依赖整个屏蔽掉仍能工作**」，而不是「看它成功了」—— 后者区分不了
+「真的没依赖」和「额度还够」。同类：静默跳过失败（`set()` 遮蔽 `-D` 变量、
+`std::ofstream` 未 close 导致 librime 读到空文件）都是被外部环境差异暴露的。
+
+## fuzz：仓库里早有模型，只是没人驱动（2026-10-02）
 
 `tests/monkey_sequences.py` 一直在建模动作空间 —— 字母、数字、Ctrl+A 组合、
 **畸形 CSI**、方向键、**resize**、wait，外加四个定向探针
 （`_p1_escapecsi` / `_p2_toggle_mid_composition` / `_p3_settings_esc` /
-`_p6_exit_hang`）。但**没有任何东西驱动它**：只通过 MCP 工具交互式用过，
-而且 `grep monkey_sequences ci.yml` 为空 —— 不在 CI 里，等于只活在文档中。
+`_p6_exit_hang`）。但**没有任何东西驱动它**，且 `grep monkey_sequences ci.yml` 为空 ——
+等于只活在文档中。
 
 新增 `tests/fuzz_drive.py`：import 那个模型（不重新实现），检查不变量是
-**进程必须活着**。
+**进程必须活着**。变异验证：`BIN` 指向 `exit 3` → `exited at step 0 (code 3)`；
+指向 `kill -SEGV` → `exited at step 0 (signal 11)`。
 
 ### 这个驱动抓不到什么 —— 必须写清楚，否则会被当成「跑过了所以没问题」
 
-- **不检查输出对错**。存活不代表字节到达了 shell；行为不变量在具名 e2e 里。
-- **不检查 hang**。卡死但没退出的进程读作 ok（用 `sleep 600` 替身验证过，确实 ok）。
-- 每轮结束就 kill，所以关机崩溃、空闲后首个按键崩溃看不见。
+- **不检查输出对错**。存活不代表字节到达了 shell；行为不变量在具名 e2e 里
+- **不检查 hang**。卡死但没退出的进程读作 ok（用 `sleep 600` 替身验证过，确实 ok）
+- 每轮结束就 kill，所以关机崩溃、空闲后首个按键崩溃看不见
 
-不进 CI：一轮约 6s librime 部署 + 每步 20ms，属手动工具。
+不进 CI（一轮约 6s librime 部署 + 每步 20ms），属手动工具。跑过量：45 轮随机
+（约 5000 动作）+ 8 轮定向探针全干净 —— **结论是「没找到崩溃」，不是「没有问题」**。
 
-### 又一次空转断言（第七次），而且是我自己当场看出来的
+**故意没加 liveness 探针**：那 10 行的收益只在手动跑 fuzz 时兑现，而仓库里所有循环
+本身都有界。作为已知局限记录，不假装覆盖了。
 
-先只跑 2 轮就看到「8/8 clean」。原因是报告里一旦有 finding 就把
-`PROBES` 清空，后续轮次**回落到随机序列**，于是「定向探针通过」变成了
-「随机序列通过」。断言空转。删掉重写。
+## 存量：同义反复的测试（2026-10-02）
 
-**这已经是我在同一轮工作里第二次因为「看到全绿就信」而差点交出空转断言。**
-判断标准只能是：**这个观测量在有 bug 和无 bug 时是否真的不同**，
-而不是「跑出来是什么结果」。
+扫「源文件被多少测试引用」时发现 `tests/test_ime_state.cpp` **整个文件**都是同义反复：
 
-### 变异验证（存活检查必须先证明自己抓得住）
+    EXPECT_NE(ImeState::Inactive, ImeState::Composing);   // 断言两个枚举值不同
+    cand.text = U"你好"; EXPECT_EQ(cand.text, U"你好");   // 断言自己等于自己
 
-- `BIN` 指向 `exit 3` → 报 `exited at step 0 (code 3)`
-- `BIN` 指向 `kill -SEGV` → 报 `exited at step 0 (signal 11)`
+测的是 C++ 语言，不是 term-ime —— **无论代码好坏都不可能失败**。已删除。
 
-跑过量：45 轮随机（约 5000 动作，en/zh 交替）+ 8 轮定向探针，全部干净。
-**结论是「没找到崩溃」，不是「没有问题」** —— 覆盖面受上面三条局限约束。
+危害不在那 44 行，而在于它撑起「114 个测试」这个数字，让人以为 IME 状态被覆盖了。
+这与新增里避免空转是同一类错误的**存量版**：一直在新增里避免，却没清过旧的。
+
+全仓库扫过一遍（正则匹配 `EXPECT_NE(\w+::\w+,\s*\w+::\w+)` 与「赋值后立即断言自己」
+两种模式），只有这一个文件命中。
+
+## tests/test_ime_contract.cpp：8 条真实契约（2026-10-02）
+
+`ImeEngine` 被文档宣传为可嵌入，接口保证是公开承诺，但此前无任何东西断言它。
+契约一改，要么表现为某条不相关的屏幕断言失败，要么根本不响。
+
+| 变异 | 被谁抓到 |
+|---|---|
+| `input()` 在英文模式也接受 | InputOutsideACompositionIsRefused |
+| `select()` 不排空 commit | SelectCommitsAndReportsTheText |
+| `cancel()` 变空操作 | CancelClearsBufferAndReturnsToInactive |
+
+第一条最关键：**app 的按键分发正是靠 `input()` 的返回值区分「键不是我的，要转发给
+shell」**。它一旦返回 true，按键就会被静默吞掉 —— 与本轮修的三个吞键 bug 同一根源。
+
+### 变异必须真的改变行为
+
+第一次变异「删掉 `cancel()` 里的 `clear_composition`」**通过了**。查下来是行为等价的
+变异：它前面已经发了 `XK_Escape`，组合态早被清掉，删掉的是冗余保险。
+**行为等价的变异上「测试通过」什么也没证明。** 换成把整个 `cancel()` 改成空操作。
+
+### 测试可以纠正假设
+
+最初断言「`select()` 之后能用 `take_commit()` 取回同样内容」，测试报失败。
+实际 `select()` 内部已排空，所以**取不到才是对的** —— 那正是防二次上屏的不变量。
+
+成本：每个 fixture 都要 `initialize()` 部署词典（~3s），gtest 从 4s 涨到 32s。
 
 
 ## Timeline
@@ -146,6 +218,18 @@ updated: "2026-10-02T02:02:12"
   affects: [e2e-harness-contract]
 
 - time: 2026-10-02T02:02:12
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-02T11:18:57
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-02T11:23:01
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
