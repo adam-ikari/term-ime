@@ -177,7 +177,6 @@ add_library(term-ime-lib STATIC
     src/ime/engine.cpp
     src/ime/rime_engine.cpp
     src/ime/language.cpp
-    src/ime/kaomoji.cpp
     src/util/utf8.cpp
     src/util/logger.cpp
     src/util/i18n.cpp
