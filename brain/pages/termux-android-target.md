@@ -5,67 +5,39 @@ category: decision
 status: active
 tags: [termux, android, build, cmake]
 created: "2026-09-30T05:15:49"
-updated: "2026-10-01T10:46:54"
+updated: "2026-10-02T01:05:12"
 ---
 
 <!-- compiled_truth -->
-## arm64 二进制曾经「从未被执行过」——这个结论是错的（2026-10-01 更正）
+## 发版负担自动化（2026-10-02）
 
-之前记的「本地只有 x86_64 镜像，无 arm64 镜像，故实测用的是 x86_64 ABI 产物」
-把**没下载**当成了**不存在**。`sdkmanager --list` 里 arm64 镜像一直有：
+Termux 发一版原本要**手改两处**，漏掉任何一处都是静默故障：
 
-    system-images;android-31;default;arm64-v8a
-    system-images;android-31;aosp_atd;arm64-v8a      # 用这个，体积小、无 Google 依赖
+1. `website/static/install.sh` 的 `TERM_IME_TERMUX_TAG:-v1.1.7-termux`
+   —— 漏改则网站继续指向旧 tag，用户装到上一个版本，且没有任何报错。
+2. `release.yml` 的 `prerelease: startsWith(github.ref, 'refs/tags/v1.1.7-termux')`
+   —— 漏改则**手机产物被当作正式 release 发布**，进 `/releases/latest`，
+   Linux 用户会拿到未经真机验证的 Android 二进制。
 
-但**模拟器这条路仍然走不通**，原因是硬限制而非缺文件：
+现在两处都不含版本字面量：
 
-    FATAL | Avd's CPU Architecture 'arm64' is not supported by the QEMU2
-           emulator on x86_64 host. System image must match the host architecture.
+- prerelease 条件改为 `endsWith(github.ref, '-termux')`，按 tag 形状判断，永不需要改。
+- install.sh 的常量由 release job 用 sed 改写，并在发布前断言改写生效。
+  顺序是 **改写 → 发布（含 install.sh 附件）→ 提交到 master**：
+  附件是改写后的那份，而提交到 master 才能让 Pages 部署（文档里那条安装命令
+  实际抓的是 Pages，不是 release 附件）。
 
-即 x86_64 宿主 + `-accel off` 无法跑 arm64 guest。
+**为什么改写放在 release job 而不是 build-android**：release job 才发布
+install.sh 附件，附件必须是改写后的副本。
 
-## 可行替代：用 qemu-user 跑 aarch64 Linux 构建（已验证有效）
+### CI 守卫（每次 push 都跑，不等到打 tag）
 
-**关键洞察**：要验证的是「arm64 指令集上代码是否正确」，不必非得是 Android。
-装 `g++-aarch64-linux-gnu` 后可以交叉编出一份 **aarch64 glibc** 的 term-ime，
-再用 `qemu-aarch64-static` 真跑起来。已实测：
+`install-test` 新增一步，断言 `TERM_IME_TERMUX_TAG:-v<n>` 这个默认值仍然存在、
+且 release.yml 里那条 sed 真能改写成功。因为 release job 的 grep 只在打 tag 时
+才跑 —— 变量一旦被改名，要等到下一次发版才暴露，而那时 release 已经发布一半。
 
-- 无 TTY 优雅退出（`启动失败 / 初始化失败` 面板，退出码 1，不崩溃）
-- 真 PTY 下完整流程：`nihao` → 候选栏 `1.你好 2.利好 3.立好 4.理好 5.立号`
-  → Enter 提交 → 再 Enter shell 报 `not found`
-- **整套 e2e 在 arm64 上跑**：fuzzy 24/24、e2e 5/5、settings 6/6、
-  settings_panel 8/8、punctuation 7/7、simplified/paste PASS。
-  含 per-combination schema 生成 + prism 部署（当初 `close()` 那个 bug 的位置）。
-
-所以 arm64 从「完全没验证」变成「代码路径全部验证过」，剩下的只有
-**bionic 特有的运行时行为**（真机软键盘、输入法窗口遮挡、长按选词）仍需真机。
-
-### 两个必须知道的坑
-
-1. **qemu-user 不能链式 exec aarch64 二进制**：让 arm64 的 harness 去
-   exec 另一个 arm64 程序会 `Exec format error`（没注册 binfmt_misc）。
-   正确做法是让 **x86_64 宿主 harness forkpty 后 exec qemu 本身**，
-   把 arm64 程序作为 qemu 的参数。
-
-2. **交叉构建 opencc 会死在 Error 127**：opencc 的 `.ocd2` 词典是**构建期**
-   跑自己的 `opencc_dict` 生成的，交叉编译时那个工具是目标架构、跑不了。
-   CMakeLists 里已有解法（`_deps_build/opencc-host` + PATH 前置），
-   但它被 `if(ANDROID)` 挡住了。
-   做 aarch64-linux 实验时手工复用即可：把 Android 构建产出的
-   `_deps_build/opencc-host/src/tools` 前置到 PATH 再 configure。
-
-   注意这不影响已发布配置：CI 的 linux-aarch64 用的是**原生 ARM64 runner**
-   （`ubuntu-22.04-arm`），不是交叉编译，所以 `ANDROID` 门控对现有发布矩阵是够的。
-
-## arm64 产物本身的静态核对（也已做）
-
-- `llvm-readelf -d`：NEEDED 只有 `liblog/libdl/libm/libc`，解释器 `/system/bin/linker64`
-- 逐个静态库的 `.o` 核对目标架构时，注意两类假警报：
-  - 项目自己的 `.a` 里装的是 **LLVM bitcode**（LTO），`llvm-readelf` 读不了，
-    要看 `llvm-dis` 出来的 `target triple = aarch64-none-linux-android28`
-  - `_deps_build/opencc-host/**` 是 x86_64 宿主工具，**本就不该**链进目标二进制。
-    实际链入的是 `_deps_stage/lib/libopencc.a` 与 `libmarisa.a`，
-    两者都是 AArch64（已核实）
+变异验证：把变量改名后守卫按预期失败（`::error:: ... lost its ... default`），
+还原后恢复通过。
 
 
 ## Timeline
@@ -113,6 +85,24 @@ updated: "2026-10-01T10:46:54"
   affects: [termux-android-target]
 
 - time: 2026-10-01T10:46:54
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [termux-android-target]
+
+- time: 2026-10-02T00:29:25
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [termux-android-target]
+
+- time: 2026-10-02T00:41:58
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [termux-android-target]
+
+- time: 2026-10-02T01:05:12
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth

@@ -322,6 +322,27 @@ jobs:
         ! grep -q "WARNING" /tmp/install-auto.log
         echo "OK: install-termux-test passed"
 
+    - name: Installer's Termux tag default stays rewritable
+      # release.yml pins the Termux tag by rewriting
+      # `TERM_IME_TERMUX_TAG:-<tag>` with sed. If that default is renamed or
+      # reformatted, the release job's own grep fails -- but only once a tag is
+      # pushed, by which time the release is half-published. This catches it on
+      # every push instead.
+      run: |
+        set -euo pipefail
+        SH=website/static/install.sh
+        grep -q 'TERM_IME_TERMUX_TAG:-v[0-9]' "$SH" || {
+          echo "::error::$SH lost its 'TERM_IME_TERMUX_TAG:-v<n>' default;"
+          echo "release.yml rewrites it with sed, so a rename breaks tagging silently"
+          exit 1; }
+        # The rewrite must produce something the later assertion can match.
+        cp "$SH" /tmp/inst_probe.sh
+        sed -i -E 's|(TERM_IME_TERMUX_TAG:-)v[^}]+|\1v9.9.9-termux|' /tmp/inst_probe.sh
+        grep -q 'TERM_IME_TERMUX_TAG:-v9.9.9-termux' /tmp/inst_probe.sh || {
+          echo "::error::the sed in release.yml would not take effect"; exit 1; }
+        bash -n /tmp/inst_probe.sh
+        echo "OK: Termux tag default is rewritable"
+
     - name: Installer works on a bare Termux bootstrap
       # A fresh Termux has no curl and no wget -- its bootstrap is
       # bash/coreutils/dash/diffutils/findutils/gawk/grep/gzip/less/procps/

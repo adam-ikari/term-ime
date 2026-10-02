@@ -177,8 +177,31 @@ jobs:
           # No `name:` → downloads every artifact into dist/<artifact-name>/
           # (linux x86_64 + linux aarch64 + termux arm64).
 
-      - name: Create / update release
-        uses: softprops/action-gh-release@v2
+      # Point install.sh at the tag being released, instead of leaving a
+      # constant for a human to remember. It used to require editing two places
+      # per Termux release -- this line and the constant below -- and forgetting
+      # either one is silent: the website keeps serving the previous tag, or a
+      # Linux release ships as a prerelease.
+      #
+      # The rewrite happens here rather than in build-android because this job
+      # publishes install.sh as a release asset, so the copy it uploads has to be
+      # the rewritten one. The commit also feeds the Pages deploy, which is what
+      # the documented install command actually fetches.
+      - name: Pin install.sh to this release tag
+        if: endsWith(github.ref, '-termux')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          SH=website/static/install.sh
+          grep -q 'TERM_IME_TERMUX_TAG:-v' "$SH" || {
+            echo "::error::$SH no longer has a TERM_IME_TERMUX_TAG default"; exit 1; }
+          sed -i -E "s|(TERM_IME_TERMUX_TAG:-)v[^}]+|\1${TAG}|" "$SH"
+          grep -q "TERM_IME_TERMUX_TAG:-${TAG}\b" "$SH" || {
+            echo "::error::rewrite did not take effect"; exit 1; }
+          echo "install.sh now pins ${TAG}"
+
+      - uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*/term-ime-linux-*.tar.gz
@@ -192,4 +215,26 @@ jobs:
           # it must not be what `install.sh`'s "latest release" resolves to --
           # that would hand phones a binary nothing has verified. Publishing
           # Termux-only tags as prereleases keeps them out of /releases/latest.
-          prerelease: ${{ startsWith(github.ref, 'refs/tags/v1.1.7-termux') }}
+          #
+          # Keyed off the tag's shape, not a literal version: a literal had to be
+          # edited for every Termux release, and a forgotten edit published a
+          # phone build as a normal release.
+          prerelease: ${{ endsWith(github.ref, '-termux') }}
+
+      # The documented install command fetches install.sh from Pages, not from the
+      # release asset, so the rewritten constant only reaches users once it is on
+      # master. Failures here are reported but not fatal: the release and its
+      # assets are already published, and the next release will pin its own tag.
+      - name: Commit the pinned installer
+        if: endsWith(github.ref, '-termux')
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- website/static/install.sh; then
+            echo "install.sh already pinned to ${GITHUB_REF_NAME}; nothing to commit"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/static/install.sh
+          git commit -m "chore(install): pin Termux tag to ${GITHUB_REF_NAME}"
+          git push origin HEAD:master

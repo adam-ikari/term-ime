@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-02T00:13:25.217Z._
+_Auto-generated. Last updated 2026-10-02T01:05:12.520Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | <current best understanding — replace this with the real content>
@@ -24,5 +24,5 @@ _Auto-generated. Last updated 2026-10-02T00:13:25.217Z._
 - [sgr-color-support](pages/sgr-color-support.md) — category: decision | tags: [terminal, parser, renderer, sgr] | <current best understanding — replace this with the real content>
 - [startup-readiness-window](pages/startup-readiness-window.md) — category: decision | tags: [rime, startup, pty, testing] | ## 已观测事实
 - [status-bar-owns-last-row](pages/status-bar-owns-last-row.md) — category: decision | tags: [terminal, layout, resize, renderer] | 状态栏（Status bar）固定渲染在终端**最后一行**，属于 UI 保留区，不属于 shell/PTY 的绘制区。
-- [termux-android-target](pages/termux-android-target.md) — category: decision | tags: [termux, android, build, cmake] | ## arm64 二进制曾经「从未被执行过」——这个结论是错的（2026-10-01 更正）
+- [termux-android-target](pages/termux-android-target.md) — category: decision | tags: [termux, android, build, cmake] | ## 发版负担自动化（2026-10-02）
 - [website-spread-redesign](pages/website-spread-redesign.md) — category: decision | tags: [website, 传播, 文案] | **决定**：官网落地页按“可传播”重做，范围 = 结构 + 文案 + 视觉全做；主战场是中文技术社区（V2EX/掘金/知乎/公众号）。
