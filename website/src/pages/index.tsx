@@ -26,10 +26,6 @@ const FAQS: [string, string][] = [
     '预编译包提供 x86_64 与 aarch64 两种架构，安装脚本按 uname -m 自动识别。其他架构（LoongArch、riscv64 等）请从源码编译，只需要 gcc / cmake 工具链，不装任何 -dev 包。',
   ],
   [
-    '手机上能用吗？',
-    '可以，提供 arm64 Android 的测试版本。全新 Termux 里没有 curl，先跑一次 pkg install curl，之后和 Linux 用同一条安装命令，脚本自动识别平台，详见 Termux 页面。',
-  ],
-  [
     '能嵌进我自己的程序吗？',
     '能。term-ime-lib 用 ImeEngine 接口封装 librime，term-terminal 提供候选栏、状态栏、设置面板，TUI 程序接上就能打拼音。',
   ],
@@ -51,7 +47,7 @@ const structuredData = {
       '@type': 'SoftwareApplication',
       name: 'term-ime',
       applicationCategory: 'UtilityApplication',
-      operatingSystem: 'Linux (TTY, no desktop required); Android arm64 via Termux',
+      operatingSystem: 'Linux (TTY, no desktop required)',
       description:
         '终端输入法：输入法引擎库（term-ime-lib，封装 librime）加 TUI 输入法组件（候选栏/状态栏/设置面板），Linux 上是零依赖的静态单文件，直接读写终端字符流。',
       url: SITE_URL,
@@ -256,10 +252,6 @@ function Hero() {
             <p className={styles.installNote}>
               免 sudo，装到 ~/.local/bin；其他装法见
               <Link to="/docs/quickstart">快速开始</Link>。
-              <br />
-              手机上用 Termux：先 <code>pkg install curl</code>（全新 Termux
-              没带下载工具），之后同一条命令，脚本自动识别——见{' '}
-              <Link to="/docs/termux">Termux 页面</Link>。
             </p>
 
             <div className={styles.buttons}>
@@ -317,7 +309,6 @@ function Hero() {
             '无桌面的 Linux server',
             '纯 TTY',
             'CI 交互调试',
-            'Android / Termux（测试版）',
           ].map((c) => (
             <span key={c} className={styles.chip}>
               {c}

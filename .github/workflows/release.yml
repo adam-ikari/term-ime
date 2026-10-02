@@ -73,101 +73,8 @@ jobs:
             term-ime-linux-${{ matrix.arch }}.tar.gz
             term-ime-linux-${{ matrix.arch }}.tar.gz.sha256
 
-  build-android:
-    # Termux / Android arm64 artifact.
-    #
-    # This is EXPERIMENTAL. The binary is not statically linked (bionic has no
-    # static libc; see CMakeLists), and nobody has run it on a real phone yet --
-    # the PTY/raw-mode/SIGWINCH behaviour under Termux is unverified. It ships
-    # under an `-termux` suffixed name and is NOT wired into install.sh, so the
-    # stable glibc one-liner is unaffected.
-    #
-    # API 28 is the floor: libuv's process.c needs posix_spawn, which bionic only
-    # gained at API 28 (Android 9).
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install NDK
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build
-          # The zip's top-level dir is `android-ndk-r27` (no version suffix), so
-          # discover it rather than assuming. --http1.1 because dl.google.com
-          # resets the HTTP/2 stream on this 664MB body.
-          curl -fsSL --http1.1 -o /tmp/ndk.zip \
-            "https://dl.google.com/android/repository/android-ndk-r27-linux.zip"
-          sudo unzip -q /tmp/ndk.zip -d /opt/ndk
-          # GitHub runners already export ANDROID_NDK_ROOT for their own NDK;
-          # appending to it would produce a path that does not exist.
-          # <ndk>/build/cmake/android.toolchain.cmake -> three dirnames back up.
-          NDK="$(find /opt/ndk -name android.toolchain.cmake -path '*/build/cmake/*' -print -quit \
-                | xargs dirname | xargs dirname | xargs dirname)"
-          test -f "${NDK}/build/cmake/android.toolchain.cmake" \
-            || { echo "could not locate an NDK toolchain under /opt/ndk (got '${NDK}')"; exit 1; }
-          echo "ANDROID_NDK=${NDK}" >> "$GITHUB_ENV"
-
-      - name: Cross-compile for arm64-v8a (API 28)
-        run: |
-          cmake -B build-android -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-28 \
-            -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-android -j$(nproc) --target term-ime
-          # Strip: the NDK build carries debug info and would ship ~14x larger.
-          "${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" \
-            build-android/term-ime
-
-      - name: Verify the Android binary
-        run: |
-          BIN=build-android/term-ime
-          BINUTILS="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          test -x "$BIN" || { echo "no binary produced"; exit 1; }
-          file "$BIN"
-          file "$BIN" | grep -q "ARM aarch64" || { echo "not aarch64"; exit 1; }
-          file "$BIN" | grep -q "/system/bin/linker64" || { echo "not an Android binary"; exit 1; }
-          # A -static bionic link is not loadable by Android; that would be the
-          # one regression worth failing this job over.
-          if file "$BIN" | grep -q "statically linked"; then
-            echo "ERROR: statically linked, which the Android loader rejects"; exit 1
-          fi
-          # Only platform libraries may be needed.
-          readelf -d "$BIN" | grep NEEDED | sed 's/.*\[\(.*\)\]/\1/' | while read -r lib; do
-            case "$lib" in
-              libc.so|libm.so|libdl.so|liblog.so) ;;
-              *) echo "ERROR: unexpected runtime dep: $lib"; exit 1 ;;
-            esac
-          done
-          "${BINUTILS}/llvm-nm" -D "$BIN" | grep -q "forkpty@LIBC" \
-            || { echo "ERROR: forkpty not bound against bionic's libc"; exit 1; }
-          echo "OK: aarch64 Android binary, platform libs only, forkpty resolved"
-
-      - name: Pack artifact (binary + rime-data + translations)
-        run: |
-          mkdir -p dist/term-ime/bin
-          mkdir -p dist/term-ime/share/term-ime/rime-data
-          mkdir -p dist/term-ime/share/term-ime/translations
-          cp build-android/term-ime dist/term-ime/bin/ti
-          cp -r build-android/share/rime-data/* dist/term-ime/share/term-ime/rime-data/
-          cp data/translations/*.json dist/term-ime/share/term-ime/translations/
-          cp README.md dist/term-ime/
-          # `-termux` in the name so nobody mistakes this for the glibc build,
-          # and so install.sh's asset glob (term-ime-linux-*) can't pick it up.
-          tar -czf term-ime-termux-arm64.tar.gz -C dist term-ime
-          sha256sum term-ime-termux-arm64.tar.gz > term-ime-termux-arm64.tar.gz.sha256
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: term-ime-termux-arm64
-          path: |
-            term-ime-termux-arm64.tar.gz
-            term-ime-termux-arm64.tar.gz.sha256
-
   release:
-    needs: [build-linux, build-android]
+    needs: [build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -175,66 +82,16 @@ jobs:
         with:
           path: dist
           # No `name:` → downloads every artifact into dist/<artifact-name>/
-          # (linux x86_64 + linux aarch64 + termux arm64).
+          # (linux x86_64 + linux aarch64).
 
-      # Point install.sh at the tag being released, instead of leaving a
-      # constant for a human to remember. It used to require editing two places
-      # per Termux release -- this line and the constant below -- and forgetting
-      # either one is silent: the website keeps serving the previous tag, or a
-      # Linux release ships as a prerelease.
-      #
-      # The rewrite happens here rather than in build-android because this job
-      # publishes install.sh as a release asset, so the copy it uploads has to be
-      # the rewritten one. The commit also feeds the Pages deploy, which is what
-      # the documented install command actually fetches.
-      - name: Pin install.sh to this release tag
-        if: endsWith(github.ref, '-termux')
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          SH=website/static/install.sh
-          grep -q 'TERM_IME_TERMUX_TAG:-v' "$SH" || {
-            echo "::error::$SH no longer has a TERM_IME_TERMUX_TAG default"; exit 1; }
-          sed -i -E "s|(TERM_IME_TERMUX_TAG:-)v[^}]+|\1${TAG}|" "$SH"
-          grep -q "TERM_IME_TERMUX_TAG:-${TAG}\b" "$SH" || {
-            echo "::error::rewrite did not take effect"; exit 1; }
-          echo "install.sh now pins ${TAG}"
-
+      # Publish the tag. No prerelease logic any more: Termux was the only
+      # reason for it (an untested phone build must stay out of
+      # /releases/latest), and Termux support has been removed.
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*/term-ime-linux-*.tar.gz
             dist/*/term-ime-linux-*.tar.gz.sha256
-            dist/*/term-ime-termux-*.tar.gz
-            dist/*/term-ime-termux-*.tar.gz.sha256
             website/static/install.sh
           generate_release_notes: true
           draft: false
-          # Termux builds for Android arm64 and has never run on a device, so
-          # it must not be what `install.sh`'s "latest release" resolves to --
-          # that would hand phones a binary nothing has verified. Publishing
-          # Termux-only tags as prereleases keeps them out of /releases/latest.
-          #
-          # Keyed off the tag's shape, not a literal version: a literal had to be
-          # edited for every Termux release, and a forgotten edit published a
-          # phone build as a normal release.
-          prerelease: ${{ endsWith(github.ref, '-termux') }}
-
-      # The documented install command fetches install.sh from Pages, not from the
-      # release asset, so the rewritten constant only reaches users once it is on
-      # master. Failures here are reported but not fatal: the release and its
-      # assets are already published, and the next release will pin its own tag.
-      - name: Commit the pinned installer
-        if: endsWith(github.ref, '-termux')
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- website/static/install.sh; then
-            echo "install.sh already pinned to ${GITHUB_REF_NAME}; nothing to commit"
-            exit 0
-          fi
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add website/static/install.sh
-          git commit -m "chore(install): pin Termux tag to ${GITHUB_REF_NAME}"
-          git push origin HEAD:master

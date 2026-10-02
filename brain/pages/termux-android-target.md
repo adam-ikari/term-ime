@@ -5,36 +5,35 @@ category: decision
 status: active
 tags: [termux, android, build, cmake]
 created: "2026-09-30T05:15:49"
-updated: "2026-10-02T02:48:22"
+updated: "2026-10-02T03:28:04"
 ---
 
 <!-- compiled_truth -->
-## Termux：实验性支持，就此搁置（2026-10-02 用户定）
+## Termux 支持已删除（2026-10-02）
 
-**Termux 定位为实验性支持，工作到此为止。** 不要在没有新指示时重启它。
+不只是「搁置」，是**从仓库里删干净了**。
 
-搁置时的状态（不是「已验证」，是「已知的已知」）：
+删除范围：
+- `ci.yml`：`android-build` job + `install-test` 里三段 Termux 步骤
+  （模拟手机安装、tag 常量守卫、裸 bootstrap 安装）
+- `release.yml`：`build-android` job、termux 资产上传行、`prerelease` 逻辑
+  （它存在的唯一理由就是「未验证的手机产物不能进 /releases/latest」）、
+  tag 自动 pin 步骤（上一轮刚做的自动化，一并作废）
+- `website/static/install.sh`：平台检测、prefix/tag 分支、termux 资产、
+  校验段的 termux 分支、`pkg install curl` 提示
+- `website/docs/termux.md`：整页删除；sidebars 条目删除
+- `website/src/pages/index.tsx`：FAQ 那条、hero 提示、chip、
+  结构化数据里的 `Android arm64 via Termux`
+- `CMakeLists.txt`：五处 `if(ANDROID)`（依赖 toolchain 转发、opencc 宿主
+  工具、find_root_path_mode、liblog vs libutil、-static 分支），
+  以及解释这些分支存在的注释
 
-| 项 | 状态 |
-|---|---|
-| arm64 Android 二进制能否交叉编译 | ✅ CI 每次推送验证 |
-| 产物能否下载安装 | ✅ release 资产 + install.sh，实测装过 |
-| 发版是否还要手改 | ✅ 已自动化，两处版本字面量都去掉了 |
-| **arm64 Android 二进制能否实际运行** | ❌ **从未执行过** |
-| 交互层（软键盘/窗口遮挡/长按选词） | 明确不在范围内 |
+验证：Linux 重新 configure + 全量重建，产物仍 **statically linked**，
+二进制 4225007 → 4224803 字节（差 204，纯死代码），114 gtest + 7 套 py e2e 全绿，
+install.sh 用本地镜像完整装通且 `shellcheck -S style` 干净。
 
-唯一的技术空白是「arm64 编码 × bionic 运行时」这个组合没跑过。两个维度分别
-验证过（bionic 侧用 x86_64 Android 产物在模拟器里真跑；arm64 侧用 Linux/glibc
-交叉编译 + qemu-aarch64 真跑），所以残差风险判断为小。为它去挖 system 镜像的
-LP 元数据手工抽 bionic sysroot，属于对实验性目标的过度投入 —— 已评估，不做。
-
-下次有人提 Termux，先确认他是否知道这一条：**它能装、能跑起来这件事本身还没
-被验证过**，只是在两个维度上分别间接验证过。
-
-已知的范围外事项（提过、被明确排除，不要再翻出来做）：
-- 设置面板加「中/英文模式」项（软键盘没 Ctrl → 范围外，只面向键盘设备）
-- 软键盘交互适配
-- 为手机缺失的物理键补绑定
+**外部未动**：GitHub 上已发布的 `v1.1.7-termux` prerelease 及其 arm64 资产
+仍然存在。删除它是对外不可逆操作，未执行 —— 需要用户明确同意。
 
 
 ## Timeline
@@ -115,4 +114,10 @@ LP 元数据手工抽 bionic sysroot，属于对实验性目标的过度投入 �
   kind: decision
   summary: "Termux 收尾，工作区干净，master 已推送。当前 master 顶部是 5b84240（SIGWINCH 断言）。CI run 36955323672 全绿（6/6 job），e2e 含 resize 四条断言。fuzz 驱动的活性探测（十行）**未做** —— 用户质疑必要性后我判断收益仅限手动工具，且 5000 动作未出现挂起，代码内循环均有界。这是主动放弃，不是遗漏。"
   source: "2026-10-02 收尾"
+  affects: [termux-android-target]
+
+- time: 2026-10-02T03:28:04
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
   affects: [termux-android-target]
