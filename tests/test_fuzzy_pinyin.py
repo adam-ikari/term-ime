@@ -154,6 +154,18 @@ class Session:
         except OSError:
             pass
 
+    def resize(self, rows: int, cols: int, settle: float = 1.5) -> None:
+        """Change the pty geometry, which makes the kernel deliver SIGWINCH.
+
+        Deliberately does NOT read afterwards. A resize repaints the bar, and
+        draining that output here would leave the next bar() call with an empty
+        frame — indistinguishable from "the bar vanished", which is exactly the
+        failure this is meant to detect.
+        """
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ,
+                    struct.pack("HHHH", rows, cols, 0, 0))
+        time.sleep(settle)
+
     def bar(self):
         frame = strip_ansi(self.read(0.9))
         lines = [l for l in frame.splitlines() if re.search(r"\[拼\]", l)]
@@ -347,6 +359,55 @@ def run_escape_sequence_case():
         back = s.bar()
         check("escape: Up pages back", back == first,
               "%s vs %s" % (first[:3], back[:3]))
+    finally:
+        s.close()
+
+
+def run_resize_case():
+    """A resize must re-fit the candidate bar to the new width, mid-composition.
+
+    ui::FitCandidateBar picks the largest candidate count that fits untruncated,
+    so the same composition shows fewer candidates on a narrow terminal. That
+    makes the bar's width behaviour directly observable, which is the point:
+    SIGWINCH has to reach on_resize and trigger a repaint, otherwise the bar keeps
+    the previous geometry's layout and either truncates mid-word or leaves the
+    status row the wrong width.
+
+    The composition is held open across both resizes, so a handler that
+    re-rendered correctly but reset the IME would also fail here.
+
+    Note the previous code read the width from render_candidates_bar rather than
+    from the live tty; this is the first assertion that the resize path actually
+    observes the new size.
+    """
+    s = Session([])
+    try:
+        if not s.wait_for(r"\[EN\]|\[拼\]", seconds=120.0):
+            check("resize: ready", False)
+            return
+        s.send(b"\x01 ")                      # 中文
+        s.wait_for(r"\[拼\]", seconds=8.0)
+        s.send(b"shijie")
+        time.sleep(1.6)
+
+        wide = s.bar()
+        s.resize(30, 200)
+        still_wide = s.bar()
+        s.resize(30, 46)
+        narrow = s.bar()
+
+        check("resize: wide terminal shows the full page",
+              len(wide) == 9, "got %d: %s" % (len(wide), wide[:3]))
+        check("resize: narrowing drops candidates",
+              len(narrow) < len(wide),
+              "%d -> %d" % (len(wide), len(narrow)))
+        check("resize: widening restores them",
+              len(still_wide) == len(wide),
+              "%d -> %d -> %d" % (len(wide), len(still_wide), len(narrow)))
+        # The composition must survive the resize, or the bar would be empty
+        # rather than merely narrower.
+        check("resize: composition survives", len(narrow) > 0,
+              "%d candidates left" % len(narrow))
     finally:
         s.close()
 
@@ -573,6 +634,7 @@ def main() -> int:
     run_unswallowed_digit_case()
     run_escape_sequence_case()
     run_key_exhaustion_case()
+    run_resize_case()
 
     # 动态组合 schema 物化：部分开启时用户目录应有生成的 schema + prism
     s = Session(["n_l", "nose"])
