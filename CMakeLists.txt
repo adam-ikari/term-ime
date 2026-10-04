@@ -314,15 +314,19 @@ endforeach()
 # Bundled rime-data — copied to build/share/rime-data so the binary
 # finds schemas with no system rime-data-luna-pinyin package.
 #
-# The dictionary itself lives in its own repo (adam-ikari/term-ime-dict),
-# pulled in as a git submodule at data/rime-data-dict/ and locked to one
-# commit by whatever term-ime tag the build came from. What stays in this
-# repo is only term-ime's own schema/config; the dict, its essay.txt
-# frequency table (the preset vocabulary — without it,
-# use_preset_vocabulary: true in luna_pinyin.dict.yaml can't load word
-# frequencies, so candidates fall back to single chars sorted by Unicode
-# (rare chars like 㘈 rank ahead of 你) and phrases like "你好" are
-# missing) and the opencc t2s data all come from the submodule.
+# The dictionary data (dict.yaml + essay.txt + opencc) and the librime patches
+# that consume it now live in one place: the deps/librime submodule, under
+# deps/librime/dict/. Both used to be separate repos with separate version
+# coordinates — and because term-ime pinned an *untagged* librime commit, the
+# pair had no nameable version at all. One submodule, one tag.
+#
+# What stays in this repo is only term-ime's own schema/config; the fuzzy-pinyin
+# trimming logic edits those schemas, so it stays coupled to the code.
+#
+# essay.txt is not optional: it is the preset vocabulary that
+# use_preset_vocabulary: true loads word frequencies from. Without it candidates
+# fall back to single chars sorted by Unicode (rare chars like 㘈 rank ahead of
+# 你) and phrases like "你好" are missing entirely.
 # ----------------------------------------------------------------
 set(RIME_DATA_DEST ${CMAKE_BINARY_DIR}/share/rime-data)
 file(MAKE_DIRECTORY ${RIME_DATA_DEST})
@@ -331,10 +335,10 @@ foreach(RIME_DATA_FILE ${RIME_DATA_FILES})
     get_filename_component(NAME ${RIME_DATA_FILE} NAME)
     configure_file(${RIME_DATA_FILE} ${RIME_DATA_DEST}/${NAME} COPYONLY)
 endforeach()
-set(DICT_DIR ${CMAKE_SOURCE_DIR}/data/rime-data-dict)
+set(DICT_DIR ${CMAKE_SOURCE_DIR}/deps/librime/dict)
 if(NOT EXISTS ${DICT_DIR}/luna_pinyin.dict.yaml)
     message(FATAL_ERROR
-        "Dictionary submodule ${DICT_DIR} is empty. Run: git submodule update --init --recursive")
+        "Dictionary data missing at ${DICT_DIR}. Run: git submodule update --init --recursive")
 endif()
 configure_file(${DICT_DIR}/luna_pinyin.dict.yaml
                ${RIME_DATA_DEST}/luna_pinyin.dict.yaml COPYONLY)
