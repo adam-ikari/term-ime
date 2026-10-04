@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-04T23:00:31.334Z._
+_Auto-generated. Last updated 2026-10-04T23:08:17.548Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | <current best understanding — replace this with the real content>
@@ -12,7 +12,7 @@ _Auto-generated. Last updated 2026-10-04T23:00:31.334Z._
 - [event-loop-libuv-handle-ownership](pages/event-loop-libuv-handle-ownership.md) — category: decision | tags: [libuv, event-loop, memory-lifetime] | EventLoop 持有的 libuv 句柄（stdin/PTY 的 uv_poll/uv_stream 等）在 `uv_close` 调用时**立即把所有权 release 给 libuv**：close 回调是唯一合法的 `delete` 点。
 - [fuzzy-pinyin-toggle](pages/fuzzy-pinyin-toggle.md) — category: decision | tags: [rime, config, settings, schema] | ## 模糊音组的落点（2026-09-16）
 - [i18n-resource-resolution](pages/i18n-resource-resolution.md) — category: decision | tags: [i18n, translation, install, packaging] | **结论**：翻译资源按固定顺序解析，第一个含 `zh-CN.json` 的目录胜出：
-- [opencc-chain-for-simplified](pages/opencc-chain-for-simplified.md) — category: decision | tags: [rime, opencc, i18n, schema] | ## variants_ext.txt（2026-09-16）
+- [opencc-chain-for-simplified](pages/opencc-chain-for-simplified.md) — category: decision | tags: [rime, opencc, i18n, schema] | **opencc 变体字表 `variants_ext.txt` 的位置变了两次，现在在 librime fork 里。
 - [parser-stream-state-contract](pages/parser-stream-state-contract.md) — category: concept | tags: [parser, utf8, csi, osc] | `Parser` 的输入是**任意切分的字节流**——PTY 的 read 边界与转义序列边界无关。
 - [passthrough-query-architecture](pages/passthrough-query-architecture.md) — category: decision | tags: [terminal, parser, architecture, query] | ## 事实
 - [pty-outbound-write-queue](pages/pty-outbound-write-queue.md) — category: decision | tags: [pty, libuv, write, ime] | > 页面标题里的"永不丢弃"已被推翻（见时间线 reversal），当前结论以下面为准。
