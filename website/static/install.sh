@@ -68,10 +68,20 @@ fi
 
 # Resolve latest version via the GitHub API if not pinned.
 if [[ -z "$VERSION" ]]; then
+    # The `|| true` is load-bearing, not noise. Under `set -euo pipefail` the
+    # pipeline's non-zero status propagates into the assignment, and `set -e`
+    # aborts the script right there — so without it the "could not determine"
+    # branch below is unreachable in precisely the case it exists for: `grep`
+    # exits 1 on no match, which is what a failed or unexpected API response
+    # produces. The user then sees a bare `curl: (22) ... 403` and nothing else.
     VERSION="$(fetch "https://api.github.com/repos/${REPO}/releases/latest" \
-        | grep -m1 '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')"
+        | grep -m1 '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/' || true)"
     if [[ -z "$VERSION" ]]; then
-        echo "error: could not determine latest release" >&2
+        echo "error: could not determine the latest release." >&2
+        echo "       GitHub's API allows 60 unauthenticated requests per hour per IP," >&2
+        echo "       so this is usually rate limiting (shared/NAT/CI IPs run out fast)." >&2
+        echo "       Retry in a few minutes, or pin the version explicitly:" >&2
+        echo "           curl -fsSL <this script's URL> | bash -s -- --version v1.1.7" >&2
         exit 1
     fi
 fi
@@ -122,10 +132,12 @@ echo ">> Extracting"
 tar -xzf "${TMP}/${ASSET}" -C "$TMP"
 
 # Find the binary inside the extracted dir. Primary name is the short command `ti`.
-BIN="$(find "$TMP" -type f -name ti -perm -u+x | head -1)"
+# `|| true` for the same reason as the version lookup above: if `find` itself
+# errors, pipefail would abort before the empty-result check could explain it.
+BIN="$(find "$TMP" -type f -name ti -perm -u+x | head -1 || true)"
 if [[ -z "$BIN" ]]; then
     # Back-compat: older archives shipped the binary as `term-ime`.
-    BIN="$(find "$TMP" -type f -name term-ime -perm -u+x | head -1)"
+    BIN="$(find "$TMP" -type f -name term-ime -perm -u+x | head -1 || true)"
 fi
 if [[ -z "$BIN" ]]; then
     echo "error: binary not found in archive" >&2

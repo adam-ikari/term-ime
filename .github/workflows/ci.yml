@@ -189,6 +189,46 @@ jobs:
         test -f "$PREFIX/share/term-ime/translations/zh-CN.json"
         echo "OK: install-test passed"
 
+    - name: Installer explains an API failure instead of dying on a bare curl error
+      # This path was untested, so it silently rotted: `set -euo pipefail` made
+      # the "could not determine the latest release" branch unreachable (grep
+      # exits 1 on no match, which is what a 403 produces), so a user hitting
+      # GitHub's 60/hour unauthenticated limit saw only `curl: (22) ... 403`.
+      # Assert the message is actionable, not just that it fails.
+      run: |
+        set -uo pipefail
+        APISTUB="$(mktemp -d)"
+        cat > "$APISTUB/curl" <<'STUB'
+        #!/bin/bash
+        # Rate-limited API: exactly what I hit for real while publishing v1.1.7.
+        for a in "$@"; do
+          case "$a" in
+            https://api.github.com/*)
+              echo "curl: (22) The requested URL returned error: 403" >&2
+              exit 22 ;;
+          esac
+        done
+        exec /usr/bin/curl "$@"
+        STUB
+        chmod +x "$APISTUB/curl"
+
+        P="$(mktemp -d)/ime"
+        if PATH="$APISTUB:$PATH" bash website/static/install.sh --prefix "$P" \
+             2>/tmp/api-fail.log; then
+          echo "ERROR: installer continued past an API failure"
+          exit 1
+        fi
+
+        # The point of the test: the script's own diagnosis must reach the user.
+        grep -q "could not determine the latest release" /tmp/api-fail.log || {
+          echo "ERROR: the script's own error branch never ran (set -e killed it first)"; exit 1; }
+        grep -q "rate limiting" /tmp/api-fail.log || {
+          echo "ERROR: message does not name the likely cause"; exit 1; }
+        grep -q -- "--version" /tmp/api-fail.log || {
+          echo "ERROR: message offers no escape hatch"; exit 1; }
+        test ! -f "$P/bin/ti" || { echo "ERROR: installed something anyway"; exit 1; }
+        echo "OK: install-api-failure-test passed"
+
     - name: Installer refuses to skip checksum on network errors
       # A flaky TLS read used to be indistinguishable from "no sidecar
       # published", silently downgrading an integrity check to nothing. Only a
