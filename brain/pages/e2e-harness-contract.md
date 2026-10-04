@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-02T11:52:10"
+updated: "2026-10-04T23:00:18"
 ---
 
 <!-- compiled_truth -->
@@ -145,6 +145,57 @@ fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kil
 也一并写进去，避免被读成「跑过了所以没问题」。
 
 
+## 死错误路径：`set -euo pipefail` 会让 `if [[ -z "$X" ]]` 检查形同虚设（2026-10-04）
+
+发 v1.1.7 时真撞上 GitHub API 限流，用户看到的是一行裸报错：
+
+    curl: (22) The requested URL returned error: 403
+
+一开始以为是「提示太薄」，去加提示就行。**真因是那段提示根本到不了**：
+
+    set -euo pipefail                        # 第 14 行
+    VERSION="$(fetch "$API" | grep -m1 '"tag_name"' | sed ...)"
+    if [[ -z "$VERSION" ]]; then
+        echo "error: could not determine latest release"   # 死代码
+        exit 1
+    fi
+
+`grep` 无匹配时退出 1 → `pipefail` 让非零冒泡进赋值 → `set -e` 当场杀掉脚本。
+所以那段 `if` **恰好在它唯一该生效的场景里不可达**。
+
+`find ... | head -1` 形式的取二进制检查同理：当 `find` 自己出错时也死
+（`find` 对不存在的目录退出 1）。三处补 `|| true`。
+
+### 判据：凡是有「失败时给用户看的话」的分支，就先问它可不可达
+
+这是本会话遇到的**第三类**空转断言/死代码形态：
+
+| 形态 | 症状 | 判据 |
+|---|---|---|
+| 同义反复断言 | 永远通过 | 观测量在有无 bug 时是否不同 |
+| 行为等价的变异 | 变异通过 | 变异是否真的改变行为 |
+| **死错误路径** | **报错信息永远不显示** | **失败时用户实际看到什么，实测一次** |
+
+第三类最容易漏，因为它长得像「已处理错误」—— 代码在、消息写了、有 `exit 1`，
+读起来很完整。唯一能发现的方式是**拿 stub 让它真的失败一次，看用户实际看到什么**。
+
+### CI 没跑过的路径就是会烂
+
+`install-test` 全程 `--version v9.9.9` 打本地 HTTP server，**版本解析那一步一次都
+没执行过**。而它恰恰是决定用户拿到哪个版本的那一步。
+
+新增一步：stub curl 让 API 返回 403（就是我真撞到的那次），断言的不只是「失败」，
+而是三件事 —— 脚本自己的诊断分支确实执行了、消息点名了原因、消息给了逃生口。
+变异验证：去掉 `|| true` 后以
+`ERROR: the script own error branch never ran` 失败。
+
+### 没改的部分也要说清楚
+
+版本解析仍走 API。它是唯一事实来源，1 次/安装够用；真正的缺陷是失败时不可诊断，
+这一点修好就够。为了「更稳」再加一层 tag 常量或 fallback，是把一个已修好的问题
+重新复杂化。
+
+
 ## Timeline
 
 - time: 2026-09-15T03:17:45
@@ -268,6 +319,18 @@ fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kil
   affects: [e2e-harness-contract]
 
 - time: 2026-10-02T11:52:10
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-04T22:59:52
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-04T23:00:18
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
