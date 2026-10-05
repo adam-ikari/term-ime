@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-04T23:00:18"
+updated: "2026-10-05T02:27:38"
 ---
 
 <!-- compiled_truth -->
@@ -196,6 +196,39 @@ fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kil
 重新复杂化。
 
 
+## 文档声称的覆盖 ≠ 代码实际跑的覆盖（2026-10-05）
+
+`tests/fuzz_drive.py` 的文档（brain 页面 + 我自己的 commit message）都写着它会跑
+「四个定向探针」。**实际没有**：驱动只 import 了 `monkey_sequences`，然后用
+`ms.weighted_action(rng, bias)` 生成随机序列，一次都没引用 `ms.PROBES`
+（定义在 `monkey_sequences.py:340`，只在它自己的 `__main__` 里用过）。
+
+所以那句「fuzz 驱动 + 4 个定向探针」是假的。这与之前记的空转断言同族，但形态
+更新：**不是断言写错，而是文档把没跑的覆盖写成了跑了**。
+
+已修：`run_probes()` 每次调用先跑完 `ms.PROBES`，再进随机轮次；汇总行分别报
+「N/M probes clean, K/J random rounds clean」，这样「探针通过」这句话才对应探针
+真的执行过。
+
+### 判据
+
+**任何「覆盖了 X」的陈述，都要能在代码里指出 X 在哪一行被执行。**
+指不出来就当作没覆盖。这次是commit message 自己骗了自己 —— 而 commit message
+恰恰是最容易把「打算做」写成「做了」的地方。
+
+### 变异验证（顺带重新确认了那个已知盲点）
+
+| 替身 | 探针结果 |
+|---|---|
+| `kill -SEGV` | 4/4 报 died |
+| `exit 3` | 0/4 干净 |
+| `sleep 600` | **4/4 干净** |
+
+第三行是**故意留着不修的**：挂起但没退出的进程读作 ok。修它需要 liveness 探针，
+而仓库里所有循环本身有界，所以只作为已知局限记录。这次是重新确认它仍然漏，
+没有把它写成已覆盖。
+
+
 ## Timeline
 
 - time: 2026-09-15T03:17:45
@@ -331,6 +364,18 @@ fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kil
   affects: [e2e-harness-contract]
 
 - time: 2026-10-04T23:00:18
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-05T02:27:23
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-05T02:27:38
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
