@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
-"""Fuzz driver: random action sequences into a real term-ime PTY.
+"""Fuzz driver: targeted probes plus random sequences into a real term-ime PTY.
 
 tests/monkey_sequences.py already models the action space (letters, digits,
-Ctrl+A chords, malformed CSI, arrows, resize, waits) but nothing drives it —
+Ctrl+A chords, malformed CSI, arrows, resize, waits) but nothing drove it —
 it was only ever used interactively through the MCP tools, and it is not in CI.
 
-This imports that model rather than reimplementing it. The invariant checked is
-the blunt one that matters most: **the process must survive the sequence**. A
-crash or an unexpected exit is a finding regardless of what the user-visible
-symptom turns out to be.
+This imports that model rather than reimplementing it, and runs two things:
+
+  1. Every targeted probe in ms.PROBES on every invocation. These are
+     hand-written sequences aimed at specific past breakages (escape sequences
+     torn apart, mode toggled mid-composition, Esc inside the settings panel,
+     exit hanging). Random sequences reach those states only by luck.
+  2. Random sequences via ms.weighted_action, alternating en/zh bias.
+
+The invariant checked is the blunt one that matters most: **the process must
+survive the sequence**. A crash or an unexpected exit is a finding regardless of
+what the user-visible symptom turns out to be.
 
 WHAT THIS DOES NOT CATCH — read before trusting a clean run:
 
@@ -22,8 +29,9 @@ WHAT THIS DOES NOT CATCH — read before trusting a clean run:
     a crash on shutdown or on the first keystroke after a long idle is invisible.
 
 Validated by mutation, since a survival check that cannot fail is worthless:
-pointing BIN at `exit 3` reports "exited at step 0", and pointing it at a
-`kill -SEGV` reports "signal 11". A stand-in that merely hangs is reported ok,
+pointing BIN at `exit 3` reports "exited at step 0", pointing it at a
+`kill -SEGV` reports "signal 11" (both make all four probes report died), and a
+stand-in that merely hangs is reported ok,
 which is the known gap above.
 
 Usage:
@@ -141,6 +149,31 @@ def WTERMSIG(st):
     return os.WTERMSIG(st) if hasattr(os, "WTERMSIG") else (st & 0x7F)
 
 
+def run_probes():
+    """Run the targeted probe sequences from the model, before any random rounds.
+
+    These are hand-written sequences aimed at specific past breakages (escape
+    sequences torn apart, mode toggled mid-composition, Esc inside the settings
+    panel, exit hanging). Random sequences reach those states only by luck, so
+    without this step the driver would look thorough while covering none of them
+    deliberately.
+
+    Every probe runs on every invocation: the point is that they are cheap and
+    that a claim of "probes passed" means the probes actually executed.
+    """
+    findings = []
+    for name, acts in ms.PROBES.items():
+        home = "/tmp/fuzz_probe_%s" % name
+        os.system("rm -rf %s && mkdir -p %s" % (home, home))
+        status, detail = drive(acts, home)
+        if status == "ok":
+            print("  ok   probe %s (%d actions)" % (name, len(acts)), flush=True)
+        else:
+            print("  %-4s probe %s -- %s" % (status, name, detail), flush=True)
+            findings.append((name, acts, detail))
+    return findings
+
+
 def main():
     rounds = int(sys.argv[1]) if len(sys.argv) > 1 else 25
     steps = int(sys.argv[2]) if len(sys.argv) > 2 else 60
@@ -149,6 +182,8 @@ def main():
     if not Path(BIN).exists():
         print("binary not found:", BIN)
         return 1
+
+    probe_failures = run_probes()
 
     findings = []
     for r in range(rounds):
@@ -168,11 +203,17 @@ def main():
             print("  %-4s %s -- %s" % (status, label, detail), flush=True)
             findings.append((seed, bias, acts, detail))
 
-    print("\n%d/%d rounds clean" % (rounds - len(findings), rounds))
+    total_probes = len(ms.PROBES)
+    print("\n%d/%d probes clean, %d/%d random rounds clean"
+          % (total_probes - len(probe_failures), total_probes,
+             rounds - len(findings), rounds))
+    for name, acts, detail in probe_failures:
+        print("\n=== PROBE FINDING %s: %s" % (name, detail))
+        print("    " + " ".join(repr(a) for a in acts))
     for seed, bias, acts, detail in findings:
         print("\n=== FINDING seed=%d bias=%s: %s" % (seed, bias, detail))
         print("    " + " ".join(repr(a) for a in acts))
-    return 1 if findings else 0
+    return 1 if (findings or probe_failures) else 0
 
 
 if __name__ == "__main__":
