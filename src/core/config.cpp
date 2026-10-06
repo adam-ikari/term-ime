@@ -111,9 +111,21 @@ AppConfig AppConfig::from_json(const json& j) {
     cfg.rime_user_data_dir = j.value("rime_user_data_dir", "");
 
     cfg.show_mode_indicator = j.value("show_mode_indicator", true);
-    cfg.candidate_bar_position = j.value("candidate_bar_position", "bottom");
+    // Sanitize to the two legal positions; unknown/malformed -> "bottom", and a
+    // non-string value sanitizes rather than throwing the whole config away.
+    cfg.candidate_bar_position = "bottom";
+    if (j.contains("candidate_bar_position") && j["candidate_bar_position"].is_string()) {
+        const std::string pos = j["candidate_bar_position"].get<std::string>();
+        if (pos == "top") cfg.candidate_bar_position = "top";
+    }
 
-    cfg.log_level = j.value("log_level", "warn");
+    // Sanitize log_level to the legal set; anything else (unknown string or
+    // wrong type) -> "warn" without discarding the config.
+    cfg.log_level = "warn";
+    if (j.contains("log_level") && j["log_level"].is_string()) {
+        const std::string lvl = j["log_level"].get<std::string>();
+        if (lvl == "debug" || lvl == "info" || lvl == "error") cfg.log_level = lvl;
+    }
     cfg.log_file = j.value("log_file", "");
 
     return cfg;

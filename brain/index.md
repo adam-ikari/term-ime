@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-06T15:56:45.419Z._
+_Auto-generated. Last updated 2026-10-06T16:11:00.173Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：越界钳制、坏类型按缺省（不丢弃整份文件）。

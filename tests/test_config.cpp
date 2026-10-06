@@ -210,3 +210,58 @@ TEST_F(ConfigTest, ShellResolutionPrefersExplicitValue) {
     std::remove(path.c_str());
     if (!restore.empty()) setenv("SHELL", restore.c_str(), 1);
 }
+
+// M1: log_level is one of debug/info/warn/error. An unknown string or a
+// non-string value falls back to the default WITHOUT discarding the rest of
+// the file.
+TEST_F(ConfigTest, LogLevelIsSanitized) {
+    const std::string path = "/tmp/term-ime-test-loglevel.json";
+    auto load = [&](const std::string& body) {
+        {
+            std::ofstream out(path);
+            out << body;
+        }
+        return AppConfig::load(path);
+    };
+
+    EXPECT_EQ(load(R"({"log_level": "debug"})").log_level, "debug");
+    EXPECT_EQ(load(R"({"log_level": "info"})").log_level, "info");
+    EXPECT_EQ(load(R"({"log_level": "warn"})").log_level, "warn");
+    EXPECT_EQ(load(R"({"log_level": "error"})").log_level, "error");
+    EXPECT_EQ(load(R"({"log_level": "trace"})").log_level, "warn");   // unknown -> default
+    EXPECT_EQ(load(R"({"log_level": ""})").log_level, "warn");         // blank -> default
+    EXPECT_EQ(load(R"({"log_level": 5})").log_level, "warn");          // wrong type -> default
+    EXPECT_EQ(load(R"({"log_level": null})").log_level, "warn");
+
+    // A malformed level must not discard a sibling field.
+    AppConfig survived = load(R"({"log_level": "chatty", "shell": "/bin/zsh"})");
+    EXPECT_EQ(survived.log_level, "warn");
+    EXPECT_EQ(survived.shell, "/bin/zsh");
+
+    std::remove(path.c_str());
+}
+
+// M1: candidate_bar_position is "bottom" or "top". Anything else falls back to
+// the default WITHOUT discarding the rest of the file.
+TEST_F(ConfigTest, CandidateBarPositionIsSanitized) {
+    const std::string path = "/tmp/term-ime-test-barpos.json";
+    auto load = [&](const std::string& body) {
+        {
+            std::ofstream out(path);
+            out << body;
+        }
+        return AppConfig::load(path);
+    };
+
+    EXPECT_EQ(load(R"({"candidate_bar_position": "bottom"})").candidate_bar_position, "bottom");
+    EXPECT_EQ(load(R"({"candidate_bar_position": "top"})").candidate_bar_position, "top");
+    EXPECT_EQ(load(R"({"candidate_bar_position": "middle"})").candidate_bar_position, "bottom");
+    EXPECT_EQ(load(R"({"candidate_bar_position": ""})").candidate_bar_position, "bottom");
+    EXPECT_EQ(load(R"({"candidate_bar_position": 3})").candidate_bar_position, "bottom");
+
+    AppConfig survived = load(R"({"candidate_bar_position": "side", "shell": "/bin/zsh"})");
+    EXPECT_EQ(survived.candidate_bar_position, "bottom");
+    EXPECT_EQ(survived.shell, "/bin/zsh");
+
+    std::remove(path.c_str());
+}

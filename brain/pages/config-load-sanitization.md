@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [config, robustness, rime]
 created: "2026-09-16T05:03:10"
-updated: "2026-10-06T15:55:11"
+updated: "2026-10-06T16:11:00"
 ---
 
 <!-- compiled_truth -->
@@ -14,15 +14,18 @@ updated: "2026-10-06T15:55:11"
 落地范围（`src/core/config.cpp` `from_json`）：
 - **`max_candidates`**：钳制到 [1,9]（单数字选择键 "123456789" 的合法范围）；
   非整数（如字符串）按缺省 9，兼容旧键 `page_size`。越界或坏类型不会让整份配置失效。
+- **`log_level`**：枚举校验 debug/info/warn/error，越界字符串或非字符串按缺省 "warn"。
+- **`candidate_bar_position`**：枚举校验 "bottom"/"top"，越界/坏类型按缺省 "bottom"。
 - 其余字段（shell / languages / active_language / ui_language / dict_path /
-  extra_dicts / fuzzy_groups / rime_*_data_dir / show_mode_indicator /
-  candidate_bar_position / log_level / log_file）目前仅做"存在则取、缺则默认"，
-  未做枚举校验或路径存在性检查。
+  extra_dicts / fuzzy_groups / rime_*_data_dir / show_mode_indicator / log_file）
+  仅做"存在则取、缺则默认"，未做枚举校验或路径存在性检查（rime_*_data_dir 留空
+  合法，由 rime 自行解析，不做存在性强制）。
 
 `load()` 的两个"用默认值"分支（文件不存在、解析抛异常）统一
 `return from_json(json::object())`，避免默认值在多处复制漂移。
 
-M1 完成定义未达成：`log_level`、`candidate_bar_position` 等字段待补消毒。
+测试：`tests/test_config.cpp` MaxCandidatesIsClampedAndTypeSafe /
+LogLevelIsSanitized / CandidateBarPositionIsSanitized 三组覆盖越界/坏类型/sibling 存活。
 
 
 ## Timeline
@@ -43,4 +46,10 @@ M1 完成定义未达成：`log_level`、`candidate_bar_position` 等字段待�
   kind: decision
   summary: "填实占位符：消毒原则 + 已落地范围 + 未覆盖字段"
   source: "2026-10-06 现状清理"
+  affects: [config-load-sanitization]
+
+- time: 2026-10-06T16:11:00
+  kind: decision
+  summary: "log_level/candidate_bar_position 补消毒，M1 枚举字段全覆盖"
+  source: "2026-10-06 M1 推进"
   affects: [config-load-sanitization]
