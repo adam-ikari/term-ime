@@ -1,11 +1,11 @@
 ---
 id: release-publish-flow
-title: "发布流程：tag → release.yml 出包 → formula 双写（仓库副本 + homebrew-tap）"
+title: "发布流程：tag → release.yml 出包 → tarball + install.sh（v1.1.6 起停 Homebrew）"
 category: concept
 status: active
 tags: [release, ci]
 created: "2026-09-29T00:41:51"
-updated: "2026-09-29T05:36:28"
+updated: "2026-10-06T15:56:45"
 ---
 
 <!-- compiled_truth -->
@@ -73,4 +73,10 @@ updated: "2026-09-29T05:36:28"
   kind: decision
   summary: "v1.1.6 起不做 Homebrew 渠道，发布流程去掉 formula 双写"
   source: "2026-09-29 用户决定不做 brew 渠道"
+  affects: [release-publish-flow]
+
+- time: 2026-10-06T15:56:45
+  kind: note
+  summary: "title 修正：去掉陈旧的 'formula 双写（仓库副本 + homebrew-tap）'，与 compiled_truth 正文（v1.1.6 起停 Homebrew）一致"
+  source: "2026-10-06 现状清理"
   affects: [release-publish-flow]
