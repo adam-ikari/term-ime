@@ -6,7 +6,7 @@ sidebar_position: 4
 
 模糊音让你用「不标准的读音」也能打出目标字词。平翘舌不分、n 和 l 不分、前后鼻音不分，都可以让它认。term-ime 把常见的口音做成可逐组开关的模糊音。
 
-term-ime 自带明月拼音词库，共 70655 词组。词库与 librime 补丁在同一仓库维护（[adam-ikari/librime](https://github.com/adam-ikari/librime) 的 `dict/` 目录），随 term-ime 一起打包。模糊音在这套词库的读音上叠加变换，不改动词库本身。
+term-ime 自带明月拼音词库，共 70655 词组。词库与 librime 补丁在同一仓库维护（[adam-ikari/librime-stl](https://github.com/adam-ikari/librime-stl) 的 `dict/` 目录），随 term-ime 一起打包。模糊音在这套词库的读音上叠加变换，不改动词库本身。
 
 ## 模糊音开关
 

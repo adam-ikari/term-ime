@@ -5,24 +5,25 @@ category: decision
 status: active
 tags: [dict, rime, release]
 created: "2026-09-29T07:55:48"
-updated: "2026-10-07T02:37:23"
+updated: "2026-10-07T04:03:39"
 ---
 
 <!-- compiled_truth -->
 ## 词库已并入 librime fork 的 dict/（submodule 9→8，rime 栈一个 tag）
 
 **结论**：`term-ime-dict` 独立仓已归档，词库与简繁数据并入
-[adam-ikari/librime](https://github.com/adam-ikari/librime) 的 `dict/` 目录，
-与 librime 补丁同 tag。term-ime 的 submodule 从 9 个降到 8 个。
+[adam-ikari/librime-stl](https://github.com/adam-ikari/librime-stl)（原名
+`librime`，2026-10-07 改名）的 `dict/` 目录，与 librime 补丁同 tag。term-ime 的
+submodule 从 9 个降到 8 个。fork 的 parent 仍是上游 `rime/librime`。
 
 **为什么改**：原先是三个坐标，而 librime 那侧**锁在一个没有 tag 的 commit**
 （`1.16.1-10-g1d7c2618`），于是「term-ime 用的哪个 librime」无法表述，只能靠
 `git describe` 反推；词库那边却只有 `v1.0.0`。两个坐标要靠人脑记住配套关系。
 并成一个 tag 后不存在「装了新词库但 librime 没跟上」这种组合。
 
-新 tag `v1.1.7-rime-stack`（= `64eda4c7`），与 term-ime v1.1.7 配套，且
-master 已快进到同一 commit —— 不是停在侧分支上。pin 停在侧分支是脆弱的：
-分支被删或 force-push 就会断，而 submodule 只会按 SHA 找。
+**为什么改名 librime-stl**：fork 在上游 `rime/librime` 基础上带 term-ime 专用
+补丁（drop Boost、std::regex 等），已不是纯上游；改名避免与上游同名混淆。fork
+关系保留，日后 `git merge upstream` 照旧。
 
 ## 授权（2026-10-07 修正：先前 MIT 整体声明是错的）
 
@@ -30,14 +31,14 @@ master 已快进到同一 commit —— 不是停在侧分支上。pin 停在侧
 - `luna_pinyin.dict.yaml`, `opencc/` — MIT，adam-ikari 原创
 - `essay.txt` — **派生自 rime/rime-essay，LGPL-3.0**（不是 MIT）
 
-先前 compiled_truth 说「词库是 MIT，MIT 可并入 LGPL」——这把 essay.txt 也
-算进 MIT 是错的：essay.txt 是 rime-essay 数据，上游授权 LGPL-3.0。修正后
-`dict/LICENSE` 改为按文件分别标注，`dict/README.md` 同步。LGPL-3.0 数据放
-LGPL 的 librime fork 下本就兼容，无需额外处理；只是不能整体宣称 MIT。
+先前说「词库是 MIT，MIT 可并入 LGPL」——把 essay.txt 也算进 MIT 是错的：它是
+rime-essay 数据，上游 LGPL-3.0。修正后 `dict/LICENSE` 按文件分别标注，
+`dict/README.md` 同步。LGPL-3.0 数据放 LGPL 的 librime fork 下本就兼容，只是
+不能整体宣称 MIT。
 
-**授权无冲突**：luna_pinyin.dict.yaml/opencc 是 adam-ikari 原创 MIT，与
-librime LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与
-librime 本体 LGPL 协同无冲突，但 LICENSE 必须按文件分开声明。
+**授权无冲突**：luna_pinyin.dict.yaml/opencc 是 adam-ikari 原创 MIT，与 librime
+LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与 librime 本体 LGPL
+协同无冲突，但 LICENSE 必须按文件分开声明。
 
 **同步上游的代价**：本仓不再是干净的 fork。`dict/` 是上游不存在的目录，所以
 `git merge upstream/master` 只会碰 librime 自己的文件。步骤写在 `dict/README.md`。
@@ -86,4 +87,16 @@ librime 本体 LGPL 协同无冲突，但 LICENSE 必须按文件分开声明。
   kind: decision
   summary: "essay 升级到 rime-essay 官方最新版（297731→442688 条）；修正授权认知：essay.txt 是 LGPL-3.0 非 MIT"
   source: "2026-10-07 词库优化"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-07T04:03:05
+  kind: note
+  summary: "fork 仓已从 adam-ikari/librime 改名为 adam-ikari/librime-stl（fork 关系保留，parent 仍是 rime/librime）；.gitmodules 与 website/docs/fuzzy.md 引用同步更新"
+  source: "2026-10-07 仓库改名"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-07T04:03:39
+  kind: decision
+  summary: "更新 compiled_truth：fork 仓已改名为 librime-stl，同步 essay 升级与授权修正"
+  source: "2026-10-07 仓库改名 + essay 升级 + 授权修正"
   affects: [dictionary-repo-split]
