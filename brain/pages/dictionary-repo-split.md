@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [dict, rime, release]
 created: "2026-09-29T07:55:48"
-updated: "2026-10-07T08:18:50"
+updated: "2026-10-07T09:29:48"
 ---
 
 <!-- compiled_truth -->
@@ -149,4 +149,10 @@ LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与 librime
   kind: decision
   summary: "修正 essay 定位：它是候选主力源不是仅赋权；裁剪不可行。实测冷启动 6.5s"
   source: "2026-10-07 优化可行性调查"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-07T09:29:48
+  kind: note
+  summary: "MIT 授权字库整合评估（2026-10-07）：pypinyin 真增量 9428 条、jieba∩pypinyin 7940 条（1.8%）且含错别字，chinese-xinhua 0 增量（已覆盖/无拼音）；rime-ice 价值最大但 GPL-3.0 被否决（改许可证）。结论：MIT 字库对候选质量无可观增益，不整合"
+  source: "2026-10-07 字库源调查"
   affects: [dictionary-repo-split]

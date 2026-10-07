@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-07T08:18:50.646Z._
+_Auto-generated. Last updated 2026-10-07T09:29:48.797Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：越界钳制、坏类型按缺省（不丢弃整份文件）。
@@ -18,6 +18,7 @@ _Auto-generated. Last updated 2026-10-07T08:18:50.646Z._
 - [parser-stream-state-contract](pages/parser-stream-state-contract.md) — category: concept | tags: [parser, utf8, csi, osc] | `Parser` 的输入是**任意切分的字节流**——PTY 的 read 边界与转义序列边界无关。
 - [passthrough-query-architecture](pages/passthrough-query-architecture.md) — category: decision | tags: [terminal, parser, architecture, query] | ## 事实
 - [pty-outbound-write-queue](pages/pty-outbound-write-queue.md) — category: decision | tags: [pty, libuv, write, ime] | > 页面标题里的"永不丢弃"已被推翻（见时间线 reversal），当前结论以下面为准。
+- [release-binary-strip](pages/release-binary-strip.md) — category: decision | tags: [build, size, release] | 发布二进制**默认 strip**，实测 **5.4M → 4.2M（-22%）**。
 - [release-publish-flow](pages/release-publish-flow.md) — category: concept | tags: [release, ci] | 发布 = 打 tag 触发 CI 出包，GitHub Release 就是全部发布产物。
 - [review-fix-wide-char](pages/review-fix-wide-char.md) — category: decision | tags: [parser, renderer, review, wide-char] | 评审修复轮(4 commits):宽字符占右半格+参数化光标 CSI 上限+中文组合态透传控制字节+Pty::write 总上限。
 - [rime-data-dir-discovery](pages/rime-data-dir-discovery.md) — category: decision | tags: [rime, packaging, install, release] | **结论（v1.1.4 起）**：`RimeIme::initialize()` 的 shared_data_dir 候选顺序，第一个"带标记"的目录胜出，与列表顺序无关；一个标记都没有时回落为第一个存在的目录（`select_shared_data_dir`，`src/ime/
