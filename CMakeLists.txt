@@ -10,7 +10,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 # -Os + -ffunction-sections/-fdata-sections + --gc-sections drops the fully-static
 # binary from ~8.1M to ~6.1M (FTXUI/librime unused modules discarded); -flto then
 # removes cross-TU unreferenced template instantiations (esp. std::regex) for
-# ~6.1M -> ~6.1M (stripped ~4.9M). Function/data sections + gc-sections are
+# ~6.1M -> 4.2M once the release binary is stripped (see STRIP_RELEASE below).
+# Function/data sections + gc-sections are
 # also added to the final link for the term-ime executable below.
 set(CMAKE_CXX_FLAGS_RELEASE "-Os -ffunction-sections -fdata-sections -flto")
 set(CMAKE_C_FLAGS_RELEASE "-Os -ffunction-sections -fdata-sections -flto")
@@ -276,6 +277,17 @@ target_link_libraries(term-ime
 # so the binary has zero runtime shared-library deps (only the dynamic loader).
 # forkpty (libutil) is part of static glibc, so -lutil resolves to libutil.a.
 target_link_options(term-ime PRIVATE -static -Wl,--gc-sections)
+
+# Strip the release binary: symbol/debug tables are ~1.2M of the 5.4M output and
+# serve no runtime purpose (5.4M -> 4.2M). User crash reports land on the
+# released binary, not a symbolised one, so stripping costs nothing there.
+# Opt out with -DSTRIP_RELEASE=OFF to keep symbols when debugging a release build.
+option(STRIP_RELEASE "Strip symbols from the release binary" ON)
+if(STRIP_RELEASE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_custom_command(TARGET term-ime POST_BUILD
+        COMMAND ${CMAKE_STRIP} $<TARGET_FILE:term-ime>
+        COMMENT "Stripping term-ime release binary")
+endif()
 
 # ============================================================
 # Install
