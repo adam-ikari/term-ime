@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [dict, rime, release]
 created: "2026-09-29T07:55:48"
-updated: "2026-10-07T04:03:39"
+updated: "2026-10-07T07:34:00"
 ---
 
 <!-- compiled_truth -->
@@ -15,11 +15,6 @@ updated: "2026-10-07T04:03:39"
 [adam-ikari/librime-stl](https://github.com/adam-ikari/librime-stl)（原名
 `librime`，2026-10-07 改名）的 `dict/` 目录，与 librime 补丁同 tag。term-ime 的
 submodule 从 9 个降到 8 个。fork 的 parent 仍是上游 `rime/librime`。
-
-**为什么改**：原先是三个坐标，而 librime 那侧**锁在一个没有 tag 的 commit**
-（`1.16.1-10-g1d7c2618`），于是「term-ime 用的哪个 librime」无法表述，只能靠
-`git describe` 反推；词库那边却只有 `v1.0.0`。两个坐标要靠人脑记住配套关系。
-并成一个 tag 后不存在「装了新词库但 librime 没跟上」这种组合。
 
 **为什么改名 librime-stl**：fork 在上游 `rime/librime` 基础上带 term-ime 专用
 补丁（drop Boost、std::regex 等），已不是纯上游；改名避免与上游同名混淆。fork
@@ -43,16 +38,27 @@ LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与 librime
 **同步上游的代价**：本仓不再是干净的 fork。`dict/` 是上游不存在的目录，所以
 `git merge upstream/master` 只会碰 librime 自己的文件。步骤写在 `dict/README.md`。
 
-## essay.txt 升级（2026-10-07）
+## essay.txt 升级 + 全部转简体（2026-10-07）
 
-从 rime-essay 官方最新版更新：297731 条 → 442688 条（+48%，体积 3.7M→5.7M）。
-新增词条大量是繁体高频词（一個、這個、我們、因爲…），但 `luna_pinyin_simp`
-方案的 simplifier + uniquifier 把繁体候选转简体并去重，简体候选排序不退化
-——`tests/test_simplified_candidates.py` 40/40 全过（你→你好、能/可/长/张/学/想/过
-均简体字优先，繁体词频未干扰）。
+两步：先升级到 rime-essay 官方最新版（297731 → 442688 条，+48%），再全部
+转简体并去重。最终 **437873 条**（合并 4892 条重复），体积 5.6M。
 
-**代价**：essay 5.7M 让首次部署编译更慢（e2e 部署段从 ~30s 变 ~137s），
-加重 [[startup-readiness-window]]。体积换召回率，可接受。
+主词库 `luna_pinyin.dict.yaml` 同步转简体：**67164 条** (词,拼音) 对（去重 3495）。
+两库内容现在本身已是简体，`luna_pinyin_simp` 的 simplifier 退化为幂等护栏。
+
+**转换踩的两个坑（改词库必看）**：
+
+1. **`乾`（gān 干燥 / qián 乾隆）与 `薹`（tái 蒜薹）是合法简体字**，不是繁体
+   残留，但 opencc `t2s` 会把它们误转成 `干`/`苔`。必须逐字保护，否则输 `qian`
+   出「干」而非「乾」。踩过一次：`test_simplified_candidates.py` 38/40（tai、qian
+   两处 FAIL），加保护字后 40/40。
+2. **一简对多繁**：`乾/幹/榦/汫` 都归 `干`，`乾` 自身还有 gan/qian 两读。转换必须
+   按 (词,拼音) 对去重、同词多读音保留为多行；若只按词去重合并成单一读音，输入
+   另一读音就打不出该字。
+
+**验证**：ctest 120/120；`test_simplified_candidates.py` 40/40（繁体 0 残留，
+`乾`/`薹`/`芸`/`沪`/`腺` 等合法简体字保留）；`test_e2e.py` 5/5。新增的繁体高频词
+（一個、這個、我們…）转简体后与原生简体词合并，未干扰简体候选排序。
 
 ## 保留不变的边界
 
@@ -60,7 +66,7 @@ LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与 librime
 模糊音裁剪逻辑改的是 schema，与代码强耦合，不搬。
 
 `essay.txt` 是 preset vocabulary，缺了候选会退化成按 Unicode 排序的单字
-（生僻字排前面）、词组出不来。
+（生僻字排前面）、词组也出不来。
 
 
 ## Timeline
@@ -99,4 +105,10 @@ LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与 librime
   kind: decision
   summary: "更新 compiled_truth：fork 仓已改名为 librime-stl，同步 essay 升级与授权修正"
   source: "2026-10-07 仓库改名 + essay 升级 + 授权修正"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-07T07:34:00
+  kind: decision
+  summary: "词库全部转简体：essay 437873 条、主词库 67164 条；两库踩坑（乾/薹 保护、一简对多繁）"
+  source: "2026-10-07 清理繁体词汇"
   affects: [dictionary-repo-split]
