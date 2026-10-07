@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [dict, rime, release]
 created: "2026-09-29T07:55:48"
-updated: "2026-10-07T07:34:00"
+updated: "2026-10-07T08:18:50"
 ---
 
 <!-- compiled_truth -->
@@ -19,6 +19,30 @@ submodule 从 9 个降到 8 个。fork 的 parent 仍是上游 `rime/librime`。
 **为什么改名 librime-stl**：fork 在上游 `rime/librime` 基础上带 term-ime 专用
 补丁（drop Boost、std::regex 等），已不是纯上游；改名避免与上游同名混淆。fork
 关系保留，日后 `git merge upstream` 照旧。
+
+## essay.txt 是候选主力源，不只是赋权（2026-10-07 修正认知）
+
+**这是决定词库能不能裁剪的关键事实。** 先前把它当「词频表」低估了它的作用。
+
+`EntryCollector::Collect`（`deps/librime/src/rime/dict/entry_collector.cc:144-153`）
+在 Pass 2 末尾遍历 preset vocabulary，对每个词条 `encoder->EncodePhrase()` —— essay
+里的词**直接进候选集**，不是只给主词库已有词赋权。
+
+实测数据（2026-10-07，转简体后）：
+
+- 主词库 `luna_pinyin.dict.yaml` 67164 条里，**1 字词 45409、2 字词仅 11382**，
+  且**不含「你好」「我们」「怎么」「可以」**。
+- 这些常用词全在 essay 里。essay 437873 条中有 **91.2% 不在主词库** —— 但它们
+  恰恰是常用词候选，不是冗余。
+
+**推论：裁剪 essay 不可行。** 曾评估过两条裁剪路径，都被这条事实否掉：
+
+- 删「主词库没有」的 91.2% 孤儿条目 → 删掉所有常用词组候选，「你好」打不出来。
+- 删低权重条目（权重<100 占 38.7%、约一半体积）→ 低权重词**同样进候选集**，
+  删了打不出，只是排不到前面。测试锚点里权重最低的是「腺」1048，阈值取 100
+  虽然保住了测试，但代价是丢掉 16.9 万条合法候选。
+
+essay.txt 的 5.6M 是必要的，不是冗余。
 
 ## 授权（2026-10-07 修正：先前 MIT 整体声明是错的）
 
@@ -57,16 +81,24 @@ LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与 librime
    另一读音就打不出该字。
 
 **验证**：ctest 120/120；`test_simplified_candidates.py` 40/40（繁体 0 残留，
-`乾`/`薹`/`芸`/`沪`/`腺` 等合法简体字保留）；`test_e2e.py` 5/5。新增的繁体高频词
-（一個、這個、我們…）转简体后与原生简体词合并，未干扰简体候选排序。
+`乾`/`薹`/`芸`/`沪`/`腺` 等合法简体字保留）；`test_e2e.py` 5/5；`test_fuzzy_pinyin.py`
+38/38；`test_punctuation.py` 7/7。
+
+## 冷启动实测 6.5s，不是痛点（2026-10-07 修正）
+
+先前记「essay 5.7M 让首次部署变慢，e2e 部署段从 ~30s 变 ~137s」——**那是 e2e
+测试的累计耗时，不是部署成本**，测量方式错了。
+
+实测（PTY、临时 HOME、触发完整部署编译 prism+table+reverse）：**6.5 秒**，
+产物落在 `~/.local/share/term-ime/build/*.bin`。warm start 更快。
+
+所以 essay 体积大确实增加编译时间，但没有到不可接受的程度；不值得为它改 librime
+的部署机制（`.bin` 编译进**用户目录**，共享 rime-data 里预置 `.bin` 不会被复用）。
 
 ## 保留不变的边界
 
 `data/rime-data/*.yaml`（term-ime 自己的 schema 配置）**仍留在主仓** ——
 模糊音裁剪逻辑改的是 schema，与代码强耦合，不搬。
-
-`essay.txt` 是 preset vocabulary，缺了候选会退化成按 Unicode 排序的单字
-（生僻字排前面）、词组也出不来。
 
 
 ## Timeline
@@ -111,4 +143,10 @@ LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与 librime
   kind: decision
   summary: "词库全部转简体：essay 437873 条、主词库 67164 条；两库踩坑（乾/薹 保护、一简对多繁）"
   source: "2026-10-07 清理繁体词汇"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-07T08:18:50
+  kind: decision
+  summary: "修正 essay 定位：它是候选主力源不是仅赋权；裁剪不可行。实测冷启动 6.5s"
+  source: "2026-10-07 优化可行性调查"
   affects: [dictionary-repo-split]
