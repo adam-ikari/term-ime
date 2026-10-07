@@ -1,13 +1,13 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-06T16:11:00.173Z._
+_Auto-generated. Last updated 2026-10-07T02:37:23.309Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：越界钳制、坏类型按缺省（不丢弃整份文件）。
 - [config-runtime-binding](pages/config-runtime-binding.md) — category: decision | tags: [config, shell, logging, rime] | 配置字段只有被运行时读到才算接线。
 - [config-save-never-throws](pages/config-save-never-throws.md) — category: decision | tags: [config, error-handling, libuv] | `AppConfig::save` **不抛异常**，返回 `bool` 表示成功与否（写失败、目录不可写、序列化失败都走 `false`）。
 - [cpp-standard-floor](pages/cpp-standard-floor.md) — category: decision | tags: [librime, build, cpp-standard, constraint] | librime fork（`v1.1.8-rime-stack`）以 C++17 为地板，不可降级到 C++11。
-- [dictionary-repo-split](pages/dictionary-repo-split.md) — category: decision | tags: [dict, rime, release] | ## 词库已并入 librime fork（2026-10-04，取代 2026-09-29 的独立仓方案）
+- [dictionary-repo-split](pages/dictionary-repo-split.md) — category: decision | tags: [dict, rime, release] | ## 词库已并入 librime fork 的 dict/（submodule 9→8，rime 栈一个 tag）
 - [e2e-harness-contract](pages/e2e-harness-contract.md) — category: concept | tags: [testing, pty, harness] | ## 这一页的判定标准（贯穿全部内容）
 - [enter-does-not-commit-composition](pages/enter-does-not-commit-composition.md) — category: decision | tags: [ime, keyboard, input, bug] | ## 现象（2026-10-01 实测发现，Linux 与 Android 同样存在）
 - [event-loop-libuv-handle-ownership](pages/event-loop-libuv-handle-ownership.md) — category: decision | tags: [libuv, event-loop, memory-lifetime] | EventLoop 持有的 libuv 句柄（stdin/PTY 的 uv_poll/uv_stream 等）在 `uv_close` 调用时**立即把所有权 release 给 libuv**：close 回调是唯一合法的 `delete` 点。
