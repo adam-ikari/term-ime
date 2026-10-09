@@ -31,8 +31,6 @@ struct AppConfig {
     std::string ui_language = "zh-CN";  // UI display language: "en", "zh-CN"
 
     // IME settings
-    std::string dict_path = "data/pinyin.dict";
-    std::vector<std::string> extra_dicts;
     // Candidate bar: upper bound on how many candidates are shown per page
     // (1-9; 9 is the highest single-digit selector key). The number actually
     // shown adapts to the terminal width — see ui::FitCandidateBar.

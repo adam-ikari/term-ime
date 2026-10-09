@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [config, robustness, rime]
 created: "2026-09-16T05:03:10"
-updated: "2026-10-06T16:11:00"
+updated: "2026-10-09T08:02:01"
 ---
 
 <!-- compiled_truth -->
@@ -16,10 +16,11 @@ updated: "2026-10-06T16:11:00"
   非整数（如字符串）按缺省 9，兼容旧键 `page_size`。越界或坏类型不会让整份配置失效。
 - **`log_level`**：枚举校验 debug/info/warn/error，越界字符串或非字符串按缺省 "warn"。
 - **`candidate_bar_position`**：枚举校验 "bottom"/"top"，越界/坏类型按缺省 "bottom"。
-- 其余字段（shell / languages / active_language / ui_language / dict_path /
-  extra_dicts / fuzzy_groups / rime_*_data_dir / show_mode_indicator / log_file）
-  仅做"存在则取、缺则默认"，未做枚举校验或路径存在性检查（rime_*_data_dir 留空
-  合法，由 rime 自行解析，不做存在性强制）。
+- 其余字段（shell / languages / active_language / ui_language / fuzzy_groups /
+  rime_*_data_dir / show_mode_indicator / log_file）仅做"存在则取、缺则默认"，
+  未做枚举校验或路径存在性检查（rime_*_data_dir 留空合法，由 rime 自行解析，
+  不做存在性强制）。（`dict_path` / `extra_dicts` 已于 2026-10-09 删除，见
+  [[config-runtime-binding]]。）
 
 `load()` 的两个"用默认值"分支（文件不存在、解析抛异常）统一
 `return from_json(json::object())`，避免默认值在多处复制漂移。
@@ -52,4 +53,10 @@ LogLevelIsSanitized / CandidateBarPositionIsSanitized 三组覆盖越界/坏类�
   kind: decision
   summary: "log_level/candidate_bar_position 补消毒，M1 枚举字段全覆盖"
   source: "2026-10-06 M1 推进"
+  affects: [config-load-sanitization]
+
+- time: 2026-10-09T08:02:01
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
   affects: [config-load-sanitization]

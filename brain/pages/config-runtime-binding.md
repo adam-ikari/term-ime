@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [config, shell, logging, rime]
 created: "2026-09-28T14:20:29"
-updated: "2026-09-29T02:07:04"
+updated: "2026-10-09T08:01:37"
 ---
 
 <!-- compiled_truth -->
@@ -26,7 +26,9 @@ updated: "2026-09-29T02:07:04"
 
 ## 已知未接线（本轮未修）
 
-`show_mode_indicator`、`candidate_bar_position`、`dict_path` 三个字段目前没有任何消费者（只有 config 自身的读写与测试引用）。设置面板里出现不代表生效，接线或缺失需另开一轮。
+`show_mode_indicator`、`candidate_bar_position` 两个字段目前没有任何消费者（只有 config 自身的读写与测试引用）。设置面板里出现不代表生效，接线或缺失需另开一轮。
+
+（`dict_path` / `extra_dicts` 已于 2026-10-09 删除：词库不再在 term-ime 维护，输入词库完全由 librime-stl 的 `dict/` 提供，这两个字段既无消费者也无数据源。）
 
 
 ## Timeline
@@ -47,4 +49,10 @@ updated: "2026-09-29T02:07:04"
   kind: note
   summary: "rime_shared_data_dir 定为显式覆盖：非空即胜出，不看是否含 luna_pinyin_simp_fuzzy.schema.yaml 标记（但缺标记仍 warn，因为症状是零候选）。自动搜索才讲标记优先。"
   source: "v1.1.4 修复会话"
+  affects: [config-runtime-binding]
+
+- time: 2026-10-09T08:01:37
+  kind: decision
+  summary: Rewrote compiled_truth to the new best understanding
+  source: brain update-truth
   affects: [config-runtime-binding]

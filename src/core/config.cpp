@@ -38,8 +38,6 @@ json AppConfig::to_json() const {
     j["active_language"] = active_language;
     j["ui_language"] = ui_language;
 
-    j["dict_path"] = dict_path;
-    j["extra_dicts"] = extra_dicts;
     j["max_candidates"] = max_candidates;
     j["fuzzy_groups"] = fuzzy_groups;
 
@@ -85,8 +83,6 @@ AppConfig AppConfig::from_json(const json& j) {
     cfg.active_language = j.value("active_language", "zh-Hans");
     cfg.ui_language = j.value("ui_language", "zh-CN");
 
-    cfg.dict_path = j.value("dict_path", "data/pinyin.dict");
-    cfg.extra_dicts = j.value("extra_dicts", std::vector<std::string>{});
     // Clamp the candidate cap to the single-digit selector keys [1,9] that
     // parse_key indexes ("123456789"); an out-of-range value is UB there. Read
     // it type-safely so a malformed value (e.g. a string) sanitizes to the

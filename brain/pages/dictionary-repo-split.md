@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [dict, rime, release]
 created: "2026-09-29T07:55:48"
-updated: "2026-10-09T03:24:44"
+updated: "2026-10-09T08:05:06"
 ---
 
 <!-- compiled_truth -->
@@ -193,4 +193,10 @@ essay.txt 的 5.6M 是必要的，不是冗余。
   kind: reversal
   summary: "推翻「rime 栈一个版本坐标」的排他性：词库作为产物发布后新增 dict-<VERSION> 第二坐标（v…-rime-stack 仍是引擎+词库配套坐标）；同时推翻 opencc/ 目录纯 MIT 的授权表述（.ocd2 派生自 Apache-2.0 的 opencc 数据）。「拆独立仓」重新评估后明确否决——monorepo dict/ 结论不变"
   source: "2026-10-09 词库产物化 Phase 1-4"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-09T08:05:06
+  kind: decision
+  summary: "term-ime 侧不再持有任何词库维护物：删除 data/pinyin.dict（初始骨架遗留的 53 行示例词库，无消费者）与配置字段 dict_path/extra_dicts（无消费者、无数据源）。term-ime 只做两件事：保留自有 luna_pinyin*.schema.yaml 方案（方案≠词库），以及从 deps/librime-stl dict/ 复制词库数据进产物。输入词库的唯一来源是 librime-stl 的 dict/。"
+  source: "term-ime 结构调整"
   affects: [dictionary-repo-split]
