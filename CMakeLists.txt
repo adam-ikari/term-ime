@@ -354,13 +354,21 @@ if(NOT EXISTS ${DICT_DIR}/luna_pinyin.dict.yaml)
     message(FATAL_ERROR
         "Dictionary data missing at ${DICT_DIR}. Run: git submodule update --init --recursive")
 endif()
-configure_file(${DICT_DIR}/luna_pinyin.dict.yaml
-               ${RIME_DATA_DEST}/luna_pinyin.dict.yaml COPYONLY)
-# essay.txt is the preset vocabulary table (3.7MB, ~300k phrases with weights).
-configure_file(${DICT_DIR}/essay.txt
-               ${RIME_DATA_DEST}/essay.txt COPYONLY)
-# opencc data files for simplifier (t2s conversion)
-file(COPY ${DICT_DIR}/opencc/ DESTINATION ${RIME_DATA_DEST}/opencc/)
+# Copy the dictionary at build time, not configure time: the data lives in the
+# deps/librime submodule, and a submodule update can change it without touching
+# any tracked file here. configure_file would silently serve stale bytes until
+# someone re-runs cmake; this ALL target re-syncs on every build (the copies are
+# content-compared, so an unchanged dict costs nothing).
+# dict/VERSION is the dictionary's own version coordinate (deps/librime/dict/
+# README.md); shipping it next to the data makes a deployed tree self-describing
+# and lets diagnostics name the exact dictionary a binary is running.
+add_custom_target(rime-data ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${RIME_DATA_DEST}/opencc
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DICT_DIR}/luna_pinyin.dict.yaml ${RIME_DATA_DEST}/
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DICT_DIR}/essay.txt ${RIME_DATA_DEST}/
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DICT_DIR}/VERSION ${RIME_DATA_DEST}/
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${DICT_DIR}/opencc ${RIME_DATA_DEST}/opencc
+    COMMENT "Bundling rime dictionary data (luna_pinyin.dict.yaml / essay.txt / opencc/ / VERSION)")
 install(DIRECTORY ${RIME_DATA_DEST}/
         DESTINATION share/term-ime/rime-data)
 # Expose the build-tree bundled data dir to C++.
