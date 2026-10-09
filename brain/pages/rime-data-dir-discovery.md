@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [rime, packaging, install, release]
 created: "2026-09-29T02:06:30"
-updated: "2026-09-29T02:06:52"
+updated: "2026-10-09T06:21:43"
 ---
 
 <!-- compiled_truth -->
@@ -41,4 +41,10 @@ updated: "2026-09-29T02:06:52"
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: "v1.1.4 数据目录定位修复 + unshare A/B 验证"
+  affects: [rime-data-dir-discovery]
+
+- time: 2026-10-09T06:21:43
+  kind: decision
+  summary: "词库数据改为构建期同步（CMakeLists rime-data ALL 目标 copy_if_different），并把 deps/librime/dict/VERSION 一并打包。原因：dict/ 在 submodule 里，submodule 更新词库不触碰本仓任何 tracked 文件，configure_file 会一直供旧字节直到有人重跑 cmake —— 静默陈旧。VERSION 让部署树自描述词库坐标。数据字节不变，目录解析契约（marker luna_pinyin_simp_fuzzy.schema.yaml）不变"
+  source: term-ime
   affects: [rime-data-dir-discovery]
