@@ -108,18 +108,20 @@ if(NOT EXISTS ${_RIME_DEPS_STAMP})
         execute_process(COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/_deps_build/marisa
                                 --target install -j RESULT_VARIABLE _rc)
     endif()
-    # opencc (bundled marisa, but not embedded)
+    # opencc (bundled marisa, but not embedded). Its dictionaries are NOT built
+    # here: generating them needs a host Python plus a host-built opencc_dict that
+    # gets executed at build time, which a cross build cannot run. librime reads
+    # opencc data from the bundled rime-data (deps/librime/dict/opencc/), never
+    # from opencc's install prefix, so the engine only links libopencc.
     if(_rc EQUAL 0)
         execute_process(COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/deps/librime/deps/opencc
                                 -B ${CMAKE_BINARY_DIR}/_deps_build/opencc
                                 ${_DEP_COMMON} -DUSE_SYSTEM_MARISA=OFF -DBUILD_TESTING=OFF
-                                -DOPENCC_BUILD_TOOLS=OFF RESULT_VARIABLE _rc)
+                                -DOPENCC_BUILD_DATA=OFF -DOPENCC_BUILD_TOOLS=OFF
+                                RESULT_VARIABLE _rc)
     endif()
     if(_rc EQUAL 0)
-        # The dictionary generation happens during install, so the host PATH
-        # has to be in place for the build step, not just configure.
-        execute_process(COMMAND ${CMAKE_COMMAND} -E env
-                                ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/_deps_build/opencc
+        execute_process(COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/_deps_build/opencc
                                 --target install -j RESULT_VARIABLE _rc)
     endif()
     if(NOT _rc EQUAL 0)
