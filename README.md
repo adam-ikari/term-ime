@@ -53,7 +53,7 @@ yaml-cpp / leveldb / marisa / opencc 都从 `deps/librime/deps/` 内置源码静
 - spdlog - 日志库
 - nlohmann_json - JSON 解析
 - googletest - 单元测试框架
-- librime - 输入法引擎（其嵌套依赖 yaml-cpp/leveldb/marisa/opencc 亦从源码静态编译）
+- librime-stl - 输入法引擎 fork（上游 librime 去 Boost/std::regex 化；其嵌套依赖 yaml-cpp/leveldb/marisa/opencc 亦从源码静态编译），并内置简体词库 `dict/`（明月拼音 + 词频表 + opencc 数据）
 - libuv - 异步事件循环
 - sml / utf8proc - 状态机 / UTF-8 处理
 
