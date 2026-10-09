@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [librime, portability, boost, glog, regex]
 created: "2026-10-05T01:15:33"
-updated: "2026-10-09T03:29:46"
+updated: "2026-10-09T11:37:34"
 ---
 
 <!-- compiled_truth -->
@@ -159,4 +159,10 @@ link libopencc，数据闭包靠一个烧死的绝对路径兜底，在开发者
   kind: decision
   summary: "新增缺陷 3（opencc 词库生成挂引擎 configure/build 图）与缺陷 4（PKGDATADIR 烧死构建机绝对路径是港/臺唯一解析路径 → 发布产物静默失效）；记录独立 make test 的 leveldb-PIC / glog-unwind 未关闭阻塞；教训段归并同源"
   source: "2026-10-09 opencc 解耦（fork d46e4bee / 1e289852）"
+  affects: [librime-standalone-portability]
+
+- time: 2026-10-09T11:37:34
+  kind: decision
+  summary: "两条独立构建阻塞已按新策略改为向上游 fork 提 issue（term-ime 不再就地改 librime-stl）：leveldb 静态库缺 -fPIC → adam-ikari/librime-stl#1；glog 的 libunwind 依赖 PRIVATE 不外传致 _ULx86_64_step 未定义 → #2。librime-stl 的 Issues 此前被禁用，已启用。"
+  source: "2026-10-09 维护策略变更"
   affects: [librime-standalone-portability]

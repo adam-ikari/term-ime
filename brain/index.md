@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-09T08:05:06.906Z._
+_Auto-generated. Last updated 2026-10-09T11:37:34.895Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：越界钳制、坏类型按缺省（不丢弃整份文件）。
@@ -16,6 +16,7 @@ _Auto-generated. Last updated 2026-10-09T08:05:06.906Z._
 - [fuzzy-pinyin-toggle](pages/fuzzy-pinyin-toggle.md) — category: decision | tags: [rime, config, settings, schema] | ## 模糊音组的落点（2026-09-16）
 - [i18n-resource-resolution](pages/i18n-resource-resolution.md) — category: decision | tags: [i18n, translation, install, packaging] | **结论**：翻译资源按固定顺序解析，第一个含 `zh-CN.json` 的目录胜出：
 - [librime-standalone-portability](pages/librime-standalone-portability.md) — category: decision | tags: [librime, portability, boost, glog, regex] | **结论（2026-10-09 更新）**：本页标题写的「两处真实缺陷」已过时 —— 现在是**四处**
+- [librime-stl-contribution-policy](pages/librime-stl-contribution-policy.md) — category: decision | tags: [librime, process, upstream] | **结论（2026-10-09 用户策略）**：`adam-ikari/librime-stl` 是 term-ime 的引擎依赖 fork，但 **term-ime 侧不再主动维护它**。
 - [opencc-chain-for-simplified](pages/opencc-chain-for-simplified.md) — category: decision | tags: [rime, opencc, i18n, schema] | **opencc 变体字表 `variants_ext.txt` 的位置变了两次，现在在 librime fork 里。
 - [opencc-data-decoupling](pages/opencc-data-decoupling.md) — category: decision | tags: [rime, opencc, build, portability] | ## 边界：引擎链接 libopencc，数据来自词库产物
 - [parser-stream-state-contract](pages/parser-stream-state-contract.md) — category: concept | tags: [parser, utf8, csi, osc] | `Parser` 的输入是**任意切分的字节流**——PTY 的 read 边界与转义序列边界无关。
