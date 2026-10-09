@@ -285,7 +285,7 @@ function Hero() {
                 <span className={styles.statLabel}>个文件装完即用</span>
               </div>
               <div className={styles.stat}>
-                <span className={styles.statValue}>70655</span>
+                <span className={styles.statValue}>67164</span>
                 <span className={styles.statLabel}>词组词库</span>
               </div>
               <div className={styles.stat}>
