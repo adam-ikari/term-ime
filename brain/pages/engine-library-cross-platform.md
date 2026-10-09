@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [librime, android, build, release]
 created: "2026-10-09T05:22:01"
-updated: "2026-10-09T05:22:26"
+updated: "2026-10-09T05:56:14"
 ---
 
 <!-- compiled_truth -->
@@ -53,4 +53,9 @@ librime-stl `a0b59372`。
   kind: decision
   summary: "需求重整理后定界"
   source: "2026-10-09 需求对齐"
+  affects: [engine-library-cross-platform]
+
+- time: 2026-10-09T05:56:14
+  kind: decision
+  summary: "Android NDK 交叉编译落地并验证（librime-stl bd593ceb/b31635c8）：build-android.sh 编出 arm64-v8a/x86_64 的纯 C API librime.so，NEEDED 仅 bionic 系统库（liblog/libm/libdl/libc，liblog 由 glog Android 后端引入），rime_get_api C 链接导出，NDK clang++ 消费方链接通过。未真机验证（沿 Termux 教训标注）。commit-ci 挂 android job 断言产物"
   affects: [engine-library-cross-platform]
