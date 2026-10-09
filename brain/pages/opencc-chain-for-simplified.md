@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [rime, opencc, i18n, schema]
 created: "2026-09-15T10:06:20"
-updated: "2026-10-04T23:08:04"
+updated: "2026-10-09T03:29:58"
 ---
 
 <!-- compiled_truth -->
@@ -60,4 +60,10 @@ updated: "2026-10-04T23:08:04"
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
+  affects: [opencc-chain-for-simplified]
+
+- time: 2026-10-09T03:29:58
+  kind: evidence
+  summary: "2026-10-09：dict/opencc/ 现在是完整自足的运行时闭包（t2s/t2s_full/t2hk/t2tw + TSCharacters/TSPhrases/HKVariants/TWVariants + variants*.txt），所有 schema 引用的 opencc_config 都在其中；fork configure 期遍历 *.json 的 file 引用做 FATAL_ERROR 断言，term-ime 加 gtest 扫 schema 断言产物齐备。PKGDATADIR（烧死构建机绝对路径）不再是运行时输入——unshare -rm 抹掉 build/_deps_stage/share/opencc 后港/臺切换仍出候选"
+  source: 2026-10-09 Phase 1
   affects: [opencc-chain-for-simplified]

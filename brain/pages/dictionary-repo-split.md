@@ -5,20 +5,48 @@ category: decision
 status: active
 tags: [dict, rime, release]
 created: "2026-09-29T07:55:48"
-updated: "2026-10-07T09:29:48"
+updated: "2026-10-09T03:24:44"
 ---
 
 <!-- compiled_truth -->
-## 词库已并入 librime fork 的 dict/（submodule 9→8，rime 栈一个 tag）
+## 词库在 librime fork 的 `dict/`：既是产物目录，也是生成工具目录
 
 **结论**：`term-ime-dict` 独立仓已归档，词库与简繁数据并入
 [adam-ikari/librime-stl](https://github.com/adam-ikari/librime-stl)（原名
 `librime`，2026-10-07 改名）的 `dict/` 目录，与 librime 补丁同 tag。term-ime 的
-submodule 从 9 个降到 8 个。fork 的 parent 仍是上游 `rime/librime`。
+submodule 从 9 个降到 8 个（这一层到 2026-10-09 未再变）。fork 的 parent 仍是上游
+`rime/librime`。
 
 **为什么改名 librime-stl**：fork 在上游 `rime/librime` 基础上带 term-ime 专用
 补丁（drop Boost、std::regex 等），已不是纯上游；改名避免与上游同名混淆。fork
 关系保留，日后 `git merge upstream` 照旧。
+
+## 2026-10-09 修正：monorepo 成立，但「rime 栈一个 tag」不再是全部
+
+页面原标题里的「一个版本坐标」被推翻（标题无法由 brain CLI 修改，以本节为准）：
+
+- **`dict/` 仍然是唯一词库家目录，不拆独立仓** —— 「拆独立仓」在 2026-10-09 被重新
+  评估后**明确否决**（理由见 `dict-artifact-publication`）。省一次 cross-repo pin
+  同步、词库与引擎补丁同 tag、本地工作树即最新，这三条理由仍成立。
+- **词库多了第二个版本坐标** `dict-<VERSION>`（纯词库重发，不动引擎），因为词库现在
+  **作为产物发布**，消费者可能没有 git。两个坐标的对应关系写在 `dict/README.md`。
+- **新增边界：词库生成不在任何编译图里**。`dict/tools/` 靠显式 make 调用，不接 CMake；
+  引擎（librime + libopencc）configure/build 不再需要 host Python，也不再执行 host
+  `opencc_dict`。理由见 `opencc-data-decoupling`。fork 内 opencc 已 vendored（去
+  submodule 化），fork 自己的 submodule 从 6 个减到 5 个（glog、googletest、leveldb、
+  marisa-trie、yaml-cpp）。
+
+## `dict/` 内容现在全是「产物」，生产者可复现
+
+`dict/` 从「fork 的杂项目录」变成「词库产物目录」：只放产物（`essay.txt`、
+`luna_pinyin.dict.yaml`、`opencc/**`、`LICENSE`、`VERSION`、`README.md`），生产它们的
+脚本在 `dict/tools/`，上游输入 pin 在 `dict/tools/sources.lock`。复现门（重新生成并
+`diff`，非空即脚本 bug，不许改数据「对齐」）见 `dict-artifact-publication`。
+
+**底本事实（易踩）**：`luna_pinyin.dict.yaml` 的繁体底本是本仓 blob `64eda4c7` 里那一
+份，**不是**上游 `rime/luna-pinyin` 的 head —— 上游已 diverge（多 `%` 权重列、prune 掉
+的 115 行、新词条），拿 head 当底本 diff 不出 0。浅克隆读不到该 blob，脚本会显式报错
+提示 `git fetch --unshallow`。
 
 ## essay.txt 是候选主力源，不只是赋权（2026-10-07 修正认知）
 
@@ -44,23 +72,21 @@ submodule 从 9 个降到 8 个。fork 的 parent 仍是上游 `rime/librime`。
 
 essay.txt 的 5.6M 是必要的，不是冗余。
 
-## 授权（2026-10-07 修正：先前 MIT 整体声明是错的）
+## 授权：三层，不是「词库整体 MIT」（2026-10-09 再修正）
 
-`dict/` **不是单一授权整体**，按文件分别：
-- `luna_pinyin.dict.yaml`, `opencc/` — MIT，adam-ikari 原创
-- `essay.txt` — **派生自 rime/rime-essay，LGPL-3.0**（不是 MIT）
+`dict/` 按文件分别标注，共三层：
 
-先前说「词库是 MIT，MIT 可并入 LGPL」——把 essay.txt 也算进 MIT 是错的：它是
-rime-essay 数据，上游 LGPL-3.0。修正后 `dict/LICENSE` 按文件分别标注，
-`dict/README.md` 同步。LGPL-3.0 数据放 LGPL 的 librime fork 下本就兼容，只是
-不能整体宣称 MIT。
+- `luna_pinyin.dict.yaml` — MIT，adam-ikari 原创。
+- `essay.txt` — **派生自 rime/rime-essay，LGPL-3.0**（不是 MIT）。
+- `opencc/` — **不是纯 MIT**：`TSCharacters.ocd2`/`TSPhrases.ocd2`/`HKVariants.ocd2`/
+  `TWVariants.ocd2` 是从 BYVoid/OpenCC 数据**编译派生**的，那份数据 Apache-2.0；
+  `t2s_full.json` 等配置是 adam-ikari 手写的 MIT。2026-10-09 补港/臺闭包时把
+  Apache-2.0 一并写进 `dict/LICENSE`。
 
-**授权无冲突**：luna_pinyin.dict.yaml/opencc 是 adam-ikari 原创 MIT，与 librime
-LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与 librime 本体 LGPL
-协同无冲突，但 LICENSE 必须按文件分开声明。
+历史错误两次：①「词库是 MIT，MIT 可并入 LGPL」把 essay.txt 也算进 MIT；②补简繁闭包
+时差点把派生的 `.ocd2` 继续报成纯 MIT。都已修正，LICENSE 按文件分开声明。
 
-**同步上游的代价**：本仓不再是干净的 fork。`dict/` 是上游不存在的目录，所以
-`git merge upstream/master` 只会碰 librime 自己的文件。步骤写在 `dict/README.md`。
+**授权无冲突**：MIT / LGPL-3.0 / Apache-2.0 三者与 librime 本体 LGPL 协同无冲突。
 
 ## essay.txt 升级 + 全部转简体（2026-10-07）
 
@@ -155,4 +181,16 @@ LGPL 分开；essay.txt 的 LGPL-3.0 与 librime LGPL 一致。三者与 librime
   kind: note
   summary: "MIT 授权字库整合评估（2026-10-07）：pypinyin 真增量 9428 条、jieba∩pypinyin 7940 条（1.8%）且含错别字，chinese-xinhua 0 增量（已覆盖/无拼音）；rime-ice 价值最大但 GPL-3.0 被否决（改许可证）。结论：MIT 字库对候选质量无可观增益，不整合"
   source: "2026-10-07 字库源调查"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-09T03:24:35
+  kind: decision
+  summary: "monorepo dict/ 保留、拆独立仓重新评估后否决；推翻「一个版本坐标」——新增 dict-* 纯词库坐标；词库生成彻底移出编译图；授权修正为 MIT/LGPL-3.0/Apache-2.0 三层"
+  source: "2026-10-09 词库作为产物发布（librime monorepo）"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-09T03:24:44
+  kind: reversal
+  summary: "推翻「rime 栈一个版本坐标」的排他性：词库作为产物发布后新增 dict-<VERSION> 第二坐标（v…-rime-stack 仍是引擎+词库配套坐标）；同时推翻 opencc/ 目录纯 MIT 的授权表述（.ocd2 派生自 Apache-2.0 的 opencc 数据）。「拆独立仓」重新评估后明确否决——monorepo dict/ 结论不变"
+  source: "2026-10-09 词库产物化 Phase 1-4"
   affects: [dictionary-repo-split]

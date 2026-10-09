@@ -5,13 +5,18 @@ category: decision
 status: active
 tags: [librime, portability, boost, glog, regex]
 created: "2026-10-05T01:15:33"
-updated: "2026-10-05T01:15:33"
+updated: "2026-10-09T03:29:46"
 ---
 
 <!-- compiled_truth -->
-**结论（2026-10-05）**：fork 曾有两处真实缺陷使「脱离 term-ime 独立构建/移植」不成立，
-均已修复（`c86f3a11`，tag `v1.1.8-rime-stack`）。现在 `git clone` fork +
-自带 CMake + `-DBUILD_TESTS=ON` 可 100% 通过。
+**结论（2026-10-09 更新）**：本页标题写的「两处真实缺陷」已过时 —— 现在是**四处**
+（缺陷 3、4 于 2026-10-09 记录并修复于 `d46e4bee`/`1e289852`）。缺陷 1、2 修在
+`c86f3a11`（tag `v1.1.8-rime-stack`）。**判据不变**：「在 term-ime 里绿」推不出
+「fork 可独立移植」，必须脱离 term-ime 单独构建 + 跑 fork 自己的测试。
+
+而且 2026-10-09 的独立验证给出一个**尚未关闭**的坏消息：`make deps` 在 python-free
+PATH 下全过，但 fork 自己的 `make test` 在独立克隆里**过不了**（见末节，与 opencc
+无关）。这条判据目前只做到「依赖构建独立」，没做到「测试套件独立」。
 
 ## 缺陷 1：glog >= 0.5 编译不过（显性）
 
@@ -50,16 +55,78 @@ Unicode 属性支持，悄悄匹配别的东西比报错更糟）。
 的是 **0 条**（全用 `([zcs])` 这类 POSIX 写法）。所以 term-ime 的 e2e 永远绿，
 而移植别人的 schema 就会坏。
 
-## 教训：vendored 依赖会掩盖移植缺陷
+## 缺陷 3：opencc 词库生成挂在引擎的 configure/build 图上（2026-10-09）
 
-两处缺陷的成因相同：**term-ime 的构建路径恰好提供了 fork 独立构建时不存在的东西**
-（vendored glog 有那个声明；term-ime 的规则不用 `\l`）。
+引擎根本不需要那份 `.ocd2` 数据（运行时从 rime 共享目录读，见缺陷 4），但
+**构建它**却把词库生成工具链绑进了引擎编译图：
 
-所以「在 term-ime 里绿」不能推出「fork 可独立移植」。判据只能是
-**脱离 term-ime 单独构建 + 跑 fork 自己的测试套件**。
+- `deps/opencc/CMakeLists.txt:225` 无条件 `add_subdirectory(data)`；
+- `data/CMakeLists.txt:1` `find_package(PythonInterp REQUIRED)` —— **configure 期**就
+  要 host Python 解释器，Windows/NDK 上直接炸；
+- `data/CMakeLists.txt:3` 要一个 host 工具 `opencc_dict`，`:39-44` 的 `Dictionaries`
+  是 **`ALL` 目标**，`:132-148` 的 custom command 在构建期**执行**它 —— 交叉编译下
+  换 target 也躲不开，报 `Exec format error`。
 
-这也是为什么每次改 fork 都要两边都验：term-ime 的 118 gtest + 7 套 py e2e，
-以及 fork 自己的 `ctest`。前者证明没弄坏宿主，后者证明还立得住。
+**term-ime 曾为它变通**：`term-ime/CMakeLists.txt:119-123` 把 host PATH 塞进构建步
+（注释写着「dictionary generation happens during install」）—— 那是症状不是设计。
+更糟的是 term-ime 传的 `-DOPENCC_BUILD_TOOLS=OFF` 是**空转 flag**：opencc 的真实
+option 里没有这一项（`add_subdirectory(tools)` 在 `src/CMakeLists.txt:208` 无条件）。
+
+修法：opencc vendored 进 fork（去 submodule 身份），加
+`option(OPENCC_BUILD_DATA)`/`option(OPENCC_BUILD_TOOLS)` 罩住那两个 `add_subdirectory`，
+DATA 依赖 TOOLS 时 configure 期 FATAL_ERROR；两个 option **默认 ON**（不改变上游行为），
+消费方（fork `deps.mk`/`build.bat`、term-ime `CMakeLists.txt`）传 OFF。删掉 PATH 变通。
+
+## 缺陷 4：`PKGDATADIR` 烧死构建机绝对路径，是港/臺数据的唯一解析路径（2026-10-09，已发布缺陷）
+
+**发布产物上港/臺字形切换静默失效**，且这是本次调查中最接近「已 ship 的 bug」的一条：
+
+- schema 注册了 `simplifier@zh_hant_hk` / `simplifier@zh_hant_tw`
+  （`data/rime-data/luna_pinyin.schema.yaml:63-65`，且在 `switches` 里用户可达）；
+- 但 `dict/opencc/` 只有 `t2s.json`/`t2s_full.json`/`TSCharacters.ocd2`/
+  `TSPhrases.ocd2`/`variants*.txt`，**没有** `t2hk.json`/`t2tw.json`；
+- 那 4 个文件（加 `HKVariants.ocd2`/`TWVariants.ocd2`）只存在于
+  `build/_deps_stage/share/opencc/`，靠 `libopencc.a` 里编译期烧进去的绝对路径
+  `PKGDATADIR`（`deps/opencc/CMakeLists.txt` 的 `add_definitions(-DPKGDATADIR=...)`）
+  被 `Config.cpp:183-193` 兜底找到。`strings` 实测该 `.a` 里有
+  `/home/gem/project/term-ime/build/_deps_stage/share/opencc/`；
+- 离开构建机，`simplifier.cc:337-339` catch 后返回 `nullptr`，`SimplifierComponent::Create`
+  失败 → **filter 静默不存在**，不报错、不降级提示。
+
+修法是补齐闭包（4 文件、约 10 KB，闭包很小：所有 schema 只引用 `t2s_full.json`/
+`t2hk.json`/`t2tw.json`，后两者各自只引用 `HKVariants.ocd2`/`TWVariants.ocd2`）+
+fork configure 期遍历 `dict/opencc/*.json` 的引用做 FATAL_ERROR 断言 + term-ime 侧
+gtest 扫 schema 的 `opencc_config:` 值断言都在 `build/share/rime-data/opencc/` 里。
+
+**反向对照必须做**：`unshare -rm` 把 `build/_deps_stage/share/opencc` bind 成空目录，
+再驱动港/臺切换 —— 修复前该场景必须失败、修复后必须通过。只验正面会放过静默失败
+（同 `rime-data-dir-discovery` 的教训）。现在 `PKGDATADIR` 不再是运行时输入。
+
+## 独立构建的另一组阻塞（与 opencc 无关，2026-10-09 观察，仍未关闭）
+
+在 `/tmp` 递归克隆 fork、PATH 掐掉 python 后：
+
+- `make deps` **全过**（`CMakeCache` 里 `PYTHON_EXECUTABLE` 0 处、prefix 下无
+  `share/opencc`、零 `.ocd2` 生成）—— 缺陷 3 的修复在独立环境成立。
+- `make test` **过不了**，两处与 opencc 无关的既有问题：
+  1. leveldb 静态库不带 `-fPIC`，链接 shared `librime.so` 时失败；
+  2. 加 PIC 重编后，`rime_api_console` 链接报 `undefined reference to _ULx86_64_step`
+     （glog 找 libunwind / frame-pointers 的既有搭配问题）。
+
+这两条是 fork 独立测试路径的历史欠账，本轮**只记录不谎报**：它们不是 opencc 解耦
+引入的，但它们是「fork 独立可移植」这条判据目前真正的下限。
+
+## 教训：vendored 依赖会掩盖移植缺陷（缺陷 3、4 同源）
+
+四处缺陷的成因相同：**term-ime 的构建路径恰好提供了 fork 独立构建时不存在的东西**
+—— vendored glog 有那个声明；term-ime 的规则不用 `\l`；构建机上有 python 且
+`_deps_stage/share/opencc` 恰好可被 `PKGDATADIR` 命中。
+
+缺陷 4 还要加一条：**「链接了库」不等于「数据在运行时可解析」**。librime 只
+link libopencc，数据闭包靠一个烧死的绝对路径兜底，在开发者机器上永远绿。
+
+所以每次改 fork 都要两边都验：term-ime 的 gtest + 7 套 py e2e，以及 fork 自己的
+`ctest`；而涉及运行时数据解析的，还要加**反向对照**（把兜底路径抹掉再测）。
 
 ## 写这类测试的一个坑
 
@@ -86,4 +153,10 @@ Unicode 属性支持，悄悄匹配别的东西比报错更糟）。
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
+  affects: [librime-standalone-portability]
+
+- time: 2026-10-09T03:29:46
+  kind: decision
+  summary: "新增缺陷 3（opencc 词库生成挂引擎 configure/build 图）与缺陷 4（PKGDATADIR 烧死构建机绝对路径是港/臺唯一解析路径 → 发布产物静默失效）；记录独立 make test 的 leveldb-PIC / glog-unwind 未关闭阻塞；教训段归并同源"
+  source: "2026-10-09 opencc 解耦（fork d46e4bee / 1e289852）"
   affects: [librime-standalone-portability]

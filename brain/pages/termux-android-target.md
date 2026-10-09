@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [termux, android, build, cmake]
 created: "2026-09-30T05:15:49"
-updated: "2026-10-02T11:23:28"
+updated: "2026-10-09T03:29:58"
 ---
 
 <!-- compiled_truth -->
@@ -162,4 +162,10 @@ v1.1.6 里三个吞键 bug 都还在**，所以「Termux 已清理干净」不�
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
+  affects: [termux-android-target]
+
+- time: 2026-10-09T03:29:58
+  kind: note
+  summary: "2026-10-09：本轮只把 Android 推到「交叉编译轴不再被 opencc 词库生成阻塞」——引擎 configure/build 已不需要 host Python，也不在构建期执行 host opencc_dict（fork OPENCC_BUILD_DATA/TOOLS=OFF）。JNI 绑定层在 fork 内仍完全不存在，arm64 产物从未在真机跑过，Termux 发货未恢复。Android 真机验证是独立一轮，不在本轮范围内"
+  source: "2026-10-09 Phase 2 边界声明"
   affects: [termux-android-target]
