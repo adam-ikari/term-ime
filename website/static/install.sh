@@ -176,6 +176,21 @@ if [[ -d "$TRANS_SRC" ]]; then
     echo ">> Installed translations to ${TRANS_DEST}"
 fi
 
+# License texts. The binary statically links several third-party libraries and
+# the rime-data ships LGPL-3.0/Apache-2.0 files, so an installed copy (not just
+# the tarball) has to carry the grants and notices.
+LIC_SRC="${EXTRACT_ROOT}/LICENSES"
+LIC_DEST="${PREFIX}/share/term-ime"
+if [[ -d "$LIC_SRC" ]]; then
+    mkdir -p "$LIC_DEST/LICENSES"
+    ${SUDO} cp -r "$LIC_SRC"/* "$LIC_DEST/LICENSES/"
+    # Project's own MIT license sits next to the binary, mirroring the tarball.
+    if [[ -f "${EXTRACT_ROOT}/LICENSE" ]]; then
+        ${SUDO} cp "${EXTRACT_ROOT}/LICENSE" "$LIC_DEST/LICENSE"
+    fi
+    echo ">> Installed license texts to ${LIC_DEST}"
+fi
+
 # Ensure the install prefix is on PATH; if not, append to the user's shell rc.
 BIN_DIR="${PREFIX}/bin"
 case ":${PATH}:" in

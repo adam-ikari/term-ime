@@ -1,0 +1,39 @@
+本目录（随包分发为 share/term-ime/rime-data/）的授权是**按文件分开的**，不是单一授权的整体。
+同目录下的 `LICENSE` 是词库数据（luna_pinyin.dict.yaml / essay.txt / opencc/）的声明，两者互补。
+
+- `pinyin.yaml` — **LGPL-3.0**，[rime/rime-luna-pinyin](https://github.com/rime/rime-luna-pinyin)
+  的逐字副本。
+- `luna_pinyin.schema.yaml` — **LGPL-3.0**，rime-luna-pinyin 派生（改了 1 行 `opencc_config`，
+  指向随包的简繁转换配置）。
+- `luna_pinyin_simp.schema.yaml` — **LGPL-3.0**，rime-luna-pinyin 派生（重写：保留 luna_pinyin
+  词典，加 OpenCC 简化字转换）。
+- `default.yaml` — **BSD-3-Clause**，librime `data/minimal/default.yaml` 派生。
+
+LGPL-3.0 与 BSD-3-Clause 全文随发行产物一起分发：tarball 根目录的 `LICENSES/LGPL-3.0.txt`
+与 `LICENSES/librime-BSD-3-Clause.txt`（`install.sh` 装到 `$PREFIX/share/term-ime/LICENSES/`）。
+修改过的部分——`luna_pinyin*.schema.yaml` 的 `opencc_config` 与简化字改写——见上面逐文件说明；
+数据文件本身即源码，随包已提供。
+
+- `luna_pinyin_simp_fuzzy.schema.yaml` — MIT License, Copyright (c) 2026 adam-ikari（本项目原创）
+
+MIT License
+
+Copyright (c) 2026 adam-ikari
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

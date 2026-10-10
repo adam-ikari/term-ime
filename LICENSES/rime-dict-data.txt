@@ -1,0 +1,64 @@
+dict/ 目录下的文件授权不同，**不是单一授权的整体**：
+
+- `luna_pinyin.dict.yaml`，以及 `opencc/t2s_full.json`、`opencc/variants.txt`、
+  `opencc/variants_jp.txt`、`opencc/variants_ext.txt` — MIT License,
+  Copyright (c) 2026 adam-ikari（本项目原创）
+- `essay.txt` — 来自 Rime 词频表 [rime/rime-essay](https://github.com/rime/rime-essay)，
+  以 **LGPL-3.0** 授权（原文见
+  https://github.com/rime/rime-essay/blob/master/LICENSE）。
+- `opencc/t2s.json`、`opencc/t2hk.json`、`opencc/t2tw.json`，以及 `opencc/*.ocd2` —
+  **Apache-2.0**，来自 [BYVoid/OpenCC](https://github.com/BYVoid/OpenCC)：`.json` 是
+  上游配置文件的逐字副本，`.ocd2` 是上游 `opencc_dict` 由上游词典生成的产物（实测与
+  opencc 构建输出逐字相同），不是本项目原创。
+
+essay.txt 是 librime 的 preset vocabulary（`use_preset_vocabulary: true` 加载的
+词频表），源自 rime-essay，不是本项目原创；它按上游的 LGPL-3.0 授权分发，与上面
+MIT 授权的部分分开，不能把整个 dict/ 宣称为 MIT。
+
+=== MIT License — luna_pinyin.dict.yaml, opencc/t2s_full.json, opencc/variants*.txt ===
+
+MIT License
+
+Copyright (c) 2026 adam-ikari
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=== essay.txt — LGPL-3.0 ===
+
+`essay.txt` 派生自 rime/rime-essay
+(https://github.com/rime/rime-essay)，上游授权为 GNU Lesser General Public
+License v3.0。完整条款见：
+
+    https://github.com/rime/rime-essay/blob/master/LICENSE
+
+=== opencc/ 的部分文件 — Apache-2.0 ===
+
+`opencc/t2s.json`、`opencc/t2hk.json`、`opencc/t2tw.json` 是 BYVoid/OpenCC
+自带配置文件的逐字副本；`opencc/TSCharacters.ocd2`、`opencc/TSPhrases.ocd2`、
+`opencc/HKVariants.ocd2`、`opencc/TWVariants.ocd2` 是 OpenCC 的 `opencc_dict`
+工具由其上游词典数据生成的产物（已逐一与 OpenCC 构建输出比对，逐字相同）。
+这部分以 **Apache License, Version 2.0** 授权，完整条款见：
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+This product includes data derived from OpenCC (https://github.com/BYVoid/OpenCC),
+Copyright (c) the OpenCC authors, licensed under Apache-2.0.
+
+`opencc/t2s_full.json` 与 `opencc/variants*.txt` 是本项目的原创转换表，不属于
+上述派生部分，以 MIT 授权（见上）。

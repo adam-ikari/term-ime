@@ -52,7 +52,10 @@ jobs:
           fi
           echo "OK: fully static, zero runtime deps"
 
-      - name: Pack artifact (binary + rime-data + translations)
+      - name: Refresh LICENSES/ from vendored deps
+        run: ./tools/collect-licenses.sh
+
+      - name: Pack artifact (binary + rime-data + translations + licenses)
         run: |
           mkdir -p dist/term-ime/bin
           mkdir -p dist/term-ime/share/term-ime/rime-data
@@ -62,6 +65,10 @@ jobs:
           ln -sf ti dist/term-ime/bin/term-ime
           cp -r build/share/rime-data/* dist/term-ime/share/term-ime/rime-data/
           cp data/translations/*.json dist/term-ime/share/term-ime/translations/
+          # 静态二进制内嵌多个第三方库，且 rime-data 含 LGPL-3.0 数据 ——
+          # 重分发时必须随附版权声明与许可全文。
+          cp LICENSE dist/term-ime/
+          cp -r LICENSES dist/term-ime/
           cp README.md dist/term-ime/
           tar -czf term-ime-linux-${{ matrix.arch }}.tar.gz -C dist term-ime
           sha256sum term-ime-linux-${{ matrix.arch }}.tar.gz > term-ime-linux-${{ matrix.arch }}.tar.gz.sha256

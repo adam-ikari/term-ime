@@ -162,4 +162,35 @@ TEST(BundledOpenccData, EveryConfigReferenceIsBundled) {
     EXPECT_GT(checked, 0) << "no references parsed -- the walker broke, not the data";
 }
 
+// The bundled data is not all MIT: essay.txt is LGPL-3.0 and the opencc tables
+// are Apache-2.0, so the grant has to travel with the bytes. Before this was
+// wired up the tarball shipped the data with no attribution anywhere in it.
+TEST(BundledRimeDataLicense, PerFileGrantShipsWithTheData) {
+    const fs::path license = fs::path(RIME_BUNDLED_DATA_DIR) / "LICENSE";
+    ASSERT_TRUE(fs::exists(license))
+        << license << " missing: the data dir mixes licenses and must carry the per-file grant";
+    std::ifstream in(license);
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    EXPECT_NE(text.find("LGPL"), std::string::npos) << "grant text does not name the LGPL-3.0 essay.txt";
+    EXPECT_NE(text.find("Apache"), std::string::npos) << "grant text does not name the Apache-2.0 opencc tables";
+}
+
+// The schemas in the same dir come from data/rime-data/ and are LGPL-3.0 /
+// BSD-3-Clause, a different set of grants from dict/. Each covered file must
+// have its grant named, or the package silently omits one source's terms.
+TEST(BundledRimeDataLicense, SchemaGrantShipsWithTheSchemas) {
+    std::ifstream in(fs::path(RIME_BUNDLED_DATA_DIR) / "LICENSE-schemas.txt");
+    ASSERT_TRUE(in) << "LICENSE-schemas.txt missing: the schemas' grants do not ship";
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    for (const char* name : {"pinyin.yaml", "luna_pinyin.schema.yaml",
+                             "luna_pinyin_simp.schema.yaml", "default.yaml"}) {
+        EXPECT_TRUE(fs::exists(fs::path(RIME_BUNDLED_DATA_DIR) / name))
+            << name << " is not bundled at all";
+        EXPECT_NE(text.find(name), std::string::npos)
+            << "grant text does not name " << name;
+    }
+    EXPECT_NE(text.find("LGPL-3.0"), std::string::npos) << "does not name the LGPL-3.0 schemas";
+    EXPECT_NE(text.find("BSD-3-Clause"), std::string::npos) << "does not name the BSD-3-Clause default.yaml";
+}
+
 }  // namespace
