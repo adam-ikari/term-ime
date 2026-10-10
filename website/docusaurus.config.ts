@@ -122,6 +122,7 @@ const config: Config = {
             {label: '快速开始', to: '/docs/quickstart'},
             {label: '快捷键', to: '/docs/shortcuts'},
             {label: '配置', to: '/docs/config'},
+            {label: '许可与分发', to: '/docs/license'},
           ],
         },
         {
@@ -132,7 +133,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} term-ime. MIT License.`,
+      copyright: `Copyright © ${new Date().getFullYear()} term-ime. 源码 MIT；二进制含第三方组件，详见许可页。`,
     },
     prism: {
       theme: prismThemes.github,

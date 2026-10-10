@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
     'config',
     'alternatives',
     'changelog',
+    'license',
   ],
 };
 

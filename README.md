@@ -249,4 +249,4 @@ cd build && ctest --output-on-failure
 
 ## 许可证
 
-MIT License
+本项目源码 MIT。发行版二进制静态链接多个第三方库，且随包拼音数据含 LGPL-3.0（`essay.txt`、`pinyin.yaml`、`luna_pinyin*.schema.yaml`）与 Apache-2.0（`opencc/`，OpenCC 派生）文件 —— 许可全文与逐文件授权见随包 `LICENSES/`、`share/term-ime/rime-data/LICENSE` 与 `share/term-ime/rime-data/LICENSE-schemas.txt`，详见[许可与分发页](https://adam-ikari.github.io/term-ime/docs/license)。
