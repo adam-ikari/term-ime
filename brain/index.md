@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-09T11:37:34.895Z._
+_Auto-generated. Last updated 2026-10-09T16:09:33.868Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：越界钳制、坏类型按缺省（不丢弃整份文件）。
@@ -9,6 +9,7 @@ _Auto-generated. Last updated 2026-10-09T11:37:34.895Z._
 - [cpp-standard-floor](pages/cpp-standard-floor.md) — category: decision | tags: [librime, build, cpp-standard, constraint] | librime fork（`v1.1.8-rime-stack`）以 C++17 为地板，不可降级到 C++11。
 - [dict-artifact-publication](pages/dict-artifact-publication.md) — category: decision | tags: [dict, release, artifact, versioning] | ## 词库留在 monorepo，但它是产物不是源码目录
 - [dictionary-repo-split](pages/dictionary-repo-split.md) — category: decision | tags: [dict, rime, release] | ## 词库在 librime fork 的 `dict/`：既是产物目录，也是生成工具目录
+- [distribution-licensing](pages/distribution-licensing.md) — category: decision | tags: [licensing, release, packaging] | **结论**：term-ime 源码 MIT，但**发行产物不是单一授权**：二进制静态链接约 15 个第三方库，随包 rime-data 混有 LGPL-3.0 / Apache-2.0 / MIT 数据。
 - [e2e-harness-contract](pages/e2e-harness-contract.md) — category: concept | tags: [testing, pty, harness] | ## 这一页的判定标准（贯穿全部内容）
 - [engine-library-cross-platform](pages/engine-library-cross-platform.md) — category: decision | tags: [librime, android, build, release] | ## 引擎库是 librime-stl 的产物，四目标各出各的库
 - [enter-does-not-commit-composition](pages/enter-does-not-commit-composition.md) — category: decision | tags: [ime, keyboard, input, bug] | ## 现象（2026-10-01 实测发现，Linux 与 Android 同样存在）

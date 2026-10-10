@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [rime, packaging, install, release]
 created: "2026-09-29T02:06:30"
-updated: "2026-10-09T06:21:43"
+updated: "2026-10-09T16:02:18"
 ---
 
 <!-- compiled_truth -->
@@ -23,7 +23,7 @@ updated: "2026-10-09T06:21:43"
 
 **约束**：
 - 选择逻辑抽在 `rime_data.hpp`（不含 librime 类型）。原因：`deps/librime/src/rime_api.h` 的 `#define Bool int` 与 gtest 的 `internal::ParamGenerator<bool> Bool()` 冲突，凡 include `rime_engine.hpp` 的测试都编不过。测试只 include `rime_data.hpp`。
-- 发布产物必须把 rime-data 放到 `share/term-ime/rime-data/`（`release.yml` 第 58/63 行、CMake install、install.sh 同构），否则 exe 相对候选落空。
+- 发布产物必须把 rime-data 放到 `share/term-ime/rime-data/`（`release.yml` 的打包步骤、CMake install、install.sh 同构），否则 exe 相对候选落空。
 - 任何改这条顺序的动作都要跑 `tests/test_rime_data.cpp`（5 条：标记优先含顺序颠倒、显式配置优先、无标记仍可启动、全不存在回退、文件不当目录）。
 
 **验证手法（可复用）**：`unshare -rm` + `mount --bind /tmp/empty-rime <build>/share/rime-data` 隐藏编译期路径，再用 `mount --bind /tmp/decoy-rime /usr/share/rime-data` 放诱饵；pty 脚本用干净 HOME 跑 `nihao` 看候选。老二进制在同场景 `candidates=False`，即负对照。
@@ -47,4 +47,10 @@ updated: "2026-10-09T06:21:43"
   kind: decision
   summary: "词库数据改为构建期同步（CMakeLists rime-data ALL 目标 copy_if_different），并把 deps/librime/dict/VERSION 一并打包。原因：dict/ 在 submodule 里，submodule 更新词库不触碰本仓任何 tracked 文件，configure_file 会一直供旧字节直到有人重跑 cmake —— 静默陈旧。VERSION 让部署树自描述词库坐标。数据字节不变，目录解析契约（marker luna_pinyin_simp_fuzzy.schema.yaml）不变"
   source: term-ime
+  affects: [rime-data-dir-discovery]
+
+- time: 2026-10-09T16:02:18
+  kind: decision
+  summary: "去掉易漂移的行号引用"
+  source: "本轮：release.yml 打包步骤改动后行号失效"
   affects: [rime-data-dir-discovery]
