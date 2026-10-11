@@ -630,3 +630,119 @@ TEST_F(Utf8Test, WideCharRowHalvesHaveRightShapes) {
     EXPECT_EQ(screen.get(0, 8).ch, U' ');
     EXPECT_EQ(screen.get(0, 8).wide, false);
 }
+
+// The invariant redraw_shell() depends on: `wide` may only mean "this glyph owns
+// the next column too". It acts on the flag alone (skip the next column), so a
+// wide flag left on a cell that no longer owns a neighbour makes it skip a
+// column that holds a real, unrelated character -- that character then never
+// reaches the screen. These cases overwrite one half of a wide glyph with a
+// narrow one, which is ordinary shell output (CUP into the middle of a CJK
+// line), not a corner case.
+TEST_F(Utf8Test, NarrowOverRightHalfRetiresTheWholeWidePair) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, utf8::encode(U'中'));   // 中 occupies cols 0-1
+    feed(parser, "\x1b[1;2H");          // cursor onto the right half
+    feed(parser, "x");                   // narrow char lands inside the pair
+    // The x must survive and be renderable, and no wide flag may claim it.
+    EXPECT_EQ(screen.get(0, 1).ch, U'x');
+    EXPECT_EQ(screen.get(0, 1).wide, false);
+    EXPECT_EQ(screen.get(0, 0).wide, false) << "left half still claims a neighbour it lost";
+    EXPECT_EQ(screen.get(0, 0).ch, U' ') << "orphaned left half left behind";
+}
+
+TEST_F(Utf8Test, NarrowOverLeftHalfRetiresTheOrphanedRightHalf) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, utf8::encode(U'中'));
+    feed(parser, "\x1b[1;1H");  // cursor onto the left half
+    feed(parser, "y");
+    EXPECT_EQ(screen.get(0, 0).ch, U'y');
+    EXPECT_EQ(screen.get(0, 0).wide, false);
+    EXPECT_EQ(screen.get(0, 1).ch, U' ') << "orphan right half renders as a stray space";
+    EXPECT_EQ(screen.get(0, 1).wide, false);
+}
+
+// Writing a wide glyph whose right half lands on the left half of another pair
+// must orphan *that* pair's right half, one column further right. Writing at col
+// 1 also lands on 中's right half, so 中 is destroyed whole -- both assertions
+// below are the same invariant seen from the two sides.
+TEST_F(Utf8Test, WideOverWidePairOrphansNothing) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, utf8::encode(U'中'));   // cols 0-1
+    feed(parser, utf8::encode(U'文'));   // cols 2-3
+    feed(parser, "\x1b[1;2H");           // onto col 1, so the new pair spans 1-2
+    feed(parser, utf8::encode(U'語'));   // claims col 2, eating 文's left half
+    EXPECT_EQ(screen.get(0, 1).ch, U'語');
+    EXPECT_EQ(screen.get(0, 2).ch, 0);
+    EXPECT_EQ(screen.get(0, 2).wide, true);
+    // 中 lost the right half it was sitting on: its left half must not survive
+    // still flagged wide, or col 1 gets skipped and the 語 is never drawn.
+    EXPECT_EQ(screen.get(0, 0).ch, U' ') << "中's left half outlived the right half it claimed";
+    EXPECT_EQ(screen.get(0, 0).wide, false);
+    // 文's right half (col 3) lost its left half at col 2: it must be blank, or
+    // redraw_shell skips col 3 and misrenders everything after it.
+    EXPECT_EQ(screen.get(0, 3).ch, U' ') << "orphan right half left behind";
+    EXPECT_EQ(screen.get(0, 3).wide, false);
+}
+
+// Partial erase must clear the whole glyph or none of it. `ESC[1X` (ECH) from
+// the cursor used to blank the right half only, leaving a wide left half whose
+// skipped column shifted the rest of the row by one on the real terminal.
+TEST_F(Utf8Test, PartialEraseDoesNotSplitWidePair) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, utf8::encode(U'中'));
+    feed(parser, "AB");
+    feed(parser, "\x1b[1;2H");  // onto the right half of 中
+    feed(parser, "\x1b[1X");    // ECH 1: erase from here to here
+    EXPECT_EQ(screen.get(0, 0).wide, false) << "erase left the left half still claiming a neighbour";
+    EXPECT_EQ(screen.get(0, 0).ch, U' ');
+    EXPECT_EQ(screen.get(0, 1).wide, false);
+}
+
+// EL 0 erases from the cursor to the end of the line. Cursor on the *right*
+// half of a wide glyph covers only that half, so the left half has to be pulled
+// in or it survives flagged wide: redraw_shell then emits a glyph the erase was
+// supposed to remove, and skips the column that was actually cleared.
+// (EL 1 through the left half is the mirror image and must not over-reach.)
+TEST_F(Utf8Test, EraseInLineFromRightHalfClearsWholePair) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "AB");
+    feed(parser, utf8::encode(U'中'));  // cols 2-3
+    feed(parser, "\x1b[1;4H");         // onto the right half
+    feed(parser, "\x1b[0K");           // EL 0: erase to end of line
+    EXPECT_EQ(screen.get(0, 2).ch, U' ') << "EL from the right half split the pair";
+    EXPECT_EQ(screen.get(0, 2).wide, false);
+    EXPECT_EQ(screen.get(0, 3).ch, U' ');
+    EXPECT_EQ(screen.get(0, 3).wide, false);
+    EXPECT_EQ(screen.get(0, 0).ch, U'A') << "erase reached left of the cursor";
+    EXPECT_EQ(screen.get(0, 1).ch, U'B');
+}
+
+TEST_F(Utf8Test, EraseInLineThroughLeftHalfReachesItsRightHalf) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, "AB");
+    feed(parser, utf8::encode(U'中'));  // cols 2-3
+    feed(parser, "\x1b[1;3H");         // onto the left half
+    feed(parser, "\x1b[1K");           // EL 1: erase from start of line through cursor
+    EXPECT_EQ(screen.get(0, 2).ch, U' ');
+    EXPECT_EQ(screen.get(0, 2).wide, false);
+    EXPECT_EQ(screen.get(0, 3).ch, U' ') << "left half was erased, right half left dangling";
+    EXPECT_EQ(screen.get(0, 3).wide, false);
+}
+
+// Narrowing across a wide pair drops its right half; the survivor must not stay
+// flagged wide, or it renders as a lone glyph two columns wide.
+TEST_F(Utf8Test, NarrowingAcrossWidePairBlanksTheOrphan) {
+    Screen screen(2, 10);
+    Parser parser(screen);
+    feed(parser, utf8::encode(U'中'));  // cols 0-1
+    feed(parser, "AB");
+    screen.resize(2, 1);                // cuts the pair at col 1
+    EXPECT_EQ(screen.get(0, 0).wide, false);
+    EXPECT_EQ(screen.get(0, 0).ch, U' ');
+}
