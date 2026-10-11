@@ -75,6 +75,13 @@ class TermIme:
         env["HOME"] = home
         env["XDG_CONFIG_HOME"] = os.path.join(self.tmp, "config")
         env["TERM"] = "xterm-256color"
+        # Hermetic, like every other e2e script here: the child shell comes from
+        # $SHELL, so leaving it inherited made this test measure the developer's
+        # login shell. Under zsh the very first keystrokes get mangled before they
+        # reach the prompt (see brain/pages/e2e-harness-contract.md), which failed
+        # the MARKER gate and reported "keys never reached a live shell" on a build
+        # that passes the paste checks under /bin/sh.
+        env["SHELL"] = "/bin/sh"
         for d in (env["HOME"], env["XDG_CONFIG_HOME"]):
             os.makedirs(d, exist_ok=True)
 

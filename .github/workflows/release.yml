@@ -80,8 +80,43 @@ jobs:
             term-ime-linux-${{ matrix.arch }}.tar.gz
             term-ime-linux-${{ matrix.arch }}.tar.gz.sha256
 
+  tests:
+    # The gate that was missing: release.yml used to build, pack and publish
+    # without running a single test, while install.sh points at
+    # /releases/latest -- so "untested" and "shipped to everyone" were the same
+    # event. Runs the full suite the push workflow runs, once, on the same
+    # Ubuntu version the released binary is built on.
+    #
+    # Costs a second build (jobs cannot share object files), and it covers
+    # x86_64 only: the aarch64 artifact is still gated by build-linux's compile
+    # and zero-dynamic-deps checks, not by these tests.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake pkg-config
+
+      - name: Configure & build (Release)
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXE_LINKER_FLAGS="-static -static-libgcc -static-libstdc++" \
+            -DBUILD_SHARED_LIBS=OFF
+          cmake --build build -j$(nproc)
+
+      - name: Unit tests
+        run: cd build && ctest --output-on-failure
+
+      - name: End-to-end tests
+        run: ./tools/run-e2e.sh
+
   release:
-    needs: [build-linux]
+    needs: [build-linux, tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -34,16 +34,10 @@ jobs:
       run: cmake --build build --config Release -j$(nproc)
 
     - name: Run tests
-      run: |
-        cd build
-        ctest --output-on-failure
-        # Run additional non-gtest test binaries
-        echo ">> Running test-input-e2e"
-        ./test-input-e2e
-        echo ">> Running test-ui-jsx"
-        ./test-ui-jsx
-        echo ">> Running test-settings"
-        ./test-settings
+      # CTest covers every test binary now, including the three hand-rolled
+      # non-gtest programs (registered in CMakeLists.txt). They used to be run by
+      # hand here, which is why a local `ctest` silently skipped them.
+      run: cd build && ctest --output-on-failure
 
   e2e:
     # Python PTY end-to-end layer: drives the REAL binary through a pseudo-
@@ -71,22 +65,7 @@ jobs:
       run: cmake --build build --config Release -j$(nproc)
 
     - name: Run python e2e tests
-      run: |
-        set -o pipefail
-        echo ">> test_settings_panel_e2e"
-        python3 tests/test_settings_panel_e2e.py
-        echo ">> test_settings_e2e"
-        python3 tests/test_settings_e2e.py
-        echo ">> test_e2e"
-        python3 tests/test_e2e.py
-        echo ">> test_simplified_candidates"
-        python3 tests/test_simplified_candidates.py
-        echo ">> test_fuzzy_pinyin (per-group toggles)"
-        python3 tests/test_fuzzy_pinyin.py
-        echo ">> test_punctuation"
-        python3 tests/test_punctuation.py
-        echo ">> test_paste_delivery"
-        python3 tests/test_paste_delivery.py
+      run: ./tools/run-e2e.sh
 
   website:
     # The docs are user-facing: a broken build (bad mdx, broken links) must

@@ -1,9 +1,10 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-09T16:09:33.868Z._
+_Auto-generated. Last updated 2026-10-10T18:33:04.328Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
-- [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：越界钳制、坏类型按缺省（不丢弃整份文件）。
+- [candidate-window-sentinel](pages/candidate-window-sentinel.md) — category: decision | tags: [candidate, paging, app, review] | ## 不变量（2026-10-10 起）
+- [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：**越界钳制、坏类型按缺省，且绝不丢弃整份文件**。
 - [config-runtime-binding](pages/config-runtime-binding.md) — category: decision | tags: [config, shell, logging, rime] | 配置字段只有被运行时读到才算接线。
 - [config-save-never-throws](pages/config-save-never-throws.md) — category: decision | tags: [config, error-handling, libuv] | `AppConfig::save` **不抛异常**，返回 `bool` 表示成功与否（写失败、目录不可写、序列化失败都走 `false`）。
 - [cpp-standard-floor](pages/cpp-standard-floor.md) — category: decision | tags: [librime, build, cpp-standard, constraint] | librime fork（`v1.1.8-rime-stack`）以 C++17 为地板，不可降级到 C++11。
@@ -16,6 +17,7 @@ _Auto-generated. Last updated 2026-10-09T16:09:33.868Z._
 - [event-loop-libuv-handle-ownership](pages/event-loop-libuv-handle-ownership.md) — category: decision | tags: [libuv, event-loop, memory-lifetime] | EventLoop 持有的 libuv 句柄（stdin/PTY 的 uv_poll/uv_stream 等）在 `uv_close` 调用时**立即把所有权 release 给 libuv**：close 回调是唯一合法的 `delete` 点。
 - [fuzzy-pinyin-toggle](pages/fuzzy-pinyin-toggle.md) — category: decision | tags: [rime, config, settings, schema] | ## 模糊音组的落点（2026-09-16）
 - [i18n-resource-resolution](pages/i18n-resource-resolution.md) — category: decision | tags: [i18n, translation, install, packaging] | **结论**：翻译资源按固定顺序解析，第一个含 `zh-CN.json` 的目录胜出：
+- [install-target-incomplete](pages/install-target-incomplete.md) — category: decision | tags: [cmake, install, packaging, ci] | `cmake --install` 交付的是**应用程序本身**，不是内部静态库。
 - [librime-standalone-portability](pages/librime-standalone-portability.md) — category: decision | tags: [librime, portability, boost, glog, regex] | **结论（2026-10-09 更新）**：本页标题写的「两处真实缺陷」已过时 —— 现在是**四处**
 - [librime-stl-contribution-policy](pages/librime-stl-contribution-policy.md) — category: decision | tags: [librime, process, upstream] | **结论（2026-10-09 用户策略）**：`adam-ikari/librime-stl` 是 term-ime 的引擎依赖 fork，但 **term-ime 侧不再主动维护它**。
 - [opencc-chain-for-simplified](pages/opencc-chain-for-simplified.md) — category: decision | tags: [rime, opencc, i18n, schema] | **opencc 变体字表 `variants_ext.txt` 的位置变了两次，现在在 librime fork 里。

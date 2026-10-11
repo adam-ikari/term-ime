@@ -294,21 +294,15 @@ endif()
 # ============================================================
 # Install
 # ============================================================
-install(TARGETS term-ime-lib term-terminal term-core
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-)
-
-install(FILES
-    src/ime/engine.hpp
-    src/ime/rime_engine.hpp
-    src/ime/language.hpp
-    DESTINATION include/term-ime
-)
-
-install(FILES
-    src/util/utf8.hpp
-    DESTINATION include/term-ime/util
+# The application is the deliverable; term-ime-lib / term-terminal / term-core are
+# internal static archives. They used to be installed with a five-file header set
+# that did not close over its own includes (rime_engine.hpp needs rime_data.hpp and
+# <rime_api.h>, language.hpp needs core/config.hpp), and none of rime-static / ftxui
+# / uv_a or the terminal/ui/core headers were installed either — so the archives in
+# the install tree could not be compiled against or linked. The engine library this
+# project actually ships is librime-stl's own product, not these archives.
+install(TARGETS term-ime
+    RUNTIME DESTINATION bin
 )
 
 install(DIRECTORY data/translations DESTINATION share/term-ime)
@@ -455,4 +449,13 @@ target_link_libraries(test-input-e2e
 # Register tests with CTest
 include(GoogleTest)
 gtest_discover_tests(term-ime-tests)
+
+# The three checks above are hand-rolled programs (own main(), non-zero exit on
+# failure), so gtest_discover_tests does not apply — but they still have to be
+# registered, or a local `ctest` silently skips them. ci.yml runs each binary by
+# hand, which is why CI stayed green while the panel row-budget checks never
+# appeared in `ctest -N`.
+add_test(NAME ui-jsx COMMAND test-ui-jsx)
+add_test(NAME settings COMMAND test-settings)
+add_test(NAME input-e2e COMMAND test-input-e2e)
 
