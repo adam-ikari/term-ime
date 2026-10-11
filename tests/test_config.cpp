@@ -155,6 +155,70 @@ TEST_F(ConfigTest, MaxCandidatesIsClampedAndTypeSafe) {
     std::remove(path.c_str());
 }
 
+// The M1 pass above sanitized three keys and left the rest on json::value(), which
+// throws type_error.302 on a type mismatch — and load() reports that as "the config
+// failed to load", replacing the FILE with defaults. So a single mistyped value cost
+// the user every setting they had actually made. This is the shape of that bug, with
+// the exact body that reproduced it: shell and fuzzy_groups were both correct in the
+// file and both disappeared.
+TEST_F(ConfigTest, OneWrongTypedKeyDoesNotDiscardTheFile) {
+    const std::string path = "/tmp/term-ime-test-types.json";
+    auto load_body = [&](const std::string& body) {
+        {
+            std::ofstream out(path);
+            out << body;
+        }
+        return AppConfig::load(path);
+    };
+
+    AppConfig typed = load_body(R"({"ui_language": 7, "shell": "/bin/zsh", "fuzzy_groups": ["zh_z", "r"]})");
+    EXPECT_EQ(typed.ui_language, "zh-CN");  // bad type -> default
+    EXPECT_EQ(typed.shell, "/bin/zsh");     // the siblings survive
+    ASSERT_EQ(typed.fuzzy_groups.size(), 2u);
+    EXPECT_EQ(typed.fuzzy_groups[0], "zh_z");
+    ASSERT_EQ(typed.load_notes.size(), 1u);
+    EXPECT_NE(typed.load_notes[0].find("ui_language"), std::string::npos);
+    EXPECT_EQ(typed.take_load_notes().size(), 1u);
+
+    // Booleans and paths, which have no enum validation to hide behind.
+    AppConfig misc = load_body(
+        R"({"show_mode_indicator": "yes", "log_file": [1], "rime_user_data_dir": 3, "shell": "/bin/dash"})");
+    EXPECT_TRUE(misc.show_mode_indicator);
+    EXPECT_EQ(misc.log_file, "");
+    EXPECT_EQ(misc.rime_user_data_dir, "");
+    EXPECT_EQ(misc.shell, "/bin/dash");
+
+    // The legacy boolean key has the same failure mode.
+    AppConfig legacy = load_body(R"({"fuzzy_pinyin": "auto", "shell": "/bin/dash"})");
+    EXPECT_EQ(legacy.fuzzy_groups.size(), 5u);  // default is all groups on
+    EXPECT_EQ(legacy.shell, "/bin/dash");
+
+    // One bad element in an array must not throw away the elements beside it.
+    AppConfig partial = load_body(R"({"fuzzy_groups": ["zh_z", 5, "n_l"]})");
+    ASSERT_EQ(partial.fuzzy_groups.size(), 2u);
+    EXPECT_EQ(partial.fuzzy_groups[0], "zh_z");
+    EXPECT_EQ(partial.fuzzy_groups[1], "n_l");
+
+    // A language entry is only usable with both an id (what selects it) and a
+    // schema (what rime loads for it); LanguageManager indexes the list without
+    // checking, so an unusable entry is dropped rather than kept and made active.
+    AppConfig langs = load_body(
+        R"({"languages": [{"id": "zh-Hans", "schema": "luna_pinyin_simp"}, {"id": 7, "schema": "x"}, {"id": "en"}]})");
+    ASSERT_EQ(langs.languages.size(), 1u);
+    EXPECT_EQ(langs.languages[0].id, "zh-Hans");
+
+    // All entries unusable still has to leave a loadable list, and a file whose top
+    // level is not an object has no keys to read rather than a parse error.
+    AppConfig empty = load_body(R"({"languages": [{"schema": "x"}]})");
+    ASSERT_EQ(empty.languages.size(), 1u);
+    EXPECT_EQ(empty.languages[0].id, "zh-Hans");
+    AppConfig scalar = load_body("[1, 2, 3]");
+    EXPECT_EQ(scalar.shell, AppConfig::default_shell());
+    EXPECT_EQ(scalar.max_candidates, 9);
+
+    std::remove(path.c_str());
+}
+
 // A config that cannot be parsed at all is the one diagnostic that must reach
 // the log file the *user* configured, not whichever logger happened to exist
 // while loading; so the loader hands the note back instead of logging it.
