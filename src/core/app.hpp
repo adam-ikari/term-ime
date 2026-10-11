@@ -116,6 +116,10 @@ class App {
         std::string mode;
         std::string buffer;
         std::vector<Candidate> candidates;
+        // Engine-level paging (see ImeMenuPaging): whether ',' / '.' can reach
+        // another rime page beyond the candidate list in hand.
+        bool page_prev = false;
+        bool page_next = false;
     };
     ImeSnapshot ime_snapshot_;
     void refresh_ime_snapshot();

@@ -403,7 +403,7 @@ void Renderer::render_element(const ui::Element& element) {
 }
 
 void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_t selected, const std::string& buffer,
-                                 const std::string& mode, int max_items) {
+                                 const std::string& mode, int max_items, bool page_prev, bool page_next) {
     // Get terminal width
     struct winsize ws;
     if (ioctl(tty_fd_, TIOCGWINSZ, &ws) < 0 || ws.ws_row == 0) {
@@ -448,7 +448,9 @@ void Renderer::render_candidates(const std::vector<Candidate>& candidates, size_
                                 .selected = selected,
                                 .buffer = buffer,
                                 .term_width = static_cast<int>(ws.ws_col),
-                                .max_items = max_items});
+                                .max_items = max_items,
+                                .page_prev = page_prev,
+                                .page_next = page_next});
 
     render_element(element);
 }

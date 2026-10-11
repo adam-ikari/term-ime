@@ -89,9 +89,22 @@ struct MainBarProps {
     std::string buffer;
     int term_width = 80;  // Terminal width in columns
     int max_items = 9;    // Upper bound on candidates drawn (width may fit fewer)
+    // Paging hint, computed by App (the only side that knows whether the rest
+    // of the rime page — or another page — is still reachable with ','/'.').
+    // The bar only draws what it is told; it does not work the paging out again.
+    bool page_prev = false;
+    bool page_next = false;
 };
 
 Element MainBar(const MainBarProps& props);
+
+// ---- Paging hint ------------------------------------------------------------
+// "‹" when the previous group (or the previous rime page) is reachable, "›"
+// when the next one is; both together read "‹ ›". Its width is subtracted from
+// the bar's width budget by whoever decides the flags, so an arrow is drawn
+// only when the line still fits with it — see candidate-bar-contract.
+std::string page_hint_text(bool prev, bool next);
+int page_hint_width(bool prev, bool next);
 
 // ---- Candidate bar geometry ------------------------------------------------
 // One bar line is " [mode] " + " buffer " + N candidate items (" N.text "), so

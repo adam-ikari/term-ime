@@ -8,16 +8,16 @@
 
 | 测试文件 | 测试内容 | 用例数 |
 |---------|---------|--------|
-| `test_utf8.cpp` | UTF-8 编解码、CJK 宽度、RoundTrip | 48 |
+| `test_utf8.cpp` | UTF-8 编解码、CJK 宽度、RoundTrip | 55 |
 | `test_input_processor.cpp` | 输入处理器状态机、Ctrl+A 组合、ESC 序列、非 ASCII 边界 | 23 |
-| `test_config.cpp` | 配置加载/保存、语言配置序列化、默认值 | 12 |
+| `test_config.cpp` | 配置加载/保存、语言配置序列化、默认值 | 15 |
 | `test_i18n.cpp` | 翻译加载、默认翻译、语言切换、key 完整性 | 11 |
-| `test_ime_contract.cpp` | `ImeEngine` 公开契约：状态推进、`input()` 拒绝、`select()`/`cancel()`、`take_commit()` 排空 | 8 |
+| `test_ime_contract.cpp` | `ImeEngine` 公开契约：状态推进、`input()` 拒绝、`select()`/`cancel()`、`take_commit()` 排空、`paging()` 报页可达性 | 9 |
 | `test_pty.cpp` | `TxByteQueue` 出站队列单元行为 | 5 |
-| `test_rime_data.cpp` | 词典数据目录解析 | 5 |
+| `test_rime_data.cpp` | 词典数据目录解析 + 随包出货的 OpenCC/词库数据与许可 | 7 |
 | `test_event_loop.cpp` | libuv 事件循环 | 3 |
 | `test_pty_stall.cpp` | 出站队列溢出：连续前缀不变量（PTY 集成） | 3 |
-| **合计** | | **118** |
+| **合计** | | **133** |
 
 **运行**: `./build/term-ime-tests`（或 `ctest --test-dir build`）
 
@@ -32,7 +32,7 @@
 
 ### 2. 端到端测试（python + PTY）— **CI 实际跑的就是这一批**
 
-这 7 个套件跑真实二进制：独立 HOME + 一次性 rime 用户目录 + PTY。它们是本项目
+这 11 个套件跑真实二进制：独立 HOME + 一次性 rime 用户目录 + PTY。它们是本项目
 最有价值的测试 —— 三个吞键 bug（Enter 不提交、`[7` 丢 7、转义序列被拆散）全是在这里
 被 e2e 断言逮住的，不是靠单元测试。
 
@@ -43,6 +43,10 @@
 | `test_settings_e2e.py` | 设置面板读写与持久化 |
 | `test_settings_panel_e2e.py` | 设置面板键盘导航（指纹字串 `Esc/Tab`，改提示文案要同步） |
 | `test_simplified_candidates.py` | 候选栏必须给简体形式 |
+| `test_candidate_paging.py` | 窄终端翻页不变量：`candidate_window_` 任何时刻都是合法下标（Enter 不丢组合、窗口不塌成 1 项、跨页不跳过） |
+| `test_candidate_paging_hint.py` | 翻页提示器 `‹ ›`：有可翻的才画，画了就真能翻到，箭头占宽后整行仍不越界、数字键仍选中所显示的 |
+| `test_wide_pair.py` | 宽字符右半格契约（CJK 半格不残影） |
+| `test_config_types_e2e.py` | 配置加载侧消毒：越界钳制、坏类型按缺省 |
 | `test_punctuation.py` | 中文模式标点交给 librime punctuator，提交全角 |
 | `test_paste_delivery.py` | 大段粘贴到达率与**字节序**；`--stall` 让读者先睡，覆盖出站队列溢出 |
 
@@ -76,7 +80,7 @@
 
 | 测试 | 内容 |
 |------|------|
-| `test-ui-jsx` | UI 组件渲染（CandidateItem, MainBar, EmptyBar 等） |
+| `test-ui-jsx` | UI 组件渲染（CandidateItem, MainBar, EmptyBar 等）+ 候选栏几何断言（`ui::page_hint_text/width` 与右端箭头落位），失败退出非零 |
 | `test-settings` | 设置面板、键盘导航、焦点切换、属性修改 |
 
 **运行**: `./build/test-ui-jsx` 和 `./build/test-settings`

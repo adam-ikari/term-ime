@@ -29,8 +29,11 @@ class Renderer {
     void redraw_shell(const Screen& screen);
     // max_items: upper bound on candidates drawn (the bar fits fewer on narrow
     // terminals; the caller passes its own fit so display and selection agree).
+    // page_prev / page_next: the paging hint ('‹' / '›'), decided by the caller
+    // — it alone knows whether a ',' / '.' would move the candidates at all.
     void render_candidates(const std::vector<Candidate>& candidates, size_t selected, const std::string& buffer,
-                           const std::string& mode = "EN", int max_items = 9);
+                           const std::string& mode = "EN", int max_items = 9, bool page_prev = false,
+                           bool page_next = false);
 
     // Render settings panel
     void render_settings(ui::SettingsState& state);

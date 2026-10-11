@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [ui, candidates, rime, config]
 created: "2026-09-15T04:17:45"
-updated: "2026-09-15T05:18:33"
+updated: "2026-10-11T02:46:18"
 ---
 
 <!-- compiled_truth -->
@@ -20,12 +20,22 @@ updated: "2026-09-15T05:18:33"
 3. **可配置**：`AppConfig::max_candidates`（1-9，默认 9，JSON 键 `max_candidates`，兼容旧键 `page_size`）是每页上限；
    实际数量 = min(max_candidates, 宽度能完整放下几个)。
 4. **不截断**：优先显示完整候选；极端窄屏才退化为「1 个候选 + 省略号」，绝不让候选栏超出终端宽度。
+5. **翻页提示器的宽度也在这份预算里**：右端 `‹`/`›`（`ui::page_hint_text`）的列数从候选的宽度里出，
+   调用方（App 切窗口、`advance_candidate_window` 跨页落点）与 `MainBar` 用同一个函数预留。
+   「画不画」的定点解法与两处调用见 [[candidate-paging-hint]]。约束 1 因此多了一条推论：
+   **预留列变化后窗口步进必须跟着变**，否则 `candidate_slots_` 大于实际画出的数量，翻页会跳过候选。
 
 ## 证据（2026-09-15）
 
 46 列 → 3 个候选；140 列 → 9 个；两种宽度下候选栏可见宽度均 ≤ 终端宽度；
 窄屏连续 `.` 得到的序列 `你好/妳好/利好/立好/理好/立号/里豪/逆号/你` 与 140 列整页顺序一致（无跳过）；
 窗口内按 `1` 提交的正是该窗口显示的首个候选；`max_candidates=3` → 3 个；旧键 `page_size=2` → 2 个。
+
+## 证据（2026-10-11，提示器加入后）
+
+46 列下每帧候选栏宽 46 列（含箭头），窗口序列 `你好/利好/立好 → 理好/立号 → 里豪/逆号 → 拟好/李浩`
+连续无跳过，跨 rime 页后 `,` 回到 `拟好/李浩` 并在该窗口按 `1` 上屏该窗口首个候选。
+`tests/test_candidate_paging_hint.py` 17/17；`test_candidate_paging.py` 3/3、`test_fuzzy_pinyin.py` 回归通过。
 
 ## 未决
 
@@ -52,4 +62,10 @@ updated: "2026-09-15T05:18:33"
   kind: decision
   summary: "方向键(←↑/→↓)与 PgUp/PgDn 也可翻候选组；设置面板新增「候选词数量」行(1-9)"
   source: "2026-09-15 翻页键与设置项"
+  affects: [candidate-bar-contract]
+
+- time: 2026-10-11T02:46:18
+  kind: decision
+  summary: "补约束 5：翻页提示器与候选共用一份宽度预算，预留变化后窗口步进必须跟着变；补 2026-10-11 证据"
+  source: "2026-10-11 候选栏翻页提示器"
   affects: [candidate-bar-contract]

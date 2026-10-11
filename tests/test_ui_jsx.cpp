@@ -8,6 +8,42 @@
 
 using namespace ui;
 
+namespace {
+
+// This program used to print "=== All Tests Passed ===" unconditionally, which
+// is a test that cannot fail. Assertions added here go through expect_eq so a
+// regression exits non-zero (CTest runs this binary).
+int g_failures = 0;
+
+void expect_eq(const std::string& what, const std::string& got, const std::string& want) {
+    if (got == want) {
+        std::cout << "  ok   " << what << "\n";
+        return;
+    }
+    std::cout << "  FAIL " << what << ": got \"" << got << "\", want \"" << want << "\"\n";
+    ++g_failures;
+}
+
+int failures() {
+    return g_failures == 0 ? 0 : 1;
+}
+
+// Drop SGR escape sequences ("ESC [ … m") from a rendered row.
+std::string strip_sgr(const std::string& s) {
+    std::string out;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == '\x1b') {
+            while (i < s.size() && s[i] != 'm')
+                ++i;
+            continue;
+        }
+        out += s[i];
+    }
+    return out;
+}
+
+}  // namespace
+
 int main() {
     // Initialize i18n with default translations
     I18n::init(I18n::Lang::ZH_CN);
@@ -101,6 +137,45 @@ int main() {
     ftxui::Render(screen8, hints);
     std::cout << "HintsBar: " << screen8.ToString() << "\n\n";
 
-    std::cout << "=== All Tests Passed ===\n";
-    return 0;
+    // Test 8: paging hint geometry. The drawn arrows and the columns
+    // reserved for them are the same function (ui::page_hint_text) on both
+    // sides — App budgets with it and MainBar draws it — so a mismatch here
+    // means either a bar that runs past the right edge or a window that skips
+    // a candidate. Asserted on the strings rather than on a rendered row,
+    // because FTXUI clips a too-wide row silently and the overflow would be
+    // invisible in the screen buffer.
+    std::cout << "Test 8: Paging Hint Geometry\n";
+    expect_eq("no arrows", ui::page_hint_text(false, false), "");
+    expect_eq("next only", ui::page_hint_text(false, true), "›");
+    expect_eq("prev only", ui::page_hint_text(true, false), "‹");
+    expect_eq("both", ui::page_hint_text(true, true), "‹ ›");
+    expect_eq("width of \"›\"", std::to_string(ui::page_hint_width(false, true)), "1");
+    expect_eq("width of \"‹\"", std::to_string(ui::page_hint_width(true, false)), "1");
+    expect_eq("width of \"‹ ›\"", std::to_string(ui::page_hint_width(true, true)), "3");
+    expect_eq("width of nothing", std::to_string(ui::page_hint_width(false, false)), "0");
+
+    // The arrow is drawn at the right end of the bar, after the filler.
+    auto hint_bar = MainBar({.mode = "拼",
+                             .lang_name = "",
+                             .candidates = candidates,
+                             .selected = 0,
+                             .buffer = "ni hao",
+                             .term_width = 46,
+                             .max_items = 9,
+                             .page_prev = true,
+                             .page_next = true});
+    auto screen9 = ftxui::Screen::Create(ftxui::Dimension::Fixed(46), ftxui::Dimension::Fixed(1));
+    ftxui::Render(screen9, hint_bar);
+    // Screen::ToString() carries the styling escapes, which would sit in the
+    // row's tail and hide where the arrows actually are. (Byte indexing: the
+    // arrows are multibyte, so the slice must be taken by byte length.)
+    const std::string row = strip_sgr(screen9.ToString());
+    const std::string both_arrows = ui::page_hint_text(true, true);
+    expect_eq("both arrows at the right edge", row.substr(row.size() - both_arrows.size()), both_arrows);
+
+    if (g_failures)
+        std::cout << g_failures << " check(s) FAILED\n";
+    else
+        std::cout << "=== All Tests Passed ===\n";
+    return failures();
 }

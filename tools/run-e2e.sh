@@ -20,6 +20,7 @@ for suite in \
   test_e2e \
   test_simplified_candidates \
   test_candidate_paging \
+  test_candidate_paging_hint \
   test_wide_pair \
   test_config_types_e2e \
   test_fuzzy_pinyin \

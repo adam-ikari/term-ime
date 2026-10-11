@@ -23,6 +23,7 @@ class RimeIme : public ImeEngine {
     void toggle_mode() override;
     std::string buffer() const override;
     std::vector<Candidate> candidates() const override;
+    ImeMenuPaging paging() const override;
     std::u32string select(int index) override;
     std::u32string take_commit() override;
     void backspace() override;

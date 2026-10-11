@@ -305,6 +305,24 @@ std::vector<Candidate> RimeIme::candidates() const {
     return result;
 }
 
+ImeMenuPaging RimeIme::paging() const {
+    ImeMenuPaging info;
+    if (!rime_ || !session_)
+        return info;
+
+    RIME_STRUCT(RimeContext, context);
+    if (rime_->get_context(session_, &context)) {
+        // Only meaningful with a menu up: with no candidates rime reports a
+        // single empty page, and the bar draws no arrows anyway.
+        if (context.menu.num_candidates > 0) {
+            info.prev_page = context.menu.page_no > 0;
+            info.next_page = !context.menu.is_last_page;
+        }
+        rime_->free_context(&context);
+    }
+    return info;
+}
+
 std::u32string RimeIme::select(int index) {
     if (!rime_ || !session_)
         return U"";

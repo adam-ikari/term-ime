@@ -15,6 +15,17 @@ struct Candidate {
     std::string code;
 };
 
+// Where the candidate menu sits inside the engine's OWN paging. librime hands
+// back one page at a time (menu/page_size in the schema), so "there is more"
+// is not derivable from the candidate list alone: an empty tail means either
+// "that was all" or "the rest is on the next page". Probing (page_down and
+// looking at the list) would move the page under the user's feet, so the
+// engine reports it instead — the bar needs it to draw its paging arrows.
+struct ImeMenuPaging {
+    bool prev_page = false;  // a page_up would land on a different page
+    bool next_page = false;  // a page_down would land on a different page
+};
+
 class ImeEngine {
    public:
     virtual ~ImeEngine() = default;
@@ -26,6 +37,9 @@ class ImeEngine {
     virtual void toggle_mode() = 0;
     virtual std::string buffer() const = 0;
     virtual std::vector<Candidate> candidates() const = 0;
+    // Paging state of the menu candidates() is describing. Both false when no
+    // menu is up (or when the engine pages nothing).
+    virtual ImeMenuPaging paging() const = 0;
     virtual std::u32string select(int index) = 0;
     // Text librime committed as a side effect of the last key (punctuation's
     // full-width form, auto-commit, sentence commit). Drains the internal

@@ -230,6 +230,9 @@ void App::refresh_ime_snapshot() {
     ime_snapshot_.mode = (ime_->mode() == ImeMode::Chinese) ? "拼" : "EN";
     ime_snapshot_.candidates = ime_->candidates();
     ime_snapshot_.buffer = ime_->buffer();
+    const ImeMenuPaging paging = ime_->paging();
+    ime_snapshot_.page_prev = paging.prev_page;
+    ime_snapshot_.page_next = paging.next_page;
 }
 
 void App::queue_for_shell(const std::vector<uint8_t>& bytes) {
@@ -313,6 +316,17 @@ static int terminal_columns(int tty_fd) {
     return 80;
 }
 
+// Narrowest bar that still earns a paging arrow: the fixed prefix
+// (" [拼] " + " ni ") plus one truncated candidate. Below that the bar keeps
+// every column for the candidates — an arrow is worth less than a candidate,
+// and the contract is that the bar never runs past the right edge. Decided once
+// per bar against the widest arrow form ("‹ ›"), so it cannot flip while the
+// width below is being settled.
+static constexpr int kBarHintMinCols = 16;
+static bool bar_can_hint(int cols) {
+    return cols - ui::page_hint_width(true, true) >= kBarHintMinCols;
+}
+
 void App::render_candidates_bar() {
     // Always re-read the IME context here. It used to take a `refresh` flag, and
     // the false branch (repaint from a shell-output chunk) was a caching
@@ -339,22 +353,60 @@ void App::render_candidates_bar() {
     const int cols = terminal_columns(renderer_.get_tty_fd());
 
     std::vector<Candidate> shown;
+    bool hint_prev = false;
+    bool hint_next = false;
     if (!all.empty()) {
         if (candidate_window_ > all.size() - 1)
             candidate_window_ = all.size() - 1;
-        // Fit over the tail of the page, because the bar re-derives the count
-        // from exactly the list it is handed: both sides must see the same list
-        // or the drawn set and the selectable set would drift apart.
-        std::vector<Candidate> tail(all.begin() + candidate_window_, all.end());
-        int fit =
-            ui::FitCandidateBar(cols, ime_snapshot_.mode, ime_snapshot_.buffer, tail, config_.max_candidates).count;
-        if (fit < 1)
-            fit = 1;
-        if (static_cast<size_t>(fit) >= all.size()) {
-            candidate_window_ = 0;
-            fit = static_cast<int>(all.size());
-        } else if (candidate_window_ > all.size() - static_cast<size_t>(fit)) {
-            candidate_window_ = all.size() - static_cast<size_t>(fit);  // keep a full window
+
+        // The arrows live at the right end, so their columns are part of the
+        // width budget — but whether an arrow is needed depends on how many
+        // candidates fit once those columns are taken. That is a fixed point,
+        // and it exists: reserving more columns can only shrink the fit, and a
+        // smaller fit can only make "there is more" / "there was more" more
+        // true, so the wanted width is a non-decreasing function of the width
+        // reserved, over the chain 0 → 1 → 3 ("›" / "‹" / "‹ ›"). Iterating up
+        // from 0 therefore settles in at most three passes. (Two passes are not
+        // enough — 0 → 1 → 3 is exactly the case that skipped a candidate, see
+        // the timeline on candidate-bar-contract.)
+        const bool can_hint = bar_can_hint(cols);
+        int hint_w = 0;
+        int fit = 1;
+        for (int pass = 0; pass < 4; ++pass) {
+            // Fit over the tail of the page, because the bar re-derives the count
+            // from exactly the list it is handed: both sides must see the same list
+            // or the drawn set and the selectable set would drift apart.
+            std::vector<Candidate> tail(all.begin() + candidate_window_, all.end());
+            fit = ui::FitCandidateBar(std::max(1, cols - hint_w), ime_snapshot_.mode, ime_snapshot_.buffer, tail,
+                                      config_.max_candidates)
+                      .count;
+            if (fit < 1)
+                fit = 1;
+            if (static_cast<size_t>(fit) >= all.size()) {
+                candidate_window_ = 0;
+                fit = static_cast<int>(all.size());
+            } else if (candidate_window_ > all.size() - static_cast<size_t>(fit)) {
+                candidate_window_ = all.size() - static_cast<size_t>(fit);  // keep a full window
+            }
+            // Both halves of the hint: inside this rime page (the window) and
+            // across rime pages (ime_snapshot_.page_*), because ',' / '.' roll
+            // onto the previous / next page once the window runs out. This is
+            // the SAME predicate advance_candidate_window() acts on, so an
+            // arrow is never drawn for a direction that would not move.
+            hint_prev = can_hint && (candidate_window_ > 0 || ime_snapshot_.page_prev);
+            hint_next =
+                can_hint && (candidate_window_ + static_cast<size_t>(fit) < all.size() || ime_snapshot_.page_next);
+            const int want = ui::page_hint_width(hint_prev, hint_next);
+            if (want == hint_w)
+                break;  // fixed point: reserved == wanted, fit matches the arrows
+            hint_w = want;
+        }
+        if (ui::page_hint_width(hint_prev, hint_next) != hint_w) {
+            // Never settled — impossible with the rule above, which is what the
+            // loop bound is for. Draw no arrows rather than ones the budget did
+            // not pay for: the slice computed for the last reserved width still
+            // fits on the line untouched.
+            hint_prev = hint_next = false;
         }
 
         // The window is driven by the user ('.'/','): a highlight that sits
@@ -373,7 +425,8 @@ void App::render_candidates_bar() {
         selected_candidate_ < candidate_window_ + shown.size())
         sel = selected_candidate_ - candidate_window_;
 
-    renderer_.render_candidates(shown, sel, ime_snapshot_.buffer, ime_snapshot_.mode, config_.max_candidates);
+    renderer_.render_candidates(shown, sel, ime_snapshot_.buffer, ime_snapshot_.mode, config_.max_candidates, hint_prev,
+                                hint_next);
 }
 void App::advance_candidate_window(int direction) {
     if (!ime_)
@@ -413,11 +466,30 @@ void App::advance_candidate_window(int direction) {
             // what collapsed the bar to one candidate, and reusing the window size
             // of the page just left points at an offset that page never had, so
             // Down-then-Up stopped being a round trip (tests/test_fuzzy_pinyin.py).
-            const int fit =
-                std::max(1, ui::FitCandidateBar(terminal_columns(renderer_.get_tty_fd()), ime_snapshot_.mode,
-                                                ime_snapshot_.buffer, all, config_.max_candidates)
-                                .count);
-            candidate_window_ = all.size() > static_cast<size_t>(fit) ? all.size() - fit : 0;
+            //
+            // The arrows' columns come out of this window's budget as well, so
+            // they are part of the measurement: without them the window comes out
+            // one candidate too wide and the user lands a step BEFORE the one they
+            // left. Same fixed point as in render_candidates_bar, and it holds for
+            // the same reason — a narrower fit only makes the arrows more needed.
+            const int cols = terminal_columns(renderer_.get_tty_fd());
+            const bool can_hint = bar_can_hint(cols);
+            int hint_w = 0;
+            int fit = 1;
+            for (int pass = 0; pass < 4; ++pass) {
+                fit = std::max(1, ui::FitCandidateBar(std::max(1, cols - hint_w), ime_snapshot_.mode,
+                                                      ime_snapshot_.buffer, all, config_.max_candidates)
+                                      .count);
+                // The window this pass would land on is the last full one: it is
+                // non-empty exactly when the page has more than `fit` candidates.
+                const bool prev = can_hint && (all.size() > static_cast<size_t>(fit) || ime_snapshot_.page_prev);
+                const bool next = can_hint && ime_snapshot_.page_next;
+                const int want = ui::page_hint_width(prev, next);
+                if (want == hint_w)
+                    break;
+                hint_w = want;
+            }
+            candidate_window_ = all.size() > static_cast<size_t>(fit) ? all.size() - static_cast<size_t>(fit) : 0;
         } else {
             // Forward paging, and a page rime refused, both start at the head.
             candidate_window_ = 0;

@@ -23,6 +23,9 @@
 //   - select() commits and reports what it committed
 //   - cancel() returns to Inactive and takes the buffer with it
 //   - page_up/page_down change the visible page
+//   - paging() reports whether page_up/page_down WOULD move the menu, without
+//     moving it (the bar draws its paging arrows from that, and probing by
+//     paging would move the page under the user)
 
 namespace {
 
@@ -151,4 +154,32 @@ TEST_F(ImeEngineContract, BackspaceRemovesOneSyllableCharacter) {
     EXPECT_NE(engine_->buffer(), "ni hao");
     EXPECT_FALSE(engine_->buffer().empty()) << "backspace cleared the whole buffer";
 }
+
+TEST_F(ImeEngineContract, PagingReportsReachablePagesWithoutMovingTheMenu) {
+    // No menu up: nothing to page, both flags false.
+    EXPECT_FALSE(engine_->paging().prev_page);
+    EXPECT_FALSE(engine_->paging().next_page);
+
+    engine_->set_mode(ImeMode::Chinese);
+    for (char c : std::string("nihao"))
+        ASSERT_TRUE(engine_->input(c));
+
+    // A word this common has more than one page of candidates behind it, and a
+    // fresh composition is on the first one. The bar's arrows are drawn straight
+    // from these two flags, so a constant `false` here is not "no hint", it is
+    // a user who cannot see that paging is possible.
+    EXPECT_FALSE(engine_->paging().prev_page);
+    EXPECT_TRUE(engine_->paging().next_page);
+
+    engine_->page_down();
+
+    // Reading the flags must not move the menu itself: the page page_down() put
+    // it on is what a second read still sees, and nothing was committed on the
+    // way (state() is still Selecting, buffer intact).
+    const ImeMenuPaging after_page_down = engine_->paging();
+    EXPECT_TRUE(after_page_down.prev_page);
+    EXPECT_EQ(engine_->paging().prev_page, after_page_down.prev_page);
+    EXPECT_EQ(engine_->state(), ImeState::Selecting);
+    EXPECT_FALSE(engine_->buffer().empty());
 }
+}  // namespace

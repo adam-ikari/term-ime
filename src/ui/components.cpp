@@ -225,6 +225,22 @@ CandidateBarFit FitCandidateBar(int term_width, const std::string& mode, const s
     return fit;
 }
 
+// ---- Paging hint ------------------------------------------------------------
+
+std::string page_hint_text(bool prev, bool next) {
+    if (prev && next)
+        return "‹ ›";  // 两边都还能翻
+    if (prev)
+        return "‹";  // 前面还有候选（窗口或 rime 页）
+    if (next)
+        return "›";  // 后面还有候选
+    return "";
+}
+
+int page_hint_width(bool prev, bool next) {
+    return utf8::string_width(page_hint_text(prev, next));
+}
+
 Element MainBar(const MainBarProps& props) {
     // 即使没有候选词，也要显示拼音（buffer 可能非空）
     if (props.candidates.empty() && props.buffer.empty()) {
@@ -234,6 +250,13 @@ Element MainBar(const MainBarProps& props) {
     int term_w = props.term_width;
     if (term_w <= 0)
         term_w = 80;
+
+    // The paging hint lives at the right end of the bar, so it is part of the
+    // width budget: candidates fit into what is left after it. App reserves the
+    // same columns when it slices the window, so the drawn set stays equal to
+    // the digit-selectable set (candidate-bar-contract).
+    const std::string page_hint = page_hint_text(props.page_prev, props.page_next);
+    const int hint_w = utf8::string_width(page_hint);
 
     // ---- Width calculation helpers ----
 
@@ -265,7 +288,8 @@ Element MainBar(const MainBarProps& props) {
     // ---- Determine how many candidates fit ----
     // Shared with App::render_candidates_bar() so the drawn set and the
     // digit-selectable set are always the same set.
-    ui::CandidateBarFit fit = FitCandidateBar(term_w, props.mode, props.buffer, props.candidates, props.max_items);
+    ui::CandidateBarFit fit =
+        FitCandidateBar(std::max(1, term_w - hint_w), props.mode, props.buffer, props.candidates, props.max_items);
     size_t display_count = static_cast<size_t>(fit.count);
 
     // ---- Build items ----
@@ -288,6 +312,12 @@ Element MainBar(const MainBarProps& props) {
 
     // Filler
     items.push_back(Filler());
+
+    // 翻页提示器：右端对齐，'‹' 表示前面还有候选，'›' 表示后面还有。
+    // 宽度已在上面的 fit 里扣除，所以这条线不会因为箭头而越界。
+    if (!page_hint.empty()) {
+        items.push_back(Text(page_hint) | Dim() | TextColor(color::kHint));
+    }
 
     // Cancel hint
     return HBox(std::move(items)) | BgColor(color::kBarBg) | Height(1);
