@@ -9,7 +9,6 @@
 #include <cstring>
 #include <stdexcept>
 #include <filesystem>
-#include <limits>
 
 // Orphaned-ESC timeout (vi/urxvt-style escape-timeout). A bare ESC sitting in
 // the InputProcessor's Escape state for this long with no follow-up byte is
@@ -290,6 +289,30 @@ bool App::ime_feed(char ch) {
     return true;
 }
 
+// Signature of the candidate list itself. A change means the list rime is now
+// offering is a different one, so an offset into the old list no longer refers
+// to anything. Only render_candidates_bar's own bookkeeping decides what to do
+// with it.
+static std::string candidate_page_signature(const std::vector<Candidate>& all) {
+    std::string sig;
+    for (const Candidate& c : all) {
+        for (char32_t ch : c.text) {
+            if (ch != 0)
+                sig += utf8::encode(ch);
+        }
+        sig += '\x1f';
+    }
+    return sig;
+}
+
+// Terminal width the bar is drawn into; 80 is the convention when the tty refuses.
+static int terminal_columns(int tty_fd) {
+    struct winsize ws {};
+    if (ioctl(tty_fd, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+        return ws.ws_col;
+    return 80;
+}
+
 void App::render_candidates_bar() {
     // Always re-read the IME context here. It used to take a `refresh` flag, and
     // the false branch (repaint from a shell-output chunk) was a caching
@@ -307,23 +330,13 @@ void App::render_candidates_bar() {
 
     // A different candidate set means a new composition or a new rime page, so
     // the previous window offset no longer refers to anything.
-    std::string sig;
-    for (const Candidate& c : all) {
-        for (char32_t ch : c.text) {
-            if (ch != 0)
-                sig += utf8::encode(ch);
-        }
-        sig += '\x1f';
-    }
+    const std::string sig = candidate_page_signature(all);
     if (sig != candidate_page_sig_) {
         candidate_page_sig_ = std::move(sig);
         candidate_window_ = 0;
     }
 
-    struct winsize ws {};
-    int cols = 80;
-    if (ioctl(renderer_.get_tty_fd(), TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
-        cols = ws.ws_col;
+    const int cols = terminal_columns(renderer_.get_tty_fd());
 
     std::vector<Candidate> shown;
     if (!all.empty()) {
@@ -371,20 +384,57 @@ void App::advance_candidate_window(int direction) {
     // silently paged against a stale candidate list.
     refresh_ime_snapshot();
     const size_t step = static_cast<size_t>(std::max(1, candidate_slots_));
+    const std::string before = candidate_page_signature(ime_snapshot_.candidates);
+    bool requested_page = false;
     if (direction > 0) {
         if (candidate_window_ + step < ime_snapshot_.candidates.size()) {
             candidate_window_ += step;
         } else {
             ime_->page_down();
-            candidate_window_ = 0;
+            requested_page = true;
         }
     } else if (candidate_window_ >= step) {
         candidate_window_ -= step;
     } else {
         ime_->page_up();
-        // Ask for the tail window; render clamps to the last full one.
-        candidate_window_ = std::numeric_limits<size_t>::max();
+        requested_page = true;
     }
+    if (requested_page) {
+        // The offset indexes the page rime ended up on, and that is only knowable
+        // after the request: rime refuses to page past either end, and a refused
+        // page leaves the old list in place.
+        refresh_ime_snapshot();
+        const std::vector<Candidate>& all = ime_snapshot_.candidates;
+        const bool moved = candidate_page_signature(all) != before;
+        if (moved && direction < 0 && !all.empty()) {
+            // Going back lands on the window the user was just standing on: the
+            // LAST full window of the page arrived at. Its size must be measured
+            // against that page's whole list — measuring the tail being shown is
+            // what collapsed the bar to one candidate, and reusing the window size
+            // of the page just left points at an offset that page never had, so
+            // Down-then-Up stopped being a round trip (tests/test_fuzzy_pinyin.py).
+            const int fit =
+                std::max(1, ui::FitCandidateBar(terminal_columns(renderer_.get_tty_fd()), ime_snapshot_.mode,
+                                                ime_snapshot_.buffer, all, config_.max_candidates)
+                                .count);
+            candidate_window_ = all.size() > static_cast<size_t>(fit) ? all.size() - fit : 0;
+        } else {
+            // Forward paging, and a page rime refused, both start at the head.
+            candidate_window_ = 0;
+        }
+    }
+    // `candidate_window_` is read by the select paths (digits, space, Enter) as soon
+    // as the next key is dispatched, while the bar is drawn once per batch. So it has
+    // to be a real index into the current page by the time this returns. It used to
+    // hold SIZE_MAX here as a "render the last page" request that only
+    // render_candidates_bar converged: mid-batch that narrowed to -1 in select(),
+    // which returned nothing and let Enter cancel the composition, and a second
+    // page-up wrapped it into a meaningless small offset.
+    //
+    // Adopting the signature is the other half of the fix: this candidate-set change
+    // is the one the offset was just computed *for*, so the reset in
+    // render_candidates_bar must not fire and throw the tail window away.
+    candidate_page_sig_ = candidate_page_signature(ime_snapshot_.candidates);
 }
 
 // Which way a completed escape sequence pages the candidate list: -1 previous,

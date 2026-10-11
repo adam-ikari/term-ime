@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-05T02:27:38"
+updated: "2026-10-10T18:32:49"
 ---
 
 <!-- compiled_truth -->
@@ -379,4 +379,16 @@ fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kil
   kind: decision
   summary: Rewrote compiled_truth to the new best understanding
   source: brain update-truth
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-10T17:22:26
+  kind: evidence
+  summary: "tests/test_paste_delivery.py 是唯一没固定 SHELL=/bin/sh 的 e2e 脚本，于是它测的是开发者登录 shell：本机 SHELL=/bin/zsh 时它稳定停在 MARKER 门（FAIL: keys never reached a live shell），改成 /bin/sh 后同一二进制全绿；CI runner 的 SHELL=/bin/bash 所以从未暴露。已补上 SHELL=/bin/sh。顺带留下的未决问题：zsh 下第一批键入到达提示符前被改写（观察到的 echo 变成 cho，屏幕上多出 ESC=c 与 ESC>），这可能是 App 与 zle 交互的真实缺陷，值得单独一轮排查，不要在 e2e 层用固定 SHELL 把它盖过去。"
+  source: "2026-10-10 本机实测"
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-10T18:32:49
+  kind: evidence
+  summary: "两条会让 e2e 断言失去判别力的陷阱（写 tests/test_wide_pair.py 时实测踩到）：(1) 断言用的 ASCII 标记若原样敲进命令行，shell 回显里就有它，strip_ansi 后的整帧匹配会「因为敲过」而成立——标记必须由 printf 的八进制转义生成（\\132=Z），让敲入的文本只含反斜杠数字；(2) parser 是把 shell 字节流重放到外层终端的，所以 Screen 影子网格的缺陷在原始输出里看不见，必须等一次 redraw_shell 才暴露——本项目里最省事的强制重绘是开设置面板（整屏 ESC[2J）再按 ESC 关闭。同一轮新增 tests/test_config_types_e2e.py（错类型键不再丢弃整个配置文件，判据是 max_candidates 仍生效 + 日志点名被忽略的键）。两个用例都验过判别力：test_wide_pair 对仅回退 screen.cpp 的二进制 1/4、对修复后 4/4；test_config_types_e2e 对仅回退 config.cpp 的二进制 0/2、对修复后 2/2。e2e 清单现为 10 项（tools/run-e2e.sh）。"
+  source: "2026-10-11 补 e2e 缺口"
   affects: [e2e-harness-contract]
