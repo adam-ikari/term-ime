@@ -58,6 +58,12 @@ def dwidth(s: str) -> int:
     return sum(2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in s)
 
 
+def compact(s: str) -> str:
+    """Collapse the filler between the candidates and the right-aligned arrows,
+    so a failure line shows both ends instead of 40 columns of spaces."""
+    return re.sub(r" {2,}", " ", s).strip()
+
+
 class Session:
     def __init__(self) -> None:
         self.home = tempfile.mkdtemp(prefix="hint-")
@@ -121,6 +127,11 @@ class Session:
             os.write(self.fd, data)
         except OSError:
             pass
+
+    def resize(self, cols: int) -> None:
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", 30, cols, 0, 0))
+        time.sleep(0.6)
+        self.read(0.5)
 
     def bar_line(self) -> str:
         """The candidate bar's row as text (arrows included).
@@ -220,6 +231,23 @@ def main() -> int:
                 time.sleep(1.0)
                 frame = strip_ansi(s.read(1.0))
                 check("digit selects what the bar shows", head in frame, "%r in frame=%s" % (head, head in frame))
+
+        # 5. The arrows' columns are part of the width budget, so a resize has
+        #    to recompute both the fit and the hint: the bar must still fit the
+        #    new width, and an arrow paging can act on must still be there. A
+        #    wide terminal shows a whole rime page in one window, so its first
+        #    window only has the cross-page half of the hint ('›'); one '.' moves
+        #    a page and the other half appears from the engine (page_no > 0).
+        for wide in (120, COLS):
+            s.resize(wide)
+            first_window = s.compose("nihao")  # the bar is gone after a commit; start over
+            check("%d列 bar fits" % wide, 0 < dwidth(first_window) <= wide, "%d cols" % dwidth(first_window))
+            check("%d列 first window shows ›" % wide, first_window.rstrip().endswith("›"), repr(compact(first_window)))
+            s.send(b".")
+            time.sleep(0.6)
+            moved = s.bar_line()
+            check("%d列 next window fits" % wide, 0 < dwidth(moved) <= wide, "%d cols" % dwidth(moved))
+            check("%d列 next window shows ‹" % wide, "‹" in moved, repr(compact(moved)))
 
         s.send(b"\x1b")
         time.sleep(0.3)
