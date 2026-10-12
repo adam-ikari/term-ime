@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-12T06:44:52.100Z._
+_Auto-generated. Last updated 2026-10-12T08:59:23.260Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [candidate-paging-hint](pages/candidate-paging-hint.md) — category: decision | tags: [ui, candidates, paging, width] | ## 不变量（2026-10-11 起；2026-10-12 两度被用户推翻）

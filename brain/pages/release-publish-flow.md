@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [release, ci]
 created: "2026-09-29T00:41:51"
-updated: "2026-10-06T15:56:45"
+updated: "2026-10-12T08:59:23"
 ---
 
 <!-- compiled_truth -->
@@ -28,7 +28,16 @@ updated: "2026-10-06T15:56:45"
 
 ## 发布前该跑而 CI 不跑的
 
-`release.yml` 不做任何测试，只做静态链接检查。发布前必须本地跑 `ctest` + 六套 python e2e（见 `e2e-harness-contract`；本机 load 高的时候启动就绪门会超时，那是测量假象，不是缺陷）。
+**2026-10-12 起 `release.yml` 自带 tests 闸门**（`611f486`）：`tests` job 在干净环境跑
+`ctest` + 全部 e2e（11 套），绿了 `release` job 才发包 —— 在此之前「untested」和
+「shipped to everyone」是同一个事件。本地预跑仍保留（双保险）：`ctest` + 全套 python
+e2e（见 `e2e-harness-contract`；本机 load 高的时候启动就绪门会超时，那是测量假象，
+不是缺陷）。
+
+**闸门拦下东西时，先重跑 failed job 再判真伪**：v1.1.8 首跑被
+`test_settings_panel_e2e`（检测不到设置面板）挡下，同 job 的 Unit tests 绿、本地同
+环境 20/20 复现不出 → `gh run rerun --failed` 全绿，判 runner 负载偶发而非产品缺陷。
+偶发时重跑 failed job 即可，不动 tag、不改代码；连挂两次才当真缺陷查。
 
 
 ## Timeline
@@ -79,4 +88,16 @@ updated: "2026-10-06T15:56:45"
   kind: note
   summary: "title 修正：去掉陈旧的 'formula 双写（仓库副本 + homebrew-tap）'，与 compiled_truth 正文（v1.1.6 起停 Homebrew）一致"
   source: "2026-10-06 现状清理"
+  affects: [release-publish-flow]
+
+- time: 2026-10-12T08:59:04
+  kind: decision
+  summary: "release.yml 已有 tests 闸门（611f486 推翻「不做任何测试」）；补闸门拦截后的重跑判据与全套件数"
+  source: "2026-10-12 v1.1.8 发布"
+  affects: [release-publish-flow]
+
+- time: 2026-10-12T08:59:23
+  kind: evidence
+  summary: "v1.1.8 发布完成（tag @4796131，先推 changelog 提交再打 tag）。门：本机 ctest 136/136 + 11 套 e2e 130 条 0 FAIL。首跑被 tests 闸门拦下——test_settings_panel_e2e 三次检测不到设置面板（Unit tests 绿），gh run rerun --failed 全绿，本地同环境 20/20 复现不出 → 判 runner 负载偶发；闸门首战就拦了一次未测发布。sha256 三来源一致：x86_64 2fd28040de0fe686f622f6c594a51cace2b96f895edd6b354048b6d4e36ef2a4、aarch64 63cddc793d6949b50be5ca04caaa521e6d527fcf2e88e1ded11efda32d691924（API digest == sidecar == 独立 curl 复算）。拆发布 tarball 验内容：dict VERSION 2026.10.12 随包、LICENSES/ 19 份、ti 为静态 stripped ELF、bin/term-ime 符号链接在。本轮内容：候选两侧 ‹ › 槽位常驻提示器、拼音区按首候选分隔、许可随包三路径、词库并入 fork dict/ + 两轮读音校准、librime 同步上游到 1.17.0。"
+  source: "2026-10-12 v1.1.8 发布"
   affects: [release-publish-flow]
