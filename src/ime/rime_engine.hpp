@@ -81,4 +81,13 @@ class RimeIme : public ImeEngine {
 
     void update_state();
     std::u32string utf8_to_utf32(const std::string& utf8) const;
+
+    // rime rebuilds the preedit for every page from THAT page's highlighted
+    // candidate, so a page of single-character candidates carries no spelling of
+    // its own and the raw input comes back glued ("nihao" where the first page
+    // said "ni hao") — the pinyin area then changes shape while the user pages.
+    // The delimiters the pinyin area shows are therefore taken ONCE, from the
+    // first candidate of a fresh input, and reused while that input is paged.
+    mutable std::string preedit_input_;   // raw input the cache below belongs to
+    mutable std::string preedit_cached_;  // its delimiters, as the first candidate spelled them
 };

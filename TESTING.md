@@ -44,7 +44,7 @@
 | `test_settings_panel_e2e.py` | 设置面板键盘导航（指纹字串 `Esc/Tab`，改提示文案要同步） |
 | `test_simplified_candidates.py` | 候选栏必须给简体形式 |
 | `test_candidate_paging.py` | 窄终端翻页不变量：`candidate_window_` 任何时刻都是合法下标（Enter 不丢组合、窗口不塌成 1 项、跨页不跳过） |
-| `test_candidate_paging_hint.py` | 翻页提示器 `‹ ›`：有可翻的才画，画了就真能翻到，箭头占宽后整行仍不越界、数字键仍选中所显示的 |
+| `test_candidate_paging_hint.py` | 翻页提示器 `‹ ›`（候选两侧的**常驻槽位**）：有可翻的才画箭头、槽位不显示也占列（候选词不平移）、拼音区跨窗口同一拼法、整行不越界、数字键仍选中所显示 |
 | `test_wide_pair.py` | 宽字符右半格契约（CJK 半格不残影） |
 | `test_config_types_e2e.py` | 配置加载侧消毒：越界钳制、坏类型按缺省 |
 | `test_punctuation.py` | 中文模式标点交给 librime punctuator，提交全角 |

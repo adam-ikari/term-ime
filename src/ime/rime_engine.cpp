@@ -272,13 +272,24 @@ std::string RimeIme::buffer() const {
         return "";
 
     RIME_STRUCT(RimeContext, context);
-    if (rime_->get_context(session_, &context)) {
-        const char* preedit = context.composition.preedit;
-        std::string result(preedit ? preedit : "");
-        rime_->free_context(&context);
-        return result;
+    if (!rime_->get_context(session_, &context))
+        return "";
+    const char* preedit = context.composition.preedit;
+    std::string page_preedit(preedit ? preedit : "");
+    rime_->free_context(&context);
+
+    // 拼音区的分隔符以第一个候选词为准。rime 每翻一页都会按那一页高亮的候选重算
+    // preedit：单字那页没有自己的读音可显示，就把裸输入原样拼回去（"ni hao" 变成
+    // "nihao"），拼音区跟着翻页变形。所以分隔符只在换输入时取一次（那一刻高亮的
+    // 正是首候选），之后翻页复用——宁可略保守，也不要一行会跳的拼音。
+    const char* raw_input = rime_->get_input(session_);
+    const std::string input(raw_input ? raw_input : "");
+    if (input != preedit_input_) {
+        preedit_input_ = input;
+        preedit_cached_ = page_preedit;
+        return page_preedit;
     }
-    return "";
+    return preedit_cached_;
 }
 
 std::vector<Candidate> RimeIme::candidates() const {

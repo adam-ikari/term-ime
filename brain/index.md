@@ -1,9 +1,9 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-12T03:54:57.508Z._
+_Auto-generated. Last updated 2026-10-12T05:02:19.948Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
-- [candidate-paging-hint](pages/candidate-paging-hint.md) — category: decision | tags: [ui, candidates, paging, width] | ## 不变量（2026-10-11 起；2026-10-12 布局被用户推翻）
+- [candidate-paging-hint](pages/candidate-paging-hint.md) — category: decision | tags: [ui, candidates, paging, width] | ## 不变量（2026-10-11 起；2026-10-12 两度被用户推翻）
 - [candidate-window-sentinel](pages/candidate-window-sentinel.md) — category: decision | tags: [candidate, paging, app, review] | ## 不变量（2026-10-10 起）
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：**越界钳制、坏类型按缺省，且绝不丢弃整份文件**。
 - [config-runtime-binding](pages/config-runtime-binding.md) — category: decision | tags: [config, shell, logging, rime] | 配置字段只有被运行时读到才算接线。
@@ -25,6 +25,7 @@ _Auto-generated. Last updated 2026-10-12T03:54:57.508Z._
 - [opencc-data-decoupling](pages/opencc-data-decoupling.md) — category: decision | tags: [rime, opencc, build, portability] | ## 边界：引擎链接 libopencc，数据来自词库产物
 - [parser-stream-state-contract](pages/parser-stream-state-contract.md) — category: concept | tags: [parser, utf8, csi, osc] | `Parser` 的输入是**任意切分的字节流**——PTY 的 read 边界与转义序列边界无关。
 - [passthrough-query-architecture](pages/passthrough-query-architecture.md) — category: decision | tags: [terminal, parser, architecture, query] | ## 事实
+- [pinyin-preedit-delimiters](pages/pinyin-preedit-delimiters.md) — category: decision | tags: [ime, rime, preedit, ui] | <current best understanding — replace this with the real content>
 - [pty-outbound-write-queue](pages/pty-outbound-write-queue.md) — category: decision | tags: [pty, libuv, write, ime] | > 页面标题里的"永不丢弃"已被推翻（见时间线 reversal），当前结论以下面为准。
 - [release-binary-strip](pages/release-binary-strip.md) — category: decision | tags: [build, size, release] | 发布二进制**默认 strip**，实测 **5.4M → 4.2M（-22%）**。
 - [release-publish-flow](pages/release-publish-flow.md) — category: concept | tags: [release, ci] | 发布 = 打 tag 触发 CI 出包，GitHub Release 就是全部发布产物。

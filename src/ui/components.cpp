@@ -227,18 +227,22 @@ CandidateBarFit FitCandidateBar(int term_width, const std::string& mode, const s
 
 // ---- Paging hint ------------------------------------------------------------
 
+// A slot, not an absence: the column is there either way, so the candidates do
+// not move when a flag flips — the user pages and the word under a digit key
+// stays under that key. A blank in that direction when nothing is reachable.
 std::string page_hint_prev_text(bool prev) {
-    return prev ? "‹" : "";  // 前面还有候选（窗口或 rime 页）
+    return prev ? "‹" : " ";  // 前面还有候选（窗口或 rime 页）时画箭头
 }
 
 std::string page_hint_next_text(bool next) {
-    return next ? "›" : "";  // 后面还有候选
+    return next ? "›" : " ";  // 后面还有候选时画箭头
 }
 
-// Two arrows that never touch (one is before the first candidate, the other
-// after the last), so their widths simply add up.
-int page_hint_width(bool prev, bool next) {
-    return utf8::string_width(page_hint_prev_text(prev)) + utf8::string_width(page_hint_next_text(next));
+// The slot costs the widest form of the pair, arrow or not: this is what App
+// reserves out of the candidates' budget and what MainBar occupies on the line,
+// so the two can only disagree if these two glyphs change width.
+int page_hint_width() {
+    return utf8::string_width(page_hint_prev_text(true)) + utf8::string_width(page_hint_next_text(true));
 }
 
 Element MainBar(const MainBarProps& props) {
@@ -251,10 +255,12 @@ Element MainBar(const MainBarProps& props) {
     if (term_w <= 0)
         term_w = 80;
 
-    // The paging hint flanks the candidate list, so both halves are part of the
-    // width budget: candidates fit into what is left after them. App reserves
-    // the same columns when it slices the window, so the drawn set stays equal
-    // to the digit-selectable set (candidate-bar-contract).
+    // The paging hint's slots flank the candidate list and are occupied whether
+    // or not they carry an arrow, so both halves are part of the width budget:
+    // candidates fit into what is left after them, and they cannot shift
+    // sideways when a flag flips. App reserves the same columns when it slices
+    // the window, so the drawn set stays equal to the digit-selectable set
+    // (candidate-bar-contract).
     const std::string hint_before = page_hint_prev_text(props.page_prev);
     const std::string hint_after = page_hint_next_text(props.page_next);
     const int hint_w = utf8::string_width(hint_before) + utf8::string_width(hint_after);
@@ -303,11 +309,10 @@ Element MainBar(const MainBarProps& props) {
     // Pinyin buffer - bright blue, no underline
     items.push_back(Text(" " + props.buffer + " ") | TextColor(color::kPinyin));
 
-    // 翻页提示器：'‹' 画在第一个候选前面，'›' 画在最后一个候选后面，贴着候选走。
+    // 翻页提示器的两个槽位：'‹' 在第一个候选前面、'›' 在最后一个候选后面，贴着候选走。
+    // 没有可翻的方向时槽位仍在（一个空格），候选不会因为箭头出现/消失而左右平移；
     // 两处宽度已在上面的 fit 里扣除，所以这条线不会因为箭头而越界。
-    if (!hint_before.empty()) {
-        items.push_back(Text(hint_before) | Dim() | TextColor(color::kHint));
-    }
+    items.push_back(Text(hint_before) | Dim() | TextColor(color::kHint));
 
     // Candidates
     for (size_t i = 0; i < display_count; ++i) {
@@ -317,9 +322,7 @@ Element MainBar(const MainBarProps& props) {
                                        .max_text_width = fit.text_cols}));
     }
 
-    if (!hint_after.empty()) {
-        items.push_back(Text(hint_after) | Dim() | TextColor(color::kHint));
-    }
+    items.push_back(Text(hint_after) | Dim() | TextColor(color::kHint));
 
     // Filler
     items.push_back(Filler());

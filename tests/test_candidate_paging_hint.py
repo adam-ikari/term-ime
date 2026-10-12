@@ -9,13 +9,21 @@ part of the list — and both are drawn out of the candidates' width budget, so
 the line they sit on must still fit the terminal (candidate-bar-contract:
 显示集合 = 可选集合, 且候选栏绝不越界).
 
+Each side is a SLOT that is occupied whether or not it carries an arrow, so the
+candidates cannot shift sideways while the user pages — and the reserve is a
+constant instead of a fixed point of the flags. The pinyin area is anchored the
+same way: rime rebuilds its preedit per page from that page's highlighted
+candidate, so a page of single characters used to come back glued ("nihao"
+where the first page said "ni hao"); the delimiters are taken from the first
+candidate and kept.
+
 Why rime's own paging is needed for the arrows: librime hands back ONE page of
 candidates (menu/page_size), so an empty tail reads either as "that was all" or
 "the rest is on the next page" — only the engine knows which. Probing by paging
 would move the page under the user, so it is reported instead (ImeMenuPaging).
 
 Driven on the real binary in a PTY at a narrow width (46 cols: 3 candidates in the
-first window of a page, 2 once both arrows are reserved) and at a wide one (120
+first window of a page, 2 once both slots are reserved) and at a wide one (120
 cols, a whole rime page in one window), because the window-level arrows are not
 observable at any other width.
 """
@@ -65,6 +73,19 @@ def compact(s: str) -> str:
     """Collapse the filler between the candidates and the right-aligned arrows,
     so a failure line shows both ends instead of 40 columns of spaces."""
     return re.sub(r" {2,}", " ", s).strip()
+
+
+def preedit(line: str) -> str:
+    """The pinyin area: what sits between the mode indicator and the first hint
+    slot. Its delimiters are part of it ('ni hao' vs 'nihao'), and that is
+    exactly what this is here to watch — one spelling, whatever page is shown."""
+    head = line.split("]", 1)[-1] if "]" in line else line
+    for stop in ("‹", "1."):
+        at = head.find(stop)
+        if at >= 0:
+            head = head[:at]
+            break
+    return head.strip()
 
 
 class Session:
@@ -193,7 +214,18 @@ def main() -> int:
         #    counted against rime's page size instead (same model as
         #    test_candidate_paging.py). Everything walked is still reachable
         #    backwards, so '‹' must be there from the second window on.
+        #
+        #    Two invariants ride along on this walk, both of them about the bar
+        #    not moving under the user while he pages:
+        #      * the pinyin area keeps ONE spelling — rime rebuilds the preedit
+        #        per page from that page's highlighted candidate, so a page of
+        #        single characters used to come back glued ("nihao" where the
+        #        first page said "ni hao");
+        #      * the candidates sit on the same columns in every window, since
+        #        the arrows' slots are paid for whether or not they carry one.
         seen = list(s.items(first))
+        preedits = {preedit(first)}
+        starts = {first.find("1.")}
         prev_window = first
         page_head = None
         for _ in range(8):
@@ -208,10 +240,14 @@ def main() -> int:
                 page_head = line  # this window is on the next rime page
                 break
             if items != s.items(first):
-                check("later window shows ‹", "‹" in line, repr(line[-24:]))
+                check("later window shows ‹", "‹" in line, repr(compact(line)))
+            preedits.add(preedit(line))
+            starts.add(line.find("1."))
             seen += items
             prev_window = line
         check("forward paging reached a new rime page", page_head is not None, repr(s.items(page_head or "")))
+        check("pinyin area keeps one spelling across pages", len(preedits) == 1, repr(sorted(preedits)))
+        check("candidates never shift sideways", len(starts) == 1 and -1 not in starts, repr(sorted(starts)))
         if page_head:
             check("new page shows ‹", "‹" in page_head, repr(page_head[-24:]))
             check("new page still fits", dwidth(page_head) <= COLS, "%d cols" % dwidth(page_head))

@@ -141,45 +141,48 @@ int main() {
     // reserved for them are the same function pair (ui::page_hint_prev_text /
     // page_hint_next_text) on both sides — App budgets with it and MainBar
     // draws it — so a mismatch here means either a bar that runs past the
-    // right edge or a window that skips a candidate. Asserted on the strings
-    // rather than on a rendered row, because FTXUI clips a too-wide row
-    // silently and the overflow would be invisible in the screen buffer.
+    // right edge or a window that skips a candidate.
     std::cout << "Test 8: Paging Hint Geometry\n";
-    expect_eq("no ‹ when nothing is behind", ui::page_hint_prev_text(false), "");
+    // Both sides are SLOTS: an arrow when that direction can move, a blank when
+    // it cannot. The column is paid for either way, which is what keeps the
+    // candidates from shifting sideways when an arrow appears or disappears.
+    expect_eq("blank slot when nothing is behind", ui::page_hint_prev_text(false), " ");
     expect_eq("‹ when something is behind", ui::page_hint_prev_text(true), "‹");
-    expect_eq("no › when nothing follows", ui::page_hint_next_text(false), "");
+    expect_eq("blank slot when nothing follows", ui::page_hint_next_text(false), " ");
     expect_eq("› when something follows", ui::page_hint_next_text(true), "›");
-    expect_eq("width of nothing", std::to_string(ui::page_hint_width(false, false)), "0");
-    expect_eq("width of \"›\"", std::to_string(ui::page_hint_width(false, true)), "1");
-    expect_eq("width of \"‹\"", std::to_string(ui::page_hint_width(true, false)), "1");
-    // The two arrows never touch — one is before the first candidate, the other
-    // after the last — so both together cost 2 columns, not 3.
-    expect_eq("width of both (flanking)", std::to_string(ui::page_hint_width(true, true)), "2");
+    // The reserve does not depend on the flags, so the fit is one computation
+    // and the budget cannot disagree with what ends up drawn.
+    expect_eq("both slots cost 2 columns", std::to_string(ui::page_hint_width()), "2");
+
+    auto render_hint = [&](bool prev, bool next) {
+        auto bar = MainBar({.mode = "拼",
+                            .lang_name = "",
+                            .candidates = candidates,
+                            .selected = 0,
+                            .buffer = "ni hao",
+                            .term_width = 46,
+                            .max_items = 9,
+                            .page_prev = prev,
+                            .page_next = next});
+        auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(46), ftxui::Dimension::Fixed(1));
+        ftxui::Render(screen, bar);
+        // Screen::ToString() carries the styling escapes, which would sit in the
+        // row's tail and hide where the arrows actually are.
+        return strip_sgr(screen.ToString());
+    };
+    const std::string row = render_hint(true, true);
+    const std::string quiet = render_hint(false, false);
 
     // Geometry: the arrows flank the CANDIDATE run, not the ends of the line.
-    auto hint_bar = MainBar({.mode = "拼",
-                             .lang_name = "",
-                             .candidates = candidates,
-                             .selected = 0,
-                             .buffer = "ni hao",
-                             .term_width = 46,
-                             .max_items = 9,
-                             .page_prev = true,
-                             .page_next = true});
-    auto screen9 = ftxui::Screen::Create(ftxui::Dimension::Fixed(46), ftxui::Dimension::Fixed(1));
-    ftxui::Render(screen9, hint_bar);
-    // Screen::ToString() carries the styling escapes, which would sit in the
-    // row's tail and hide where the arrows actually are.
-    const std::string row = strip_sgr(screen9.ToString());
-    // Not all three candidates fit once both arrows' columns are reserved (the
-    // third text is wider), so "the last candidate" is the count the bar itself
-    // fits — asking for "3." would assert on a column that was never drawn.
-    const int fit_count =
-        ui::FitCandidateBar(46 - ui::page_hint_width(true, true), "拼", "ni hao", candidates, 9).count;
-    expect_eq("2 of 3 candidates fit at 46 cols with both arrows", std::to_string(fit_count), "2");
+    // Not all three candidates fit once both slots' columns are taken (the third
+    // text is wider), so "the last candidate" is the count the bar itself fits —
+    // asking for "3." would assert on a column that was never drawn.
+    const int fit_count = ui::FitCandidateBar(46 - ui::page_hint_width(), "拼", "ni hao", candidates, 9).count;
+    expect_eq("2 of 3 candidates fit at 46 cols with the slots reserved", std::to_string(fit_count), "2");
+    const std::string last_marker = std::to_string(fit_count) + ".";
     const size_t before_item = row.find("‹");
     const size_t first_item = row.find("1.");
-    const size_t last_item = row.rfind(std::to_string(fit_count) + ".");
+    const size_t last_item = row.rfind(last_marker);
     const size_t after_item = row.find("›", last_item);
     const bool prev_flanks = before_item != std::string::npos && first_item != std::string::npos &&
                              before_item < first_item;
@@ -187,6 +190,17 @@ int main() {
         last_item != std::string::npos && after_item != std::string::npos && last_item < after_item;
     expect_eq("‹ sits before the first candidate", prev_flanks ? "yes" : "no", "yes");
     expect_eq("› sits after the last candidate", next_flanks ? "yes" : "no", "yes");
+
+    // The slot is occupied either way, so the candidates sit on the SAME columns
+    // with and without arrows. Blank the arrows and the two rows must be
+    // identical — a row that shifts under the user is how "1." stops meaning the
+    // candidate it meant one keystroke ago.
+    std::string blanked = row;
+    for (size_t at; (at = blanked.find("‹")) != std::string::npos;)
+        blanked.replace(at, 3, " ");
+    for (size_t at; (at = blanked.find("›")) != std::string::npos;)
+        blanked.replace(at, 3, " ");
+    expect_eq("candidates keep their columns when the arrows leave", blanked, quiet);
 
     if (g_failures)
         std::cout << g_failures << " check(s) FAILED\n";

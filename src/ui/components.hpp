@@ -105,13 +105,18 @@ Element MainBar(const MainBarProps& props);
 // than both at the line's right end — is what makes them readable on a wide
 // terminal, where a right-aligned arrow sits alone behind a hundred filler
 // columns and reads as screen noise.
-// Their widths add up (no separator column between them any more), and that sum
-// is what the caller reserves out of the bar's width budget: App slices the
-// window with it and MainBar draws with it, so the drawn set stays equal to the
-// digit-selectable set (see candidate-bar-contract).
+//
+// Each side is a SLOT that exists whether or not it carries an arrow: the arrow
+// when that direction can move, a blank when it cannot. So the reserve is one
+// column per side whatever the flags say — the candidates keep their columns
+// while an arrow appears or disappears instead of shifting sideways under the
+// user, and the caller's budget is a constant rather than a fixed point of its
+// own flags. The text and the width come from this pair, so App (which slices
+// the window) and MainBar (which draws) cannot disagree — see
+// candidate-bar-contract.
 std::string page_hint_prev_text(bool prev);
 std::string page_hint_next_text(bool next);
-int page_hint_width(bool prev, bool next);
+int page_hint_width();
 
 // ---- Candidate bar geometry ------------------------------------------------
 // One bar line is " [mode] " + " buffer " + N candidate items (" N.text "), so
