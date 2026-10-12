@@ -99,11 +99,18 @@ struct MainBarProps {
 Element MainBar(const MainBarProps& props);
 
 // ---- Paging hint ------------------------------------------------------------
-// "‹" when the previous group (or the previous rime page) is reachable, "›"
-// when the next one is; both together read "‹ ›". Its width is subtracted from
-// the bar's width budget by whoever decides the flags, so an arrow is drawn
-// only when the line still fits with it — see candidate-bar-contract.
-std::string page_hint_text(bool prev, bool next);
+// The hint FLANKS the candidate list: "‹" sits between the preedit and the first
+// candidate (something is still reachable backwards), "›" right after the last
+// one (forwards). Placing them at the two ends of the candidate run — rather
+// than both at the line's right end — is what makes them readable on a wide
+// terminal, where a right-aligned arrow sits alone behind a hundred filler
+// columns and reads as screen noise.
+// Their widths add up (no separator column between them any more), and that sum
+// is what the caller reserves out of the bar's width budget: App slices the
+// window with it and MainBar draws with it, so the drawn set stays equal to the
+// digit-selectable set (see candidate-bar-contract).
+std::string page_hint_prev_text(bool prev);
+std::string page_hint_next_text(bool next);
 int page_hint_width(bool prev, bool next);
 
 // ---- Candidate bar geometry ------------------------------------------------

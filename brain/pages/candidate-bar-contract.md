@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [ui, candidates, rime, config]
 created: "2026-09-15T04:17:45"
-updated: "2026-10-11T02:46:18"
+updated: "2026-10-12T03:54:57"
 ---
 
 <!-- compiled_truth -->
@@ -20,8 +20,9 @@ updated: "2026-10-11T02:46:18"
 3. **可配置**：`AppConfig::max_candidates`（1-9，默认 9，JSON 键 `max_candidates`，兼容旧键 `page_size`）是每页上限；
    实际数量 = min(max_candidates, 宽度能完整放下几个)。
 4. **不截断**：优先显示完整候选；极端窄屏才退化为「1 个候选 + 省略号」，绝不让候选栏超出终端宽度。
-5. **翻页提示器的宽度也在这份预算里**：右端 `‹`/`›`（`ui::page_hint_text`）的列数从候选的宽度里出，
-   调用方（App 切窗口、`advance_candidate_window` 跨页落点）与 `MainBar` 用同一个函数预留。
+5. **翻页提示器的宽度也在这份预算里**：`‹` 画在第一个候选前面、`›` 画在最后一个候选后面（候选两侧，
+   不是行尾），两者的列数都从候选的宽度里出、宽度相加，调用方（App 切窗口、`advance_candidate_window`
+   跨页落点）与 `MainBar` 用同一对函数 `ui::page_hint_prev_text()` / `page_hint_next_text()` 预留。
    「画不画」的定点解法与两处调用见 [[candidate-paging-hint]]。约束 1 因此多了一条推论：
    **预留列变化后窗口步进必须跟着变**，否则 `candidate_slots_` 大于实际画出的数量，翻页会跳过候选。
 
@@ -36,6 +37,16 @@ updated: "2026-10-11T02:46:18"
 46 列下每帧候选栏宽 46 列（含箭头），窗口序列 `你好/利好/立好 → 理好/立号 → 里豪/逆号 → 拟好/李浩`
 连续无跳过，跨 rime 页后 `,` 回到 `拟好/李浩` 并在该窗口按 `1` 上屏该窗口首个候选。
 `tests/test_candidate_paging_hint.py` 17/17；`test_candidate_paging.py` 3/3、`test_fuzzy_pinyin.py` 回归通过。
+
+## 证据（2026-10-12，箭头移到候选两侧后）
+
+46 列实测行：`[拼] ni hao ‹ 1.逆号 2.拟好 3.李浩 ›`——`‹` 紧贴第一个候选、`›` 紧贴末位候选，
+其后才是 filler；箭头两列仍从候选里出，同帧宽 46 列不变。
+120 列（整页 9 候选装得下）：`[拼] ni hao 1.逆号 … 9.李浩 ›`，只有跨页的 `›`；按一次 `.` 换页后
+`‹ 1.你 … 9.利 ›`，另一半由 rime 的 `page_no > 0` 补上；resize 120↔46 往返后 fit 与箭头一起重算，行不越界。
+`tests/test_candidate_paging_hint.py` 25/25（新增 flanking 位置断言与 120 列/resize 用例）、
+`test_ui_jsx.cpp` 11 项几何断言（含「46 列两箭头下只有 2 个候选放得下」的 fit 推导）；
+`ctest` 136/136、`tools/run-e2e.sh` 11 套全绿。
 
 ## 未决
 
@@ -68,4 +79,16 @@ updated: "2026-10-11T02:46:18"
   kind: decision
   summary: "补约束 5：翻页提示器与候选共用一份宽度预算，预留变化后窗口步进必须跟着变；补 2026-10-11 证据"
   source: "2026-10-11 候选栏翻页提示器"
+  affects: [candidate-bar-contract]
+
+- time: 2026-10-12T03:54:57
+  kind: decision
+  summary: "约束 5 改写：‹ › 分列候选两侧，宽度相加，改用 page_hint_prev_text/page_hint_next_text 预留；补 2026-10-12 证据"
+  source: brain update-truth
+  affects: [candidate-bar-contract]
+
+- time: 2026-10-12T03:54:57
+  kind: decision
+  summary: "约束 5 随布局推翻同步改写（详见 [[candidate-paging-hint]] 的 reversal）：箭头不再并排在行尾，改为 ‹ 在首个候选前、› 在末位候选后，两列宽度相加；预留函数由 page_hint_text 拆为 page_hint_prev_text/page_hint_next_text。补 2026-10-12 证据：46 列实测行 '[拼] ni hao ‹ 1.逆号 2.拟好 3.李浩 ›'、120 列整页只余跨页 ›、按 . 换页后另一半由 page_no>0 补上、resize 往返后 fit 与箭头一起重算；ctest 136、run-e2e 11 套全绿。"
+  source: "2026-10-12 翻页提示器移到候选两侧"
   affects: [candidate-bar-contract]

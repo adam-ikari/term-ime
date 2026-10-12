@@ -227,18 +227,18 @@ CandidateBarFit FitCandidateBar(int term_width, const std::string& mode, const s
 
 // ---- Paging hint ------------------------------------------------------------
 
-std::string page_hint_text(bool prev, bool next) {
-    if (prev && next)
-        return "‹ ›";  // 两边都还能翻
-    if (prev)
-        return "‹";  // 前面还有候选（窗口或 rime 页）
-    if (next)
-        return "›";  // 后面还有候选
-    return "";
+std::string page_hint_prev_text(bool prev) {
+    return prev ? "‹" : "";  // 前面还有候选（窗口或 rime 页）
 }
 
+std::string page_hint_next_text(bool next) {
+    return next ? "›" : "";  // 后面还有候选
+}
+
+// Two arrows that never touch (one is before the first candidate, the other
+// after the last), so their widths simply add up.
 int page_hint_width(bool prev, bool next) {
-    return utf8::string_width(page_hint_text(prev, next));
+    return utf8::string_width(page_hint_prev_text(prev)) + utf8::string_width(page_hint_next_text(next));
 }
 
 Element MainBar(const MainBarProps& props) {
@@ -251,12 +251,13 @@ Element MainBar(const MainBarProps& props) {
     if (term_w <= 0)
         term_w = 80;
 
-    // The paging hint lives at the right end of the bar, so it is part of the
-    // width budget: candidates fit into what is left after it. App reserves the
-    // same columns when it slices the window, so the drawn set stays equal to
-    // the digit-selectable set (candidate-bar-contract).
-    const std::string page_hint = page_hint_text(props.page_prev, props.page_next);
-    const int hint_w = utf8::string_width(page_hint);
+    // The paging hint flanks the candidate list, so both halves are part of the
+    // width budget: candidates fit into what is left after them. App reserves
+    // the same columns when it slices the window, so the drawn set stays equal
+    // to the digit-selectable set (candidate-bar-contract).
+    const std::string hint_before = page_hint_prev_text(props.page_prev);
+    const std::string hint_after = page_hint_next_text(props.page_next);
+    const int hint_w = utf8::string_width(hint_before) + utf8::string_width(hint_after);
 
     // ---- Width calculation helpers ----
 
@@ -302,6 +303,12 @@ Element MainBar(const MainBarProps& props) {
     // Pinyin buffer - bright blue, no underline
     items.push_back(Text(" " + props.buffer + " ") | TextColor(color::kPinyin));
 
+    // 翻页提示器：'‹' 画在第一个候选前面，'›' 画在最后一个候选后面，贴着候选走。
+    // 两处宽度已在上面的 fit 里扣除，所以这条线不会因为箭头而越界。
+    if (!hint_before.empty()) {
+        items.push_back(Text(hint_before) | Dim() | TextColor(color::kHint));
+    }
+
     // Candidates
     for (size_t i = 0; i < display_count; ++i) {
         items.push_back(CandidateItem({.index = static_cast<int>(i + 1),
@@ -310,14 +317,12 @@ Element MainBar(const MainBarProps& props) {
                                        .max_text_width = fit.text_cols}));
     }
 
+    if (!hint_after.empty()) {
+        items.push_back(Text(hint_after) | Dim() | TextColor(color::kHint));
+    }
+
     // Filler
     items.push_back(Filler());
-
-    // 翻页提示器：右端对齐，'‹' 表示前面还有候选，'›' 表示后面还有。
-    // 宽度已在上面的 fit 里扣除，所以这条线不会因为箭头而越界。
-    if (!page_hint.empty()) {
-        items.push_back(Text(page_hint) | Dim() | TextColor(color::kHint));
-    }
 
     // Cancel hint
     return HBox(std::move(items)) | BgColor(color::kBarBg) | Height(1);

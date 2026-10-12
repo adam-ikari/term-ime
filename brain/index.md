@@ -1,9 +1,9 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-11T02:46:18.428Z._
+_Auto-generated. Last updated 2026-10-12T03:54:57.508Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
-- [candidate-paging-hint](pages/candidate-paging-hint.md) — category: decision | tags: [ui, candidates, paging, width] | ## 不变量（2026-10-11 起）
+- [candidate-paging-hint](pages/candidate-paging-hint.md) — category: decision | tags: [ui, candidates, paging, width] | ## 不变量（2026-10-11 起；2026-10-12 布局被用户推翻）
 - [candidate-window-sentinel](pages/candidate-window-sentinel.md) — category: decision | tags: [candidate, paging, app, review] | ## 不变量（2026-10-10 起）
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：**越界钳制、坏类型按缺省，且绝不丢弃整份文件**。
 - [config-runtime-binding](pages/config-runtime-binding.md) — category: decision | tags: [config, shell, logging, rime] | 配置字段只有被运行时读到才算接线。

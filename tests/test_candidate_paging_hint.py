@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """The candidate bar must say whether it can still be paged.
 
-'‹' means a ',' reaches something the user has not seen (an earlier window of
-this rime page, or the previous rime page); '›' means a '.' does. Both are drawn
-at the right end, and their columns come out of the candidates' width budget, so
-the line the arrows sit on must still fit the terminal (candidate-bar-contract:
+'‹' sits before the first candidate and means a ',' reaches something the user
+has not seen (an earlier window of this rime page, or the previous rime page);
+'›' sits after the last one and means a '.' does. Both flank the candidate run —
+a right-aligned arrow alone behind a hundred filler columns does not read as
+part of the list — and both are drawn out of the candidates' width budget, so
+the line they sit on must still fit the terminal (candidate-bar-contract:
 显示集合 = 可选集合, 且候选栏绝不越界).
 
 Why rime's own paging is needed for the arrows: librime hands back ONE page of
@@ -13,8 +15,9 @@ candidates (menu/page_size), so an empty tail reads either as "that was all" or
 would move the page under the user, so it is reported instead (ImeMenuPaging).
 
 Driven on the real binary in a PTY at a narrow width (46 cols: 3 candidates in the
-first window of a page, 2 once both arrows are reserved), because the window-level
-arrows are not observable at any other width.
+first window of a page, 2 once both arrows are reserved) and at a wide one (120
+cols, a whole rime page in one window), because the window-level arrows are not
+observable at any other width.
 """
 import fcntl
 import os
@@ -221,7 +224,13 @@ def main() -> int:
             back_items = s.items(back)
             check("page-back shows the window it left", back_items == s.items(prev_window),
                   "%s vs %s" % (back_items, s.items(prev_window)))
-            check("page-back shows ‹", "‹" in back, repr(back[-24:]))
+            check("page-back shows ‹", "‹" in back, repr(compact(back)))
+
+            # The arrows FLANK the candidate run — '‹' before the first item and
+            # '›' after the last one — instead of sitting at the ends of the line.
+            if back_items and "1." in back and "2." in back:
+                check("‹ sits before the first candidate", back.find("‹") < back.find("1."), repr(compact(back)))
+                check("› sits after the last candidate", back.rfind("›") > back.rfind("2."), repr(compact(back)))
 
             # 4. The arrows did not steal a digit slot: '1' still commits the
             #    first candidate the bar is showing.

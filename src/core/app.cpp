@@ -320,7 +320,8 @@ static int terminal_columns(int tty_fd) {
 // (" [拼] " + " ni ") plus one truncated candidate. Below that the bar keeps
 // every column for the candidates — an arrow is worth less than a candidate,
 // and the contract is that the bar never runs past the right edge. Decided once
-// per bar against the widest arrow form ("‹ ›"), so it cannot flip while the
+// per bar against the widest arrow form (both flanking arrows, 2 columns), so
+// it cannot flip while the
 // width below is being settled.
 static constexpr int kBarHintMinCols = 16;
 static bool bar_can_hint(int cols) {
@@ -359,16 +360,17 @@ void App::render_candidates_bar() {
         if (candidate_window_ > all.size() - 1)
             candidate_window_ = all.size() - 1;
 
-        // The arrows live at the right end, so their columns are part of the
+        // The arrows flank the candidate run, so their columns are part of the
         // width budget — but whether an arrow is needed depends on how many
         // candidates fit once those columns are taken. That is a fixed point,
         // and it exists: reserving more columns can only shrink the fit, and a
         // smaller fit can only make "there is more" / "there was more" more
         // true, so the wanted width is a non-decreasing function of the width
-        // reserved, over the chain 0 → 1 → 3 ("›" / "‹" / "‹ ›"). Iterating up
-        // from 0 therefore settles in at most three passes. (Two passes are not
-        // enough — 0 → 1 → 3 is exactly the case that skipped a candidate, see
-        // the timeline on candidate-bar-contract.)
+        // reserved, over the chain 0 → 1 → 2 ("›" / "‹" / one on each side).
+        // Iterating up from 0 therefore settles within the loop bound. (With the
+        // arrows once grouped at the line's right end the chain was 0 → 1 → 3
+        // and stopping after two passes skipped a candidate — see the timeline
+        // on candidate-bar-contract — so the bound is left generous.)
         const bool can_hint = bar_can_hint(cols);
         int hint_w = 0;
         int fit = 1;
