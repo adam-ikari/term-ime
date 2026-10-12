@@ -329,6 +329,18 @@
   color: #ffd700;
 }
 
+/* 翻页提示器：贴着候选两侧，'‹' 在前、'›' 在后 */
+.pageHint {
+  color: #5b8a76;
+  padding: 0 2px;
+}
+
+/* The slot is occupied either way: hiding the arrow keeps the candidates on
+   their columns instead of shifting them sideways by one. */
+.pageHintOff {
+  visibility: hidden;
+}
+
 .statusHint {
   color: #6f9c88;
   font-size: 12px;

@@ -117,21 +117,52 @@ function CopyButton({
 /* ---------------------------------------------------------------- demo --- */
 
 type DemoState = {
-  pinyin: string;
+  pinyin: string; // the letters as typed
+  display: string; // what the pinyin area shows: delimiters per the first candidate
   output: string;
   cands: string[] | null;
+  paged: boolean; // whether '.' has moved to the next window
 };
 
-const CANDIDATES: Record<string, string[]> = {
-  nihao: ['你好', '呢', '你', '泥', '逆'],
-  shijie: ['世界', '视界', '事迹', '十一', '是'],
+// Two windows per input, from the real first rime page of each word. The first
+// window has only '›' (nothing behind it yet), the second has both arrows —
+// exactly what the bar does at a narrow width.
+const PAGES: Record<string, string[][]> = {
+  nihao: [
+    ['你好', '利好', '立好', '理好', '立号'],
+    ['里豪', '逆号', '拟好', '李浩', '你'],
+  ],
+  shijie: [
+    ['世界', '视界', '事迹', '十一', '使得'],
+    ['是', '时', '师', '十', '事'],
+  ],
+};
+
+const COMMIT: Record<string, string> = {nihao: '你好', shijie: '世界'};
+
+// The pinyin area splits on the syllables the first candidate spells out, so the
+// delimiter shows up as the syllable becomes recognizable — 'ni h' before it can
+// be 'ni hao', not one jump at the end.
+const SPELLING: Record<string, string> = {
+  n: 'n',
+  ni: 'ni',
+  nih: 'ni h',
+  niha: 'ni ha',
+  nihao: 'ni hao',
+  s: 's',
+  shi: 'shi',
+  shij: 'shi j',
+  shiji: 'shi ji',
+  shijie: 'shi jie',
 };
 
 function useDemoTyping(): DemoState {
   const [state, setState] = useState<DemoState>({
     pinyin: '',
+    display: '',
     output: '',
     cands: null,
+    paged: false,
   });
 
   useEffect(() => {
@@ -144,33 +175,42 @@ function useDemoTyping(): DemoState {
 
     (async () => {
       while (!cancelled) {
-        setState({pinyin: '', output: '', cands: null});
+        setState({pinyin: '', display: '', output: '', cands: null, paged: false});
         await wait(900);
-        for (const ch of 'nihao') {
+        for (const word of ['nihao', 'shijie']) {
+          for (const ch of word) {
+            if (cancelled) return;
+            await wait(170);
+            if (cancelled) return;
+            setState((s) => {
+              const pinyin = s.pinyin + ch;
+              return {
+                ...s,
+                pinyin,
+                display: SPELLING[pinyin] ?? pinyin,
+                cands: null,
+                paged: false,
+              };
+            });
+          }
           if (cancelled) return;
-          await wait(170);
+          setState((s) => ({...s, cands: PAGES[word][0]}));
+          await wait(900);
           if (cancelled) return;
-          setState((s) => {
-            const pinyin = s.pinyin + ch;
-            return {...s, pinyin, cands: CANDIDATES[pinyin] ?? null};
-          });
+          // '.' moves to the next window: '‹' lights up, the candidates move.
+          setState((s) => ({...s, paged: true, cands: PAGES[word][1]}));
+          await wait(1100);
+          if (cancelled) return;
+          setState((s) => ({
+            ...s,
+            pinyin: '',
+            display: '',
+            cands: null,
+            paged: false,
+            output: s.output + COMMIT[word],
+          }));
+          await wait(650);
         }
-        await wait(750);
-        if (cancelled) return;
-        setState({pinyin: '', output: '你好', cands: null});
-        await wait(650);
-        for (const ch of 'shijie') {
-          if (cancelled) return;
-          await wait(170);
-          if (cancelled) return;
-          setState((s) => {
-            const pinyin = s.pinyin + ch;
-            return {...s, pinyin, cands: CANDIDATES[pinyin] ?? null};
-          });
-        }
-        await wait(750);
-        if (cancelled) return;
-        setState({pinyin: '', output: '你好世界', cands: null});
         await wait(3400);
       }
     })();
@@ -185,7 +225,7 @@ function useDemoTyping(): DemoState {
 }
 
 function HeroDemo() {
-  const {pinyin, output, cands} = useDemoTyping();
+  const {pinyin, display, output, cands, paged} = useDemoTyping();
   return (
     <div className={styles.demo} aria-hidden="true">
       <div className={styles.demoChrome}>
@@ -205,13 +245,17 @@ function HeroDemo() {
         <div className={styles.demoLineTilde}>~</div>
         <div className={styles.statusBar}>
           <span className={styles.modeIndicator}>[拼]</span>
-          {pinyin && <span className={styles.pinyin}> {pinyin} </span>}
+          {pinyin && <span className={styles.pinyin}> {display} </span>}
           {cands && (
             <span className={styles.candidates}>
+              {/* The arrows flank the candidates, and the slot before them is
+                  occupied either way — the words do not shift when '‹' appears. */}
+              <span className={clsx(styles.pageHint, !paged && styles.pageHintOff)}>‹</span>
               <span className={styles.candidateSelected}>1.{cands[0]} </span>
               <span className={styles.candidate}>
                 {cands.slice(1).map((c, i) => `${i + 2}.${c}`).join(' ')}
               </span>
+              <span className={styles.pageHint}>›</span>
             </span>
           )}
           {!pinyin && !cands && (
@@ -410,7 +454,7 @@ function QuickStart() {
     {
       title: '打字上屏',
       copy: '',
-      code: `# 输拼音，按 1 或空格上屏；逗号句号翻页\nnihao  →  你好`,
+      code: `# 输拼音，按 1 或空格上屏；逗号句号翻页，两侧箭头提示还有没有\n[拼]  ni hao  1.你好  2.利好  3.立好 ›\nnihao  →  你好`,
     },
   ];
   return (
@@ -465,7 +509,7 @@ function Features() {
     },
     {
       title: '自适应候选栏',
-      desc: '窄终端只显示放得下的候选，逗号句号翻页。',
+      desc: '窄终端只显示放得下的候选，逗号句号翻页，两侧箭头提示还有没有。',
     },
     {
       title: '状态栏和设置面板',
