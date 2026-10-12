@@ -13,7 +13,7 @@ term-ime 的源码以 **MIT License**（`Copyright (c) 2026 adam-ikari`）发布
 
 | 组件 | 版本 | 许可 | 版权方 |
 |------|------|------|--------|
-| librime（fork `librime-stl`） | v1.1.8-rime-stack | BSD-3-Clause | RIME Developers |
+| librime（fork `librime-stl`） | 1.17.0（`f0dd67a8`） | BSD-3-Clause | RIME Developers |
 | OpenCC | 1.1.9 | Apache-2.0 | BYVoid/OpenCC |
 | └ bundled marisa | 0.2.6 | BSD-2-Clause **或** LGPL-2.1-or-later（双授权，本项目取 BSD-2） | Susumu Yata |
 | └ rapidjson（头文件） | 1.1.0 | MIT | THL A29 Limited / Milo Yip |

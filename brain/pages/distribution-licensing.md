@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [licensing, release, packaging]
 created: "2026-10-09T16:01:54"
-updated: "2026-10-09T16:09:33"
+updated: "2026-10-12T06:44:52"
 ---
 
 <!-- compiled_truth -->
@@ -23,6 +23,8 @@ updated: "2026-10-09T16:09:33"
 **rime-data 有两份声明，因为目录由两个来源合并**：`RIME_DATA_DEST` 同时收 `deps/librime/dict/`（词库，声明在 dict/LICENSE）和本仓库 `data/rime-data/`（方案）。所以打包时落两份：`LICENSE`（=dict/LICENSE）与 `LICENSE-schemas.txt`（=data/rime-data/LICENSE，覆盖 pinyin.yaml / luna_pinyin*.schema.yaml 的 LGPL-3.0 与 default.yaml 的 BSD-3-Clause）。不合并成一份的原因：`cmake -E cat` 需要 CMake 3.18 而本项目地板是 3.14，且分开后每份许可仍可溯到来源目录。漏掉 `LICENSE-schemas.txt` 的失败模式同样是静默的——5 个方案文件随包分发却没有任何授权说明。
 
 **重新生成**：`./tools/collect-licenses.sh`（幂等；release.yml 在打包前跑一次，所以出包的文本必然对应当次 submodule 版本）。面向用户的说明在 `website/docs/license.md`。
+
+**`website/docs/license.md` 的版本列是手工维护、没有任何测试绑定的**：升 submodule pin 不会碰它，列写错了既没有编译错误也没有测试红——与上面「许可文本失同步」同一类静默失败。2026-10-12 升 librime（`c32d2e9e`→`f0dd67a8`）时就撞到：fork 自报版本 `rime_version` 1.16.1→1.17.0、版本列原写的 fork 标签 `v1.1.8-rime-stack` 已被 `v1.1.9-rime-stack` 取代且 pin 不在任何 tag 上，该列改写为 `1.17.0`（`f0dd67a8`）。**升 pin 的收尾清单 = 同步这一列**；`LICENSES/` 目录由 `release.yml` 每次出包前跑 `collect-licenses.sh` 重生成，天然跟 pin，不受此影响。
 
 
 ## Timeline
@@ -43,4 +45,10 @@ updated: "2026-10-09T16:09:33"
   kind: decision
   summary: "补：rime-data 两份声明（词库 dict/LICENSE + 方案 LICENSE-schemas.txt）"
   source: "本轮：发现方案文件授权未随包"
+  affects: [distribution-licensing]
+
+- time: 2026-10-12T06:44:52
+  kind: decision
+  summary: "补：license.md 版本列手工维护、无测试绑定，升 submodule pin 的收尾清单要同步它"
+  source: "2026-10-12 升级 librime 子模块时发现版本列已失效"
   affects: [distribution-licensing]
