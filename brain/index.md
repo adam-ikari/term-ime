@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-12T05:02:19.948Z._
+_Auto-generated. Last updated 2026-10-12T06:44:52.100Z._
 
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [candidate-paging-hint](pages/candidate-paging-hint.md) — category: decision | tags: [ui, candidates, paging, width] | ## 不变量（2026-10-11 起；2026-10-12 两度被用户推翻）
@@ -8,7 +8,7 @@ _Auto-generated. Last updated 2026-10-12T05:02:19.948Z._
 - [config-load-sanitization](pages/config-load-sanitization.md) — category: decision | tags: [config, robustness, rime] | 配置加载侧消毒原则：**越界钳制、坏类型按缺省，且绝不丢弃整份文件**。
 - [config-runtime-binding](pages/config-runtime-binding.md) — category: decision | tags: [config, shell, logging, rime] | 配置字段只有被运行时读到才算接线。
 - [config-save-never-throws](pages/config-save-never-throws.md) — category: decision | tags: [config, error-handling, libuv] | `AppConfig::save` **不抛异常**，返回 `bool` 表示成功与否（写失败、目录不可写、序列化失败都走 `false`）。
-- [cpp-standard-floor](pages/cpp-standard-floor.md) — category: decision | tags: [librime, build, cpp-standard, constraint] | librime fork（`v1.1.8-rime-stack`）以 C++17 为地板，不可降级到 C++11。
+- [cpp-standard-floor](pages/cpp-standard-floor.md) — category: decision | tags: [librime, build, cpp-standard, constraint] | librime fork 以 C++17 为地板，不可降级到 C++11。
 - [dict-artifact-publication](pages/dict-artifact-publication.md) — category: decision | tags: [dict, release, artifact, versioning] | ## 词库留在 monorepo，但它是产物不是源码目录
 - [dictionary-repo-split](pages/dictionary-repo-split.md) — category: decision | tags: [dict, rime, release] | ## 词库在 librime fork 的 `dict/`：既是产物目录，也是生成工具目录
 - [distribution-licensing](pages/distribution-licensing.md) — category: decision | tags: [licensing, release, packaging] | **结论**：term-ime 源码 MIT，但**发行产物不是单一授权**：二进制静态链接约 15 个第三方库，随包 rime-data 混有 LGPL-3.0 / Apache-2.0 / MIT 数据。
