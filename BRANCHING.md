@@ -15,14 +15,18 @@
 
 - **日常开发**：feature 分支 → `develop`（直推即可，单人项目不摆架子）→
   想进主线就发 PR → `master`。
-- **发正式版**：从 `master` 切 `release`，在上面收拢发布改动（changelog、
-  版本坐标、许可页版本列这类收尾项）→ PR 合并回 `master` → 在 **master** 上
-  打 tag `vX.Y.Z`。
-- **出 RC**：从 `release`（或 `master`）切 `pre-release`，打 tag
-  `vX.Y.Z-rc.N`。tag 含 `-` 时 `release.yml` 自动把 Release 标为
-  **prerelease** —— GitHub 的 `releases/latest` 只返回正式版，所以 RC 不会顶掉
-  `install.sh` 取的那个 latest。RC 验完，内容经 PR 走 `release` → `master`，
-  再打不带后缀的正式 tag。
+- **发正式版**：先把 `master` 的内容 **PR 同步**进 `release`，在上面收拢发布
+  改动（changelog、版本坐标、许可页版本列这类收尾项）→ PR 合并回 `master` →
+  在 **master** 上打 tag `vX.Y.Z`。
+- **出 RC**：同样先 PR 同步内容进 `pre-release`，打 tag `vX.Y.Z-rc.N`。
+  tag 含 `-` 时 `release.yml` 自动把 Release 标为 **prerelease** ——
+  GitHub 的 `releases/latest` 只返回正式版，所以 RC 不会顶掉 `install.sh`
+  取的那个 latest。RC 验完，内容经 PR 走 `release` → `master`，再打不带
+  后缀的正式 tag。
+
+> `release` / `pre-release` 是**常驻分支**，不是每次发布临时切出来的：更新它们
+> （哪怕只是把 master 快进对齐）也必须走 PR —— 实测快进推送同样被规则拒绝
+> （GH013）。`develop` 未锁，快进推送不受限。
 
 ### 保护规则是什么、不是什么
 

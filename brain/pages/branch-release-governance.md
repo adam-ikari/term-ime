@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [release, ci, branching]
 created: "2026-10-13T02:36:06"
-updated: "2026-10-13T02:36:06"
+updated: "2026-10-13T03:00:01"
 ---
 
 <!-- compiled_truth -->
@@ -56,4 +56,10 @@ GitHub Ruleset `protect-main-release-lines`（id 24965586）锁 master/release/p
   kind: decision
   summary: "四分支角色、三条受保护分支必须 PR、触发矩阵、RC 不顶 latest"
   source: "2026-10-13 分支发布治理落地"
+  affects: [branch-release-governance]
+
+- time: 2026-10-13T03:00:01
+  kind: evidence
+  summary: "落地当晚实测三则：(1) 规则负例自检——空提交推 master 被 GH013 拒，curator 无旁路；(2) release 分支连 FF 对齐也被拒 → 更新常驻受保护分支必须走 PR，BRANCHING.md 措辞随之把「切 release」改为「PR 同步」，并写明 release/pre-release 是常驻分支不是临时切出的；(3) develop 未锁，FF 推送成功（对照组）。release/pre-release 初始停在 7b0baf7，随后用 master→release / master→pre-release 两个 PR 对齐。"
+  source: "2026-10-13 分支治理落地"
   affects: [branch-release-governance]
