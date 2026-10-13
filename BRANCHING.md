@@ -46,7 +46,7 @@
 
 | workflow | 触发条件 | 跑什么 |
 |---|---|---|
-| Build and Test（`ci.yml`） | **仅 PR**（push 不再触发） | build、ctest、11 套 e2e、website build、lint、install-test |
+| Build and Test（`ci.yml`） | **仅 PR，且不限目标分支**（push 不再触发） | build、ctest、11 套 e2e、website build、lint、install-test |
 | Release（`release.yml`） | tag `v*`（+ 手动 dispatch） | 双 arch 构建 + tests 闸门（ctest + e2e）→ 发包 |
 | Deploy Website（`website.yml`） | push master 且 `website/**` 有改动 | GitHub Pages 部署 —— 部署不是测试，不在此矩阵的门里 |
 

@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-13T03:00:01.272Z._
+_Auto-generated. Last updated 2026-10-13T03:18:39.563Z._
 
 - [branch-release-governance](pages/branch-release-governance.md) — category: decision | tags: [release, ci, branching] | 分支与发布的治理（2026-10-13 起生效）。
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
