@@ -27,6 +27,12 @@
 > `release` / `pre-release` 是**常驻分支**，不是每次发布临时切出来的：更新它们
 > （哪怕只是把 master 快进对齐）也必须走 PR —— 实测快进推送同样被规则拒绝
 > （GH013）。`develop` 未锁，快进推送不受限。
+>
+> 更新这两条分支的姿势：**从目标分支切 helper 分支 cherry-pick 后发 PR**
+> （例：`sync/align-release`）。不要拿 `master` 当 PR 的 head —— 实测 head
+> 为默认分支的 PR 不触发 `pull_request` 事件（四次零 check，与过滤器无关）；
+> 且 rebase 合并留下的复制历史会与 master 原始历史在 merge-base 处对同名
+> 文件 add/add 冲突。helper 分支路径两则都避开（PR #8/#9 实测全绿）。
 
 ### 保护规则是什么、不是什么
 
