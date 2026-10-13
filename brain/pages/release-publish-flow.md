@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [release, ci]
 created: "2026-09-29T00:41:51"
-updated: "2026-10-13T02:36:39"
+updated: "2026-10-13T03:00:01"
 ---
 
 <!-- compiled_truth -->
@@ -113,4 +113,10 @@ updated: "2026-10-13T02:36:39"
   kind: decision
   summary: "CI 改为仅 PR 触发（push 不再跑测试）；release.yml tag 含 - 自动标 prerelease；run-e2e.sh 失败套件重试一次（FLAKY 不静默）；master/release/pre-release 锁直推必须 PR。发布顺序第 1 步从「先推 master」改为「PR 合并进 master」。"
   source: "2026-10-13 分支发布治理"
+  affects: [release-publish-flow]
+
+- time: 2026-10-13T03:00:01
+  kind: evidence
+  summary: "PR #1（ci 触发器改造 + 分支治理落地）在新触发器下全绿：build 4m29s / e2e 9m35s / install-test / lint / website，rebase 合并进 master（5d2edfb、9e75a80、8e30e0c）。实测：ruleset 的 pull_request 规则对 release 连快进推送也拒（GH013），对齐必须走 PR；develop 无保护 FF 推送成功，构成保护范围的对照组。"
+  source: "2026-10-13 分支治理落地"
   affects: [release-publish-flow]
