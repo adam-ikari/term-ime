@@ -197,9 +197,9 @@ tests/
 └── test_ime_contract.cpp  # ImeEngine 公开契约测试
 ```
 
-端到端测试是 7 个 python 套件（`tests/test_*_e2e.py` 与 `tests/test_fuzzy_pinyin.py`
+端到端测试是 11 个 python 套件（`tests/test_*_e2e.py` 与 `tests/test_fuzzy_pinyin.py`
 等），跑真实二进制 + PTY + 一次性 HOME —— CI 跑的是这批，不是上面的 gtest。
-详见 [TESTING.md](TESTING.md)。
+详见 [TESTING.md](TESTING.md)。分支与发布怎么走见 [BRANCHING.md](BRANCHING.md)。
 
 ## 开发
 
