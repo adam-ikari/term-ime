@@ -1,7 +1,8 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-12T08:59:23.260Z._
+_Auto-generated. Last updated 2026-10-13T02:39:49.367Z._
 
+- [branch-release-governance](pages/branch-release-governance.md) — category: decision | tags: [release, ci, branching] | 分支与发布的治理（2026-10-13 起生效）。
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
 - [candidate-paging-hint](pages/candidate-paging-hint.md) — category: decision | tags: [ui, candidates, paging, width] | ## 不变量（2026-10-11 起；2026-10-12 两度被用户推翻）
 - [candidate-window-sentinel](pages/candidate-window-sentinel.md) — category: decision | tags: [candidate, paging, app, review] | ## 不变量（2026-10-10 起）

@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [testing, pty, harness]
 created: "2026-09-15T03:17:45"
-updated: "2026-10-10T18:32:49"
+updated: "2026-10-13T02:39:49"
 ---
 
 <!-- compiled_truth -->
@@ -145,7 +145,7 @@ fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kil
 也一并写进去，避免被读成「跑过了所以没问题」。
 
 
-## 死错误路径：`set -euo pipefail` 会让 `if [[ -z "$X" ]]` 检查形同虚设（2026-10-04）
+## 死错误路径：`set -euo pipefail` 会让 `if [ -z "$X" ]` 检查形同虚设（2026-10-04）
 
 发 v1.1.7 时真撞上 GitHub API 限流，用户看到的是一行裸报错：
 
@@ -155,7 +155,7 @@ fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kil
 
     set -euo pipefail                        # 第 14 行
     VERSION="$(fetch "$API" | grep -m1 '"tag_name"' | sed ...)"
-    if [[ -z "$VERSION" ]]; then
+    if [ -z "$VERSION" ]; then
         echo "error: could not determine latest release"   # 死代码
         exit 1
     fi
@@ -227,6 +227,35 @@ fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kil
 第三行是**故意留着不修的**：挂起但没退出的进程读作 ok。修它需要 liveness 探针，
 而仓库里所有循环本身有界，所以只作为已知局限记录。这次是重新确认它仍然漏，
 没有把它写成已覆盖。
+
+
+
+## run-e2e.sh 的重试与死因诊断（2026-10-13）
+
+`tools/run-e2e.sh` 对失败套件**自动重试一次**：重试才过 → 汇总打印 `FLAKY`
+（不静默）、退出 0；连挂两次 → 非零退出。「连挂两次才当真缺陷查」的自动化形态，
+重试兜的是暴露面不是根因。`TERM_IME_E2E_RETRY=0` 恢复单次执行。两条路径都用
+PATH 注入桩实测过：瞬时失败 → `FLAKY`/exit 0；永久失败 → `FAILED`/exit 1。
+
+`test_settings_panel_e2e` 补死因诊断：`poll_until` 记录停止原因
+（match / timeout / EOF / read error）并在每次 attempt 与失败路径打印；
+`child_status()` 用 `waitpid(WNOHANG)` 非阻塞探子进程死活，按 pid 缓存终端态
+（waitpid 会回收，二次探测不能丢退出码），报 `EXITED code=` / `KILLED signal=`；
+子进程已死时空转剩余 attempts 无意义（死进程重试不出面板），直接停。
+
+### v1.1.8 闸门那次偶发的真实形状（事后才算出来）
+
+套件总时长 6.4s，而三次 attempt 各有 10s 超时 —— 加起来不可能在 6.4s 内结束。
+所以 `poll_until` 不是超时返回，是**提前返回**：Linux pty 主端在对端死亡后给
+EIO（不是空 EOF），即 term-ime 死在打开设置面板的过程中。旧输出把超时和死亡
+折叠成同一句 `panel detected: False`，当天只能判「runner 负载偶发」，无法继续
+定位 —— **失败输出折叠不同的失败原因，等于把根因销毁在观测层**。
+
+负例自检实测（并当场纠正了自己的断言）：`os._exit(3)` 的子进程 →
+`read error OSError(5, 'Input/output error') (child exited?)` +
+`EXITED code=3`；自检最初按「空 EOF」写断言，实测是 EIO 分支。存活子进程不受
+影响：timeout 原因独立、仍报 `still running`。第一版 `child_status` 缓存按全局
+存终端态，第二个子进程会读到第一个的死讯 —— 改成按 pid 键。
 
 
 ## Timeline
@@ -391,4 +420,22 @@ fuzz 驱动的三条盲区（不检查输出对错 / 不检查 hang / 每轮 kil
   kind: evidence
   summary: "两条会让 e2e 断言失去判别力的陷阱（写 tests/test_wide_pair.py 时实测踩到）：(1) 断言用的 ASCII 标记若原样敲进命令行，shell 回显里就有它，strip_ansi 后的整帧匹配会「因为敲过」而成立——标记必须由 printf 的八进制转义生成（\\132=Z），让敲入的文本只含反斜杠数字；(2) parser 是把 shell 字节流重放到外层终端的，所以 Screen 影子网格的缺陷在原始输出里看不见，必须等一次 redraw_shell 才暴露——本项目里最省事的强制重绘是开设置面板（整屏 ESC[2J）再按 ESC 关闭。同一轮新增 tests/test_config_types_e2e.py（错类型键不再丢弃整个配置文件，判据是 max_candidates 仍生效 + 日志点名被忽略的键）。两个用例都验过判别力：test_wide_pair 对仅回退 screen.cpp 的二进制 1/4、对修复后 4/4；test_config_types_e2e 对仅回退 config.cpp 的二进制 0/2、对修复后 2/2。e2e 清单现为 10 项（tools/run-e2e.sh）。"
   source: "2026-10-11 补 e2e 缺口"
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-13T02:37:55
+  kind: decision
+  summary: "run-e2e.sh 重试一次（FLAKY 不静默）+ poll_until 停止原因 + child_status 死活探针；v1.1.8 偶发的真实形状是子进程死于面板打开（6.4s 跑完 3×10s 超时不可能）"
+  source: "2026-10-13 e2e 偶发诊断"
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-13T02:37:55
+  kind: evidence
+  summary: "v1.1.8 闸门偶发的形状算出来了：套件 6.4s 跑完三次各 10s 超时的 attempt 不可能 → poll_until 是被 pty EIO 提前返回的 → term-ime 死在打开设置面板的瞬间。旧输出把超时与死亡折叠成同一句 panel detected: False，根因销毁在观测层。已补：poll_until 停止原因 + child_status(WNOHANG, 按 pid 缓存) 死活探针 + 死子停 attempts；run-e2e.sh 失败套件重试一次，FLAKY 汇总不静默（两条路径 PATH 桩实测）。负例自检纠正了两个自己的错：Linux pty 对端死后是 EIO 不是空 EOF；child_status 全局缓存会串 pid。"
+  source: "2026-10-13 e2e 偶发诊断"
+  affects: [e2e-harness-contract]
+
+- time: 2026-10-13T02:39:49
+  kind: decision
+  summary: "代码引用里的 [[ -z ... ]] 改写为 [ -z ... ]：lint-links 把成对尖括号当 wiki-link，误报 broken link（行为等价，仅为让 lint 干净）"
+  source: "2026-10-13 lint 误报修复"
   affects: [e2e-harness-contract]
