@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [release, ci, branching]
 created: "2026-10-13T02:36:06"
-updated: "2026-10-13T03:00:01"
+updated: "2026-10-13T03:18:39"
 ---
 
 <!-- compiled_truth -->
@@ -14,18 +14,18 @@ updated: "2026-10-13T03:00:01"
 ## 四条分支
 
 - `master`：主线，正式 tag 打在这里。**仅 PR 合并**。
-- `release`：发布准备线（收拢 changelog、版本坐标、许可页版本列这类收尾项）。**仅 PR 合并**；完成后 PR 回 master，再在 master 打正式 tag。
-- `pre-release`：RC 验证线。**仅 PR 合并**；tag 打 `vX.Y.Z-rc.N`。
+- `release`：发布准备线（收拢 changelog、版本坐标、许可页版本列这类收尾项）。**仅 PR 合并**；先把 master 的内容 PR 同步进来，收尾完成后 PR 回 master，再在 master 打正式 tag。**常驻分支**，不是每次发布临时切出来的。
+- `pre-release`：RC 验证线，同样常驻、同样锁。**仅 PR 合并**；tag 打 `vX.Y.Z-rc.N`。
 - `develop`：日常开发主线，可直接推送，不锁。
 
 ## 保护规则
 
 GitHub Ruleset `protect-main-release-lines`（id 24965586）锁 master/release/pre-release：
 
-- 必须走 PR，**管理员同样**（`current_user_can_bypass: never`）；禁 force-push、禁删分支。
+- 必须走 PR，**管理员同样**（`current_user_can_bypass: never`）；禁 force-push、禁删分支。**连快进推送也拒**（实测 GH013）——更新受保护分支的唯一通道就是 PR。
 - 审批数 0 —— 规则是「必须开 PR」，不是「必须别人点头」（单人仓库自批无意义）。
 - **不**要求 status check 绿才能合并：GitHub 层面未强制，「绿了再合」是纪律；哪天被自己的红 PR 坑了再升级成 required checks。
-- develop 不锁；tag 不受分支规则影响。
+- develop 不锁（FF 推送实测成功，是保护范围的对照组）；tag 不受分支规则影响。
 
 负例自检（施加当天实测，不是配置完就算数）：`git commit-tree` 空提交推 master → 远端拒收 `GH013: Changes must be made through a pull request`。第一次尝试没测到规则：zsh 把 `$EMPTY:refs/...` 的 `:r` 当参数修饰符吃掉了 refspec，随后变量没跨 shell 保留又把推送变成了删分支 —— 两条教训合并成一条：**负例自检要在同一 shell 里重建变量，refspec 用 `${VAR}:` 花括号形式**。
 
@@ -33,7 +33,7 @@ GitHub Ruleset `protect-main-release-lines`（id 24965586）锁 master/release/p
 
 | workflow | 触发 | 跑什么 |
 |---|---|---|
-| ci.yml Build and Test | **仅 PR**（2026-10-13 起 push 不再触发） | build、ctest、11 套 e2e、website build、lint、install-test |
+| ci.yml Build and Test | **仅 PR，且不限目标分支**（2026-10-13 起 push 不再触发；初版过滤了 `[master, main]`，当天实测 master→release 的同步 PR 一条 check 都不跑而放宽 —— 发布收尾 PR 恰恰最该被测） | build、ctest、11 套 e2e、website build、lint、install-test |
 | release.yml Release | tag `v*` + dispatch | 双 arch 构建 + tests 闸门（ctest + e2e）→ 发包；tag 含 `-` → 标 prerelease |
 | website.yml Deploy | push master 且 `website/**` 有改动 | Pages 部署（部署不是测试，不在门里） |
 
@@ -62,4 +62,16 @@ GitHub Ruleset `protect-main-release-lines`（id 24965586）锁 master/release/p
   kind: evidence
   summary: "落地当晚实测三则：(1) 规则负例自检——空提交推 master 被 GH013 拒，curator 无旁路；(2) release 分支连 FF 对齐也被拒 → 更新常驻受保护分支必须走 PR，BRANCHING.md 措辞随之把「切 release」改为「PR 同步」，并写明 release/pre-release 是常驻分支不是临时切出的；(3) develop 未锁，FF 推送成功（对照组）。release/pre-release 初始停在 7b0baf7，随后用 master→release / master→pre-release 两个 PR 对齐。"
   source: "2026-10-13 分支治理落地"
+  affects: [branch-release-governance]
+
+- time: 2026-10-13T03:18:39
+  kind: decision
+  summary: "四分支角色、三条受保护分支必须 PR、触发矩阵（ci.yml 任何目标分支的 PR）、RC 不顶 latest"
+  source: "2026-10-13 触发器放宽"
+  affects: [branch-release-governance]
+
+- time: 2026-10-13T03:18:39
+  kind: decision
+  summary: "ci.yml 的 PR 触发从 [master, main] 过滤放宽到任何目标分支：master→release / master→pre-release 两个同步 PR 实测一条 check 都不跑（pull_request.branchs 过滤的是 base），而发布收尾 PR 恰恰最该被测。BRANCHING.md 触发矩阵同步。"
+  source: "2026-10-13 触发器放宽"
   affects: [branch-release-governance]
