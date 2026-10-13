@@ -40,10 +40,20 @@ def read_all(fd, timeout=0.5):
             break
     return output
 
+# Why the most recent poll_until stopped, so a failure can print "child died"
+# instead of the blind "panel not detected". The one CI flake of this suite
+# (v1.1.8 release gate, 2026-10-12) had all three attempts finish in ~6s total
+# -- impossible if they had burned their 10s timeout each -- so poll_until must
+# have returned early on a closed pty, i.e. the app died while opening the
+# panel. That was unreadable from the old output, where every stop cause
+# collapsed into "panel detected: False".
+LAST_POLL = {"reason": "never ran"}
+
+
 def poll_until(fd, buf, pattern, timeout=10.0):
     """Read from fd into buf until the cleaned text matches pattern, or timeout.
 
-    Returns (matched, buf).
+    Returns (matched, buf); the stop cause lands in LAST_POLL['reason'].
     """
     rx = re.compile(pattern) if isinstance(pattern, str) else pattern
     end_time = time.time() + timeout
@@ -53,13 +63,45 @@ def poll_until(fd, buf, pattern, timeout=10.0):
             if ready:
                 data = os.read(fd, 4096)
                 if not data:
-                    break
+                    LAST_POLL["reason"] = "EOF: pty closed (child exited?)"
+                    return False, buf
                 buf += data
-        except OSError:
-            break
+        except OSError as exc:
+            LAST_POLL["reason"] = f"read error {exc!r} (child exited?)"
+            return False, buf
         if rx.search(clean_ansi(buf.decode('utf-8', errors='replace'))):
+            LAST_POLL["reason"] = "match"
             return True, buf
+    LAST_POLL["reason"] = f"timeout after {timeout}s"
     return False, buf
+
+
+# First terminal verdict wins per pid: waitpid reaps, so a second probe must
+# not lose the exit code. The finally block below kills and reaps too --
+# killing an already-reaped pid raises ProcessLookupError and reaping twice
+# raises ChildProcessError; both are OSErrors, so its except stays correct.
+_CHILD_STATE = {}  # pid -> terminal verdict
+
+
+def child_status(pid):
+    """Non-blocking liveness probe for the app process."""
+    if pid in _CHILD_STATE:
+        return _CHILD_STATE[pid]
+    try:
+        wpid, status = os.waitpid(pid, os.WNOHANG)
+    except ChildProcessError:
+        _CHILD_STATE[pid] = "reaped elsewhere"
+    else:
+        if wpid == 0:
+            return "still running"
+        if os.WIFEXITED(status):
+            verdict = f"EXITED code={os.WEXITSTATUS(status)}"
+        elif os.WIFSIGNALED(status):
+            verdict = f"KILLED signal={os.WTERMSIG(status)}"
+        else:
+            verdict = f"status={status}"
+        _CHILD_STATE[pid] = verdict
+    return _CHILD_STATE[pid]
 
 def send(fd, data):
     """Write to the pty, ignoring errors once the session is dead."""
@@ -134,7 +176,7 @@ def test_settings_panel():
         print(f"  Output length: {len(buf)} bytes")
         print(f"  Screen preview: {repr(screen[:100])}")
         has_status = ok and '[EN]' in screen
-        print(f"  Status bar [EN] visible: {has_status}")
+        print(f"  Status bar [EN] visible: {has_status} (poll: {LAST_POLL['reason']})")
         results.append(("Startup", has_status))
 
         # Test 2: Open settings panel. '界面语言' only exists inside the panel;
@@ -150,8 +192,17 @@ def test_settings_panel():
             ok, buf = poll_until(master_fd, b"", r'界面语言', timeout=10.0)
             screen = clean_ansi(buf.decode('utf-8', errors='replace'))
             has_panel = ok and '界面语言' in screen and '关闭' in screen
-            print(f"  Attempt {attempt + 1}: panel detected: {has_panel}")
+            print(f"  Attempt {attempt + 1}: panel detected: {has_panel} "
+                  f"(poll: {LAST_POLL['reason']})")
             if has_panel:
+                break
+            # A dead child cannot be retried into opening a panel: the two
+            # remaining attempts would only re-read EOF and re-report the same
+            # mystery. Stop and let the failure path print the exit status.
+            alive = child_status(pid)
+            if alive != "still running":
+                print(f"  Attempt {attempt + 1}: child is gone ({alive}) -- "
+                      "stopping: this is a crash, not a swallowed keystroke")
                 break
         print(f"  Output length: {len(buf)} bytes")
         print(f"  Screen preview: {repr(screen[:150])}")
@@ -159,6 +210,7 @@ def test_settings_panel():
 
         if not has_panel:
             print("  ERROR: Settings panel not opened!")
+            print(f"  child: {child_status(pid)}, last poll: {LAST_POLL['reason']}")
             print(f"  Raw output: {repr(buf[:300])}")
             print("\n" + "=" * 60)
             print("RESULTS SUMMARY")

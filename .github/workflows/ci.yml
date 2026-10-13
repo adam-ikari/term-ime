@@ -1,8 +1,10 @@
 name: Build and Test
 
+# 仅 PR 触发（2026-10-13 起）：测试是合并前的闸门，不是推 master 后的观光车。
+# push 不再跑 —— 合并后的验证由「PR 上跑过同一套」承担，发布验证由 release.yml
+# 的 tests 闸门 + 本地门承担（见 BRANCHING.md 触发矩阵）。这也把 e2e 偶发的
+# 暴露面收窄到 PR：挂了重跑即可，不会拦住一次无关的 master 推送。
 on:
-  push:
-    branches: [ master, main ]
   pull_request:
     branches: [ master, main ]
 
