@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [release, ci]
 created: "2026-09-29T00:41:51"
-updated: "2026-10-12T08:59:23"
+updated: "2026-10-13T02:36:39"
 ---
 
 <!-- compiled_truth -->
@@ -15,8 +15,8 @@ updated: "2026-10-12T08:59:23"
 
 ## 顺序
 
-1. 先推 `master`（发布提交必须先在默认分支上，release notes 才能对比出内容）。
-2. `git tag -a vX.Y.Z` 并推 tag → `release.yml` 在 x86_64 + aarch64 两个 runner 上构建全静态二进制，产出 `term-ime-linux-<arch>.tar.gz` 与 `.sha256` sidecar，连同 `website/static/install.sh` 一起发成 GitHub Release（`generate_release_notes: true`）。到此发布完成，无后续步骤。
+1. 改动经 **PR 合并**进 `master`（2026-10-13 起 master/release/pre-release 锁直推，见 [[branch-release-governance]]）。发布收尾项可先落在 `release` 分支再 PR 回 master；RC 走 `pre-release` 分支打 `vX.Y.Z-rc.N`。
+2. `git tag -a vX.Y.Z` 并推 tag → `release.yml` 在 x86_64 + aarch64 两个 runner 上构建全静态二进制，产出 `term-ime-linux-<arch>.tar.gz` 与 `.sha256` sidecar，连同 `website/static/install.sh` 一起发成 GitHub Release（`generate_release_notes: true`）。**tag 含 `-` 自动标 prerelease**（不顶掉 releases/latest，install.sh 取的正是 latest）。到此发布完成，无后续步骤。
 
 ## 摘要从哪来
 
@@ -28,16 +28,17 @@ updated: "2026-10-12T08:59:23"
 
 ## 发布前该跑而 CI 不跑的
 
-**2026-10-12 起 `release.yml` 自带 tests 闸门**（`611f486`）：`tests` job 在干净环境跑
-`ctest` + 全部 e2e（11 套），绿了 `release` job 才发包 —— 在此之前「untested」和
-「shipped to everyone」是同一个事件。本地预跑仍保留（双保险）：`ctest` + 全套 python
-e2e（见 `e2e-harness-contract`；本机 load 高的时候启动就绪门会超时，那是测量假象，
-不是缺陷）。
+**CI 自 2026-10-13 起仅 PR 触发**（push master 不再跑测试）：合并前的 PR run 是那次改动的 CI 证据。发布门另有两道 —— `release.yml` 的 tests 闸门（2026-10-12 起，`611f486`）在干净环境跑 `ctest` + 全部 e2e（11 套），绿了 `release` job 才发包；本地预跑仍保留（双保险）：`ctest` + `./tools/run-e2e.sh`（见 `e2e-harness-contract`；本机 load 高的时候启动就绪门会超时，那是测量假象，不是缺陷）。
+
+**e2e 套件失败会自动重试一次**（2026-10-13 起，`run-e2e.sh`）：重试才过打印 `FLAKY` 不静默、退出 0；连挂两次非零退出 —— 下面这条判据的自动化形态。
 
 **闸门拦下东西时，先重跑 failed job 再判真伪**：v1.1.8 首跑被
 `test_settings_panel_e2e`（检测不到设置面板）挡下，同 job 的 Unit tests 绿、本地同
 环境 20/20 复现不出 → `gh run rerun --failed` 全绿，判 runner 负载偶发而非产品缺陷。
 偶发时重跑 failed job 即可，不动 tag、不改代码；连挂两次才当真缺陷查。
+（事后补算：那次偶发的真实形状是子进程死在打开面板的瞬间 —— 套件 6.4s 跑完三次
+各 10s 超时的 attempt 不可能，是 pty 读端 EIO 提前返回；诊断已补进该套件，复发会
+自己报死因。详见 `e2e-harness-contract`。）
 
 
 ## Timeline
@@ -100,4 +101,16 @@ e2e（见 `e2e-harness-contract`；本机 load 高的时候启动就绪门会超
   kind: evidence
   summary: "v1.1.8 发布完成（tag @4796131，先推 changelog 提交再打 tag）。门：本机 ctest 136/136 + 11 套 e2e 130 条 0 FAIL。首跑被 tests 闸门拦下——test_settings_panel_e2e 三次检测不到设置面板（Unit tests 绿），gh run rerun --failed 全绿，本地同环境 20/20 复现不出 → 判 runner 负载偶发；闸门首战就拦了一次未测发布。sha256 三来源一致：x86_64 2fd28040de0fe686f622f6c594a51cace2b96f895edd6b354048b6d4e36ef2a4、aarch64 63cddc793d6949b50be5ca04caaa521e6d527fcf2e88e1ded11efda32d691924（API digest == sidecar == 独立 curl 复算）。拆发布 tarball 验内容：dict VERSION 2026.10.12 随包、LICENSES/ 19 份、ti 为静态 stripped ELF、bin/term-ime 符号链接在。本轮内容：候选两侧 ‹ › 槽位常驻提示器、拼音区按首候选分隔、许可随包三路径、词库并入 fork dict/ + 两轮读音校准、librime 同步上游到 1.17.0。"
   source: "2026-10-12 v1.1.8 发布"
+  affects: [release-publish-flow]
+
+- time: 2026-10-13T02:36:39
+  kind: decision
+  summary: "顺序改为 PR 合并；CI 仅 PR 触发；tag 含 - 标 prerelease；e2e 重试语义"
+  source: "2026-10-13 分支发布治理"
+  affects: [release-publish-flow]
+
+- time: 2026-10-13T02:36:39
+  kind: decision
+  summary: "CI 改为仅 PR 触发（push 不再跑测试）；release.yml tag 含 - 自动标 prerelease；run-e2e.sh 失败套件重试一次（FLAKY 不静默）；master/release/pre-release 锁直推必须 PR。发布顺序第 1 步从「先推 master」改为「PR 合并进 master」。"
+  source: "2026-10-13 分支发布治理"
   affects: [release-publish-flow]
