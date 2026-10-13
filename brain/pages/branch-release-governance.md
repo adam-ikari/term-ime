@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [release, ci, branching]
 created: "2026-10-13T02:36:06"
-updated: "2026-10-13T03:18:39"
+updated: "2026-10-13T03:56:22"
 ---
 
 <!-- compiled_truth -->
@@ -74,4 +74,10 @@ GitHub Ruleset `protect-main-release-lines`（id 24965586）锁 master/release/p
   kind: decision
   summary: "ci.yml 的 PR 触发从 [master, main] 过滤放宽到任何目标分支：master→release / master→pre-release 两个同步 PR 实测一条 check 都不跑（pull_request.branchs 过滤的是 base），而发布收尾 PR 恰恰最该被测。BRANCHING.md 触发矩阵同步。"
   source: "2026-10-13 触发器放宽"
+  affects: [branch-release-governance]
+
+- time: 2026-10-13T03:56:22
+  kind: decision
+  summary: "同步受保护分支的姿势定稿：从目标分支切 helper 分支 cherry-pick 后发 PR。两条实测教训：(1) head 为默认分支(master)的 PR 不触发 pull_request 事件——#3/#4/#6/#7 四次零 check，与触发过滤器无关；(2) rebase 合并产生的复制历史与原始历史在 merge-base 两侧 add/add 同名文件，直接 master→release PR 必然冲突（#6/#7 CONFLICTING）。#8/#9 改用 helper 分支（sync/align-release、sync/align-pre-release）后 CI 全绿、rebase 合并成功，四分支 tree 对齐 ba4fe116。"
+  source: "2026-10-13 分支对齐收尾"
   affects: [branch-release-governance]
