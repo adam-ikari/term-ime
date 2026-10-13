@@ -36,6 +36,15 @@
 最有价值的测试 —— 三个吞键 bug（Enter 不提交、`[7` 丢 7、转义序列被拆散）全是在这里
 被 e2e 断言逮住的，不是靠单元测试。
 
+**触发与运行**（2026-10-13 起，分支与发布规范见 [BRANCHING.md](BRANCHING.md)）：
+
+- CI 只在 **PR** 上跑这批（`ci.yml` 不再被 push master 触发）；`release.yml` 的
+  tests 闸门在打 tag 后跑同一批；发布前本地必跑 —— 三处跑的是同一个
+  `tools/run-e2e.sh` 清单。
+- 套件失败会**自动重试一次**（`TERM_IME_E2E_RETRY=0` 关闭）。重试才过的套件
+  在汇总里打印为 `FLAKY`，不静默；连挂两次整个 run 才以非零退出。
+  这是「连挂两次才当真缺陷查」的自动化，不是把偶发藏起来。
+
 | 套件 | 覆盖 |
 |------|------|
 | `test_fuzzy_pinyin.py` | 模糊音 5 组独立开关契约；提交、多段提交、**转义序列整体性**、**按键耗尽**、**未吞数字**、**resize** |
@@ -50,7 +59,7 @@
 | `test_punctuation.py` | 中文模式标点交给 librime punctuator，提交全角 |
 | `test_paste_delivery.py` | 大段粘贴到达率与**字节序**；`--stall` 让读者先睡，覆盖出站队列溢出 |
 
-**运行**: `python3 tests/<name>.py`
+**运行**: `./tools/run-e2e.sh`（全套，含重试与 FLAKY 汇总）；单套 `python3 tests/<name>.py`
 
 断言用 `check(name, ok, detail)`，不是裸 `assert` —— 因为要打印失败细节并累计
 通过数，裸 `assert` 在 `-O` 下还会被优化掉。
@@ -310,11 +319,11 @@ Ctrl+A → 按 'x'
 - [ ] `ldd build/term-ime` 显示 "not a dynamic executable"
 
 ### 自动化测试
-- [ ] `./build/term-ime-tests` — 全部通过（118）
+- [ ] `ctest --test-dir build --output-on-failure` — 全部通过（用例数以输出为准，表里不写死）
 - [ ] `./build/test-input-e2e` — 全部通过
 - [ ] `./build/test-ui-jsx` — 全部通过
 - [ ] `./build/test-settings` — 全部通过
-- [ ] 7 套 python e2e 全通过（见第 2 节，与 CI 跑的是同一批）
+- [ ] `./tools/run-e2e.sh` — 11 套全通过且汇总无 FLAKY（见第 2 节，与 CI 跑的是同一批）
 
 ### 手动 TUI 验收
 - [ ] 启动正常
@@ -332,8 +341,8 @@ Ctrl+A → 按 'x'
 - [ ] 退出正常（无崩溃）
 
 ### 发布流程
-- [ ] 所有测试通过
-- [ ] 代码已提交并推送到 master
-- [ ] 创建 Release tag（`git tag -a vX.Y.Z && git push origin vX.Y.Z`）
+- [ ] 所有测试通过（本地 `ctest` + `./tools/run-e2e.sh`）
+- [ ] 所有改动经 **PR 合并**进 master（master/release/pre-release 已锁直推，见 [BRANCHING.md](BRANCHING.md)）
+- [ ] 创建 Release tag（`git tag -a vX.Y.Z && git push origin vX.Y.Z`，打在 master 上）
 - [ ] 等待 GitHub Actions 构建完成
 - [ ] 验证构建产物（下载 release 二进制，检查静态链接）
