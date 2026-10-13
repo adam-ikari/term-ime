@@ -4,9 +4,11 @@ name: Build and Test
 # push 不再跑 —— 合并后的验证由「PR 上跑过同一套」承担，发布验证由 release.yml
 # 的 tests 闸门 + 本地门承担（见 BRANCHING.md 触发矩阵）。这也把 e2e 偶发的
 # 暴露面收窄到 PR：挂了重跑即可，不会拦住一次无关的 master 推送。
+# 目标分支不过滤（任何 PR 都跑）：初版写的是 branches: [master, main]，
+# master→release / master→pre-release 的同步 PR 实测一条 check 都不跑 ——
+# pull_request 过滤的是 PR 的目标分支，而发布收尾 PR 恰恰最该被测。
 on:
-  pull_request:
-    branches: [ master, main ]
+  pull_request: {}
 
 jobs:
   build:
