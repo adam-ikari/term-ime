@@ -1,64 +1,80 @@
-dict/ 目录下的文件授权不同，**不是单一授权的整体**：
+dict/ 目录下的文件授权不同，**不是单一授权的整体**，各自跟随其上游来源：
 
-- `luna_pinyin.dict.yaml`，以及 `opencc/t2s_full.json`、`opencc/variants.txt`、
-  `opencc/variants_jp.txt`、`opencc/variants_ext.txt` — MIT License,
-  Copyright (c) 2026 adam-ikari（本项目原创）
-- `essay.txt` — 来自 Rime 词频表 [rime/rime-essay](https://github.com/rime/rime-essay)，
-  以 **LGPL-3.0** 授权（原文见
-  https://github.com/rime/rime-essay/blob/master/LICENSE）。
-- `opencc/t2s.json`、`opencc/t2hk.json`、`opencc/t2tw.json`，以及 `opencc/*.ocd2` —
-  **Apache-2.0**，来自 [BYVoid/OpenCC](https://github.com/BYVoid/OpenCC)：`.json` 是
-  上游配置文件的逐字副本，`.ocd2` 是上游 `opencc_dict` 由上游词典生成的产物（实测与
-  opencc 构建输出逐字相同），不是本项目原创。
+| 文件 | 上游来源 | 许可证 |
+|------|----------|--------|
+| `luna_pinyin.dict.yaml` | [rime/rime-luna-pinyin](https://github.com/rime/rime-luna-pinyin)（文件头另署 CC-CEDICT / Chewing / 萌典 等） | **LGPL-3.0** |
+| `essay.txt` | [rime/rime-essay](https://github.com/rime/rime-essay) | **LGPL-3.0** |
+| `opencc/t2s.json`、`opencc/t2hk.json`、`opencc/t2tw.json`、`opencc/*.ocd2` | [BYVoid/OpenCC](https://github.com/BYVoid/OpenCC)：`.json` 是上游配置文件的逐字副本，`.ocd2` 是上游 `opencc_dict` 由上游词典生成的产物 | **Apache-2.0** |
+| `opencc/emoji.json`、`opencc/emoji_word.txt`、`opencc/emoji_category.txt` | [rime/rime-emoji](https://github.com/rime/rime-emoji) 的 `Emoji-14.0` 分支 `771d613b`（`tools/sources.lock` 的 `emoji-base`）：三个文件都是逐字副本，本仓不派生、不改写 | **LGPL-3.0** |
+| `opencc/t2s_full.json`、`opencc/variants.txt`、`opencc/variants_ext.txt`、`opencc/variants_jp.txt` | 本项目原创转换表 | **MIT** |
 
-essay.txt 是 librime 的 preset vocabulary（`use_preset_vocabulary: true` 加载的
-词频表），源自 rime-essay，不是本项目原创；它按上游的 LGPL-3.0 授权分发，与上面
-MIT 授权的部分分开，不能把整个 dict/ 宣称为 MIT。
+本仓自有代码与上表 MIT 部分以 MIT 授权，Copyright (c) 2026 adam-ikari，见根
+[LICENSE](../LICENSE)。
 
-=== MIT License — luna_pinyin.dict.yaml, opencc/t2s_full.json, opencc/variants*.txt ===
+派生判定：`luna_pinyin.dict.yaml` 与 `essay.txt` 都不是原创 —— 前者底本来自上游
+rime-luna-pinyin（`dict/tools/sources.lock` 亦记其繁体底本取自本仓 `64eda4c7`），
+后者来自 rime-essay。本项目对其做的是生成性修改（升级上游最新版、全部转简体、按
+(词,拼音) 对去重）。**派生作品的许可证跟随上游，不能单方面改挂 MIT。**
+`opencc/emoji*` 则是 rime-emoji 的逐字副本，本仓未作任何修改，也不参与
+`make check` 的生成过程（`rebuild_ocd2.sh` 只拷贝）。
 
-MIT License
+上游原文：
 
-Copyright (c) 2026 adam-ikari
+- rime/rime-luna-pinyin — https://github.com/rime/rime-luna-pinyin/blob/master/LICENSE
+- rime/rime-essay — https://github.com/rime/rime-essay/blob/master/LICENSE
+- rime/rime-emoji — https://github.com/rime/rime-emoji/blob/master/LICENSE
+- BYVoid/OpenCC — https://github.com/BYVoid/OpenCC/blob/master/LICENSE
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## LGPL-3.0（luna_pinyin.dict.yaml, essay.txt, opencc/emoji*）
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+这些数据文件是 LGPL-3.0 作品，按其 §2（Conveying Modified Versions）分发时你必须：
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+- 保留 LGPL-3.0 授权，不得改挂其他许可证；
+- 提供对应源码（本仓即数据的"源码"，随仓分发即满足）；
+- 附上 LGPL-3.0 与 GPL-3.0 全文（见 [`../licenses/`](../licenses/)）。
 
-=== essay.txt — LGPL-3.0 ===
+完整条款见 rime-essay / rime-luna-pinyin / rime-emoji 的 LICENSE。
 
-`essay.txt` 派生自 rime/rime-essay
-(https://github.com/rime/rime-essay)，上游授权为 GNU Lesser General Public
-License v3.0。完整条款见：
+**不传染**：LGPL 的 "L"（Lesser）意为不要求调用方开源。本项目引擎等自有代码以
+MIT 分发不受影响，与同一仓库并存不冲突 —— 只有上述数据文件本身留在 LGPL-3.0。
 
-    https://github.com/rime/rime-essay/blob/master/LICENSE
+## Apache-2.0（opencc/ 的 json 与 ocd2）
 
-=== opencc/ 的部分文件 — Apache-2.0 ===
-
-`opencc/t2s.json`、`opencc/t2hk.json`、`opencc/t2tw.json` 是 BYVoid/OpenCC
-自带配置文件的逐字副本；`opencc/TSCharacters.ocd2`、`opencc/TSPhrases.ocd2`、
+`opencc/t2s.json`、`opencc/t2hk.json`、`opencc/t2tw.json` 是 BYVoid/OpenCC 自带
+配置文件的逐字副本；`opencc/TSCharacters.ocd2`、`opencc/TSPhrases.ocd2`、
 `opencc/HKVariants.ocd2`、`opencc/TWVariants.ocd2` 是 OpenCC 的 `opencc_dict`
-工具由其上游词典数据生成的产物（已逐一与 OpenCC 构建输出比对，逐字相同）。
-这部分以 **Apache License, Version 2.0** 授权，完整条款见：
+工具由其上游词典数据生成的产物。这部分以 **Apache License, Version 2.0** 授权，
+完整条款见：
 
     https://www.apache.org/licenses/LICENSE-2.0
 
 This product includes data derived from OpenCC (https://github.com/BYVoid/OpenCC),
 Copyright (c) the OpenCC authors, licensed under Apache-2.0.
 
-`opencc/t2s_full.json` 与 `opencc/variants*.txt` 是本项目的原创转换表，不属于
-上述派生部分，以 MIT 授权（见上）。
+## MIT 部分
+
+`opencc/t2s_full.json` 与 `opencc/variants*.txt` 是本项目的原创转换表，不属于上述
+派生部分，以 MIT 授权。引擎的 term-ime 补丁、构建脚本等自有代码同样以 MIT 授权，
+Copyright (c) 2026 adam-ikari。引擎源码本身派生自 rime/librime（BSD-3-Clause），
+声明保留在 [THIRD-PARTY.md](../THIRD-PARTY.md)。
+
+---
+
+## 打包进其他程序分发（bundling）
+
+本 `dict/` 数据可以打包进另一个程序随其分发，被包程序**不必**改为 LGPL/Apache，
+但须尽下列义务：
+
+- **`essay.txt` / `luna_pinyin.dict.yaml` / `opencc/emoji*`（LGPL-3.0）**：数据自身保持
+  LGPL-3.0；随包附 **LGPL-3.0 与 GPL-3.0 全文**（见
+  [`../licenses/`](../licenses/)）；
+  显著声明「本产品含 LGPL-3.0 数据（rime-essay / rime-luna-pinyin / rime-emoji）」；若你改过
+  数据，须一并提供改后的数据（数据文件本身即其来源形态）。见 LGPL-3.0 §2、§4。
+- **`opencc/` 的 json/ocd2（Apache-2.0）**：保留 Apache-2.0 许可证与版权/NOTICE；
+  改过的文件须标注改动。`opencc/emoji.json` 不在这一项里 —— 它跟它的两张表同源，
+  属上一条的 LGPL-3.0。
+- **本仓自有 MIT 代码与原创转换表**：保留 MIT 声明。
+
+发放二进制/编译后的数据形态时，须额外提供其对应的源形态（原始 `.txt` / `.yaml`）；
+直接分发原始文本则天然满足。**不传染**：上述义务只约束数据本身，不影响被包程序的
+许可证（MIT、专有皆可）。
