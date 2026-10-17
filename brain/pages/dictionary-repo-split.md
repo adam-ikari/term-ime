@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [dict, rime, release]
 created: "2026-09-29T07:55:48"
-updated: "2026-10-09T08:05:06"
+updated: "2026-10-17T17:41:54"
 ---
 
 <!-- compiled_truth -->
@@ -76,7 +76,7 @@ essay.txt 的 5.6M 是必要的，不是冗余。
 
 `dict/` 按文件分别标注，共三层：
 
-- `luna_pinyin.dict.yaml` — MIT，adam-ikari 原创。
+- `luna_pinyin.dict.yaml` — **派生自 rime/rime-luna-pinyin，LGPL-3.0**（2026-10-09 fork `bdbd5764` 纠正；此前「MIT，adam-ikari 原创」是错标，不能单方面改挂）。
 - `essay.txt` — **派生自 rime/rime-essay，LGPL-3.0**（不是 MIT）。
 - `opencc/` — **不是纯 MIT**：`TSCharacters.ocd2`/`TSPhrases.ocd2`/`HKVariants.ocd2`/
   `TWVariants.ocd2` 是从 BYVoid/OpenCC 数据**编译派生**的，那份数据 Apache-2.0；
@@ -199,4 +199,16 @@ essay.txt 的 5.6M 是必要的，不是冗余。
   kind: decision
   summary: "term-ime 侧不再持有任何词库维护物：删除 data/pinyin.dict（初始骨架遗留的 53 行示例词库，无消费者）与配置字段 dict_path/extra_dicts（无消费者、无数据源）。term-ime 只做两件事：保留自有 luna_pinyin*.schema.yaml 方案（方案≠词库），以及从 deps/librime-stl dict/ 复制词库数据进产物。输入词库的唯一来源是 librime-stl 的 dict/。"
   source: "term-ime 结构调整"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-17T17:41:54
+  kind: decision
+  summary: "纠正授权分层：luna_pinyin.dict.yaml 是派生自 rime-luna-pinyin 的 LGPL-3.0，非 MIT"
+  source: "2026-10-15 核对随包 dict/LICENSE 时发现"
+  affects: [dictionary-repo-split]
+
+- time: 2026-10-17T17:41:54
+  kind: reversal
+  summary: "luna_pinyin.dict.yaml 不是 MIT——是派生自 rime-luna-pinyin 的 LGPL-3.0（fork bdbd5764 2026-10-09 已改，本页此前仍写「MIT，adam-ikari 原创」）"
+  source: "2026-10-15 升 librime 核对随包 dict/LICENSE 时发现本页过时"
   affects: [dictionary-repo-split]
