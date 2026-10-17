@@ -13,7 +13,7 @@ term-ime 的源码以 **MIT License**（`Copyright (c) 2026 adam-ikari`）发布
 
 | 组件 | 版本 | 许可 | 版权方 |
 |------|------|------|--------|
-| librime（fork `librime-stl`） | 1.17.0（`f0dd67a8`） | BSD-3-Clause | RIME Developers |
+| librime（fork `librime-stl`） | 1.17.0（`4ea39b33`） | BSD-3-Clause | RIME Developers |
 | OpenCC | 1.1.9 | Apache-2.0 | BYVoid/OpenCC |
 | └ bundled marisa | 0.2.6 | BSD-2-Clause **或** LGPL-2.1-or-later（双授权，本项目取 BSD-2） | Susumu Yata |
 | └ rapidjson（头文件） | 1.1.0 | MIT | THL A29 Limited / Milo Yip |
@@ -41,10 +41,11 @@ term-ime 的源码以 **MIT License**（`Copyright (c) 2026 adam-ikari`）发布
 
 | 文件 | 授权 | 来源 |
 |------|------|------|
-| `luna_pinyin.dict.yaml` | MIT | 本项目原创（繁体底本转简体去重） |
-| `opencc/t2s_full.json`、`opencc/variants*.txt` | MIT | 本项目原创 |
+| `luna_pinyin.dict.yaml` | **LGPL-3.0** | 派生自 [rime/rime-luna-pinyin](https://github.com/rime/rime-luna-pinyin)（繁体底本转简体去重） |
 | `essay.txt` | **LGPL-3.0** | 派生自 [rime/rime-essay](https://github.com/rime/rime-essay) |
+| `opencc/emoji.json`、`emoji_word.txt`、`emoji_category.txt` | **LGPL-3.0** | 逐字副本自 [rime/rime-emoji](https://github.com/rime/rime-emoji)（`Emoji-14.0` 分支）；term-ime 未接线（默认关），仅随词库落盘 |
 | `opencc/t2s.json`、`t2hk.json`、`t2tw.json`、`*.ocd2` | **Apache-2.0** | 派生自 [BYVoid/OpenCC](https://github.com/BYVoid/OpenCC) |
+| `opencc/t2s_full.json`、`opencc/variants*.txt` | MIT | 本项目原创 |
 
 term-ime 自有的方案文件（`data/rime-data/*.yaml`，随包一起分发）：
 
@@ -133,7 +134,7 @@ Homebrew tap 在 **v1.1.6** 起停用。Termux/Android 在 2026-10-02 彻底删�
 
 - **MIT / BSD / BSL / Boost**：随二进制附版权声明与许可文本。
 - **Apache-2.0**（OpenCC 库与数据）：附 Apache-2.0 全文；若上游有 `NOTICE`，一并附上。
-- **LGPL-3.0**（`essay.txt`、`pinyin.yaml`、`luna_pinyin*.schema.yaml`）：附 LGPL-3.0 全文，并提供对应源码（数据文件本身即源码，随包已提供；修改过的地方——`essay.txt` 转简体去重、schema 改 `opencc_config`——需标注）。
+- **LGPL-3.0**（`luna_pinyin.dict.yaml`、`essay.txt`、`opencc/emoji*`、`pinyin.yaml`、`luna_pinyin*.schema.yaml`）：附 LGPL-3.0 全文，并提供对应源码（数据文件本身即源码，随包已提供；修改过的地方——`luna_pinyin.dict.yaml` 转简体去重、`essay.txt` 转简体去重、schema 改 `opencc_config`——需标注）。
 
 三条分发路径都随附许可文本：release tarball 根目录下是 `LICENSE`（本项目 MIT）与 `LICENSES/`（19 个第三方许可全文，由 `tools/collect-licenses.sh` 在打包前从 vendored 依赖重新生成）；`install.sh` 会把它们装到 `$PREFIX/share/term-ime/`（`cmake --install` 同理）。`rime-data/` 自身带两份声明——`LICENSE`（词库，来自 `deps/librime/dict/`）与 `LICENSE-schemas.txt`（方案，来自本仓库 `data/rime-data/`）——随应用一起落盘，而不是只在解包瞬间可见。
 
