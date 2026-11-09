@@ -65,8 +65,8 @@ term-ime 自有的方案文件（`data/rime-data/*.yaml`，随包一起分发）
 推送 `v*` tag 触发 [`release.yml`](https://github.com/adam-ikari/term-ime/blob/master/.github/workflows/release.yml)，产出两个 Linux tarball：
 
 ```
-term-ime-linux-x86_64.tar.gz     (+ .sha256)
-term-ime-linux-aarch64.tar.gz    (+ .sha256)
+term-ime-linux-x86_64.tar.xz     (+ .sha256)
+term-ime-linux-aarch64.tar.xz    (+ .sha256)
 ```
 
 解包后的目录形态（即安装形态）：

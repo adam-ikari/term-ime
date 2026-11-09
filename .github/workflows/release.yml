@@ -70,15 +70,15 @@ jobs:
           cp LICENSE dist/term-ime/
           cp -r LICENSES dist/term-ime/
           cp README.md dist/term-ime/
-          tar -czf term-ime-linux-${{ matrix.arch }}.tar.gz -C dist term-ime
-          sha256sum term-ime-linux-${{ matrix.arch }}.tar.gz > term-ime-linux-${{ matrix.arch }}.tar.gz.sha256
+          tar -cJf term-ime-linux-${{ matrix.arch }}.tar.xz -C dist term-ime
+          sha256sum term-ime-linux-${{ matrix.arch }}.tar.xz > term-ime-linux-${{ matrix.arch }}.tar.xz.sha256
 
       - uses: actions/upload-artifact@v4
         with:
           name: term-ime-linux-${{ matrix.arch }}
           path: |
-            term-ime-linux-${{ matrix.arch }}.tar.gz
-            term-ime-linux-${{ matrix.arch }}.tar.gz.sha256
+            term-ime-linux-${{ matrix.arch }}.tar.xz
+            term-ime-linux-${{ matrix.arch }}.tar.xz.sha256
 
   tests:
     # The gate that was missing: release.yml used to build, pack and publish
@@ -133,8 +133,8 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/*/term-ime-linux-*.tar.gz
-            dist/*/term-ime-linux-*.tar.gz.sha256
+            dist/*/term-ime-linux-*.tar.xz
+            dist/*/term-ime-linux-*.tar.xz.sha256
             website/static/install.sh
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}

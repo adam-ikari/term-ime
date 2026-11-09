@@ -6,6 +6,10 @@ sidebar_position: 9
 
 版本号沿用仓库的 Git tag。逐条提交与二进制下载见 [GitHub Releases](https://github.com/adam-ikari/term-ime/releases)。
 
+## v1.2.1
+
+**Linux 安装包从 gzip 换成 xz：下载体积 −24%，6.3 → 4.7 MB。** 二进制已 strip（静态链接，无 debug），gzip 压不动；换 xz 后文本词典（essay/thuocl/luna 三个 .yaml）压得更实。零功能改动，安装器逻辑不变，仅解包方式由 `tar -xzf` 改为 `tar -xJf`（需系统有 `xz-utils`，安装器会在缺 xz 时报出安装提示而非裸报错）。
+
 ## v1.2.0
 
 **词库补了一张长尾表：专名、术语和长复合词不再只能靠谐音猜。**
