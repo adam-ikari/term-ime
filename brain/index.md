@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-10-17T17:41:54.934Z._
+_Auto-generated. Last updated 2026-11-09T14:52:17.034Z._
 
 - [branch-release-governance](pages/branch-release-governance.md) — category: decision | tags: [release, ci, branching] | 分支与发布的治理（2026-10-13 起生效）。
 - [candidate-bar-contract](pages/candidate-bar-contract.md) — category: decision | tags: [ui, candidates, rime, config] | ## 约束
@@ -38,4 +38,5 @@ _Auto-generated. Last updated 2026-10-17T17:41:54.934Z._
 - [startup-readiness-window](pages/startup-readiness-window.md) — category: decision | tags: [rime, startup, pty, testing] | ## 已观测事实
 - [status-bar-owns-last-row](pages/status-bar-owns-last-row.md) — category: decision | tags: [terminal, layout, resize, renderer] | 状态栏（Status bar）固定渲染在终端**最后一行**，属于 UI 保留区，不属于 shell/PTY 的绘制区。
 - [termux-android-target](pages/termux-android-target.md) — category: decision | tags: [termux, android, build, cmake] | ## 结论：Termux 支持已彻底删除（2026-10-02）
+- [thuocl-supplement](pages/thuocl-supplement.md) — category: decision | tags: [dict, license, gate] | ## 结论：取 THUOCL 的 4 字以上子集，74938 条，作为 `luna_pinyin.dict.yaml` 的 import
 - [website-spread-redesign](pages/website-spread-redesign.md) — category: decision | tags: [website, 传播, 文案] | **决定**：官网落地页按“可传播”重做，范围 = 结构 + 文案 + 视觉全做；主战场是中文技术社区（V2EX/掘金/知乎/公众号）。
