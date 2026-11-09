@@ -4,6 +4,8 @@ dict/ 目录下的文件授权不同，**不是单一授权的整体**，各自�
 |------|----------|--------|
 | `luna_pinyin.dict.yaml` | [rime/rime-luna-pinyin](https://github.com/rime/rime-luna-pinyin)（文件头另署 CC-CEDICT / Chewing / 萌典 等） | **LGPL-3.0** |
 | `essay.txt` | [rime/rime-essay](https://github.com/rime/rime-essay) | **LGPL-3.0** |
+| `thuocl.dict.yaml` | 词表来自 [THUNLP/THUOCL](https://github.com/thunlp/THUOCL) `a30ce79d`（`tools/sources.lock` 的 `thuocl`）的 4 字以上子集；拼音列是本仓用 pypinyin（BSD）生成的新增内容 | **MIT**（词表 MIT，注音为本仓原创，同为 MIT） |
+| `tools/thuocl-src/data/*.txt`、`tools/thuocl-src/LICENSE` | THUNLP/THUOCL 数据文件与许可证的逐字副本（`make check` 不生成它们，只读取） | **MIT** |
 | `opencc/t2s.json`、`opencc/t2hk.json`、`opencc/t2tw.json`、`opencc/*.ocd2` | [BYVoid/OpenCC](https://github.com/BYVoid/OpenCC)：`.json` 是上游配置文件的逐字副本，`.ocd2` 是上游 `opencc_dict` 由上游词典生成的产物 | **Apache-2.0** |
 | `opencc/emoji.json`、`opencc/emoji_word.txt`、`opencc/emoji_category.txt` | [rime/rime-emoji](https://github.com/rime/rime-emoji) 的 `Emoji-14.0` 分支 `771d613b`（`tools/sources.lock` 的 `emoji-base`）：三个文件都是逐字副本，本仓不派生、不改写 | **LGPL-3.0** |
 | `opencc/t2s_full.json`、`opencc/variants.txt`、`opencc/variants_ext.txt`、`opencc/variants_jp.txt` | 本项目原创转换表 | **MIT** |
@@ -17,12 +19,17 @@ rime-luna-pinyin（`dict/tools/sources.lock` 亦记其繁体底本取自本仓 `
 (词,拼音) 对去重）。**派生作品的许可证跟随上游，不能单方面改挂 MIT。**
 `opencc/emoji*` 则是 rime-emoji 的逐字副本，本仓未作任何修改，也不参与
 `make check` 的生成过程（`rebuild_ocd2.sh` 只拷贝）。
+`thuocl.dict.yaml` 不是上游派生：上游只有词与语料词频（MIT），拼音列由本项目生成，
+过滤（4 字以上、去掉已在本词库/essay 里的词）也是本项目做的。两侧同为 MIT，
+因此整份文件按 MIT 分发；上游 `LICENSE` 原文随 `tools/thuocl-src/LICENSE` 一并
+提供，`make package` 把它作为 `LICENSE-thuocl.txt` 放进 tarball。
 
 上游原文：
 
 - rime/rime-luna-pinyin — https://github.com/rime/rime-luna-pinyin/blob/master/LICENSE
 - rime/rime-essay — https://github.com/rime/rime-essay/blob/master/LICENSE
 - rime/rime-emoji — https://github.com/rime/rime-emoji/blob/master/LICENSE
+- THUNLP/THUOCL — https://github.com/thunlp/THUOCL/blob/master/LICENSE
 - BYVoid/OpenCC — https://github.com/BYVoid/OpenCC/blob/master/LICENSE
 
 ## LGPL-3.0（luna_pinyin.dict.yaml, essay.txt, opencc/emoji*）
@@ -58,6 +65,10 @@ Copyright (c) the OpenCC authors, licensed under Apache-2.0.
 Copyright (c) 2026 adam-ikari。引擎源码本身派生自 rime/librime（BSD-3-Clause），
 声明保留在 [THIRD-PARTY.md](../THIRD-PARTY.md)。
 
+`thuocl.dict.yaml` 的拼音列与挑词过滤逻辑同样以 MIT 授权；词表列本身是
+THUNLP/THUOCL 的 MIT 数据（原文见 [`tools/thuocl-src/LICENSE`](tools/thuocl-src/LICENSE)）。
+注音用 pypinyin（BSD-3-Clause）生成，只在生成期使用，产物不含其代码。
+
 ---
 
 ## 打包进其他程序分发（bundling）
@@ -73,7 +84,9 @@ Copyright (c) 2026 adam-ikari。引擎源码本身派生自 rime/librime（BSD-3
 - **`opencc/` 的 json/ocd2（Apache-2.0）**：保留 Apache-2.0 许可证与版权/NOTICE；
   改过的文件须标注改动。`opencc/emoji.json` 不在这一项里 —— 它跟它的两张表同源，
   属上一条的 LGPL-3.0。
-- **本仓自有 MIT 代码与原创转换表**：保留 MIT 声明。
+- **本仓自有 MIT 代码、原创转换表与 `thuocl.dict.yaml`**：保留 MIT 声明；
+  `thuocl.dict.yaml` 另附 THUOCL 的版权行（`Copyright (c) 2018 THUNLP`），
+  上游原文随 `tools/thuocl-src/LICENSE`。
 
 发放二进制/编译后的数据形态时，须额外提供其对应的源形态（原始 `.txt` / `.yaml`）；
 直接分发原始文本则天然满足。**不传染**：上述义务只约束数据本身，不影响被包程序的

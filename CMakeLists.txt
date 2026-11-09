@@ -365,6 +365,10 @@ add_custom_target(rime-data ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory ${RIME_DATA_DEST}/opencc
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DICT_DIR}/luna_pinyin.dict.yaml ${RIME_DATA_DEST}/
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DICT_DIR}/essay.txt ${RIME_DATA_DEST}/
+    # Imported by luna_pinyin.dict.yaml (import_tables: [thuocl]); librime
+    # resolves the import name against the shared data dir, so it must sit
+    # beside the schema data, not only inside the submodule.
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DICT_DIR}/thuocl.dict.yaml ${RIME_DATA_DEST}/
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DICT_DIR}/VERSION ${RIME_DATA_DEST}/
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${DICT_DIR}/opencc ${RIME_DATA_DEST}/opencc
     # The shipped data dir mixes MIT / LGPL-3.0 / Apache-2.0 files; ship the
@@ -376,7 +380,7 @@ add_custom_target(rime-data ALL
     # Kept as a second file rather than concatenated: -E cat needs CMake 3.18 and
     # the floor here is 3.14, and each grant stays traceable to its source dir.
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/data/rime-data/LICENSE ${RIME_DATA_DEST}/LICENSE-schemas.txt
-    COMMENT "Bundling rime dictionary data (luna_pinyin.dict.yaml / essay.txt / opencc/ / schemas / VERSION / LICENSE*)")
+    COMMENT "Bundling rime dictionary data (luna_pinyin.dict.yaml / thuocl.dict.yaml / essay.txt / opencc/ / schemas / VERSION / LICENSE*)")
 install(DIRECTORY ${RIME_DATA_DEST}/
         DESTINATION share/term-ime/rime-data)
 # Expose the build-tree bundled data dir to C++.
