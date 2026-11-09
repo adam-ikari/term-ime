@@ -13,7 +13,7 @@ term-ime 的源码以 **MIT License**（`Copyright (c) 2026 adam-ikari`）发布
 
 | 组件 | 版本 | 许可 | 版权方 |
 |------|------|------|--------|
-| librime（fork `librime-stl`） | 1.17.0（`fea527b9`） | BSD-3-Clause | RIME Developers |
+| librime（fork `librime-stl`） | 1.17.0（`92c5ec05`） | BSD-3-Clause | RIME Developers |
 | OpenCC | 1.1.9 | Apache-2.0 | BYVoid/OpenCC |
 | └ bundled marisa | 0.2.6 | BSD-2-Clause **或** LGPL-2.1-or-later（双授权，本项目取 BSD-2） | Susumu Yata |
 | └ rapidjson（头文件） | 1.1.0 | MIT | THL A29 Limited / Milo Yip |
@@ -37,12 +37,13 @@ term-ime 的源码以 **MIT License**（`Copyright (c) 2026 adam-ikari`）发布
 
 ## 随包分发的拼音数据
 
-`share/term-ime/rime-data/` 里的数据授权是**按文件分开的**，不能整体当作 MIT。词库本体（`luna_pinyin.dict.yaml`、`essay.txt`、`opencc/`）的授权详见 [`deps/librime/dict/LICENSE`](https://github.com/adam-ikari/librime-stl/blob/master/dict/LICENSE)：
+`share/term-ime/rime-data/` 里的数据授权是**按文件分开的**，不能整体当作 MIT。词库本体（`luna_pinyin.dict.yaml`、`thuocl.dict.yaml`、`essay.txt`、`opencc/`）的授权详见 [`deps/librime/dict/LICENSE`](https://github.com/adam-ikari/librime-stl/blob/master/dict/LICENSE)：
 
 | 文件 | 授权 | 来源 |
 |------|------|------|
 | `luna_pinyin.dict.yaml` | **LGPL-3.0** | 派生自 [rime/rime-luna-pinyin](https://github.com/rime/rime-luna-pinyin)（繁体底本转简体去重） |
 | `essay.txt` | **LGPL-3.0** | 派生自 [rime/rime-essay](https://github.com/rime/rime-essay) |
+| `thuocl.dict.yaml` | **MIT** | 词表来自 [THUNLP/THUOCL](https://github.com/thunlp/THUOCL)（4 字以上子集）；拼音列为本项目用 pypinyin 生成。上游许可原文见 `LICENSES/thuocl-MIT.txt` |
 | `opencc/emoji.json`、`emoji_word.txt`、`emoji_category.txt` | **LGPL-3.0** | 逐字副本自 [rime/rime-emoji](https://github.com/rime/rime-emoji)（`Emoji-14.0` 分支）；term-ime 未接线（默认关），仅随词库落盘 |
 | `opencc/t2s.json`、`t2hk.json`、`t2tw.json`、`*.ocd2` | **Apache-2.0** | 派生自 [BYVoid/OpenCC](https://github.com/BYVoid/OpenCC) |
 | `opencc/t2s_full.json`、`opencc/variants*.txt` | MIT | 本项目原创 |
@@ -78,7 +79,7 @@ term-ime/
 ├── share/term-ime/
 │   ├── rime-data/         # 方案 + 词库 + essay + opencc 数据（含 LICENSE / LICENSE-schemas.txt 逐文件授权）
 │   └── translations/      # UI 翻译（en / zh-CN）
-├── LICENSES/             # 各第三方许可全文（19 个文件）
+├── LICENSES/             # 各第三方许可全文（20 个文件）
 ├── LICENSE                # 本项目 MIT
 └── README.md
 ```
@@ -101,6 +102,7 @@ term-ime/
 | `LGPL-3.0.txt` | `essay.txt`、`pinyin.yaml`、`luna_pinyin*.schema.yaml` |
 | `GPL-3.0.txt` | LGPL-3.0 的引用基础文本 |
 | `rime-dict-data.txt` | rime-data 目录的逐文件授权声明（同时随 `rime-data/LICENSE` 落盘）；方案文件的授权为 `rime-data/LICENSE-schemas.txt`，两者来源不同各自成文 |
+| `thuocl-MIT.txt` | THUOCL 词表（`thuocl.dict.yaml`）的 MIT 原文 |
 
 `LICENSES/` 中无独立许可文件的三项（rapidjson、utf8-cpp、X11 keysymdef）由脚本按行号从对应 header 切出，并在切完后校验内容包含预期标记；行号漂移时脚本直接失败，而不是发出截断的许可。
 
