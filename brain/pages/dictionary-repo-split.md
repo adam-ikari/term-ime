@@ -5,7 +5,7 @@ category: decision
 status: active
 tags: [dict, rime, release]
 created: "2026-09-29T07:55:48"
-updated: "2026-10-17T17:41:54"
+updated: "2026-11-09T17:41:23"
 ---
 
 <!-- compiled_truth -->
@@ -211,4 +211,10 @@ essay.txt 的 5.6M 是必要的，不是冗余。
   kind: reversal
   summary: "luna_pinyin.dict.yaml 不是 MIT——是派生自 rime-luna-pinyin 的 LGPL-3.0（fork bdbd5764 2026-10-09 已改，本页此前仍写「MIT，adam-ikari 原创」）"
   source: "2026-10-15 升 librime 核对随包 dict/LICENSE 时发现本页过时"
+  affects: [dictionary-repo-split]
+
+- time: 2026-11-09T17:41:23
+  kind: note
+  summary: "rime-ice 复评（2026-11-09，实测）：luna schema + ice 五份 dict（1,490,053 条，import_tables + use_preset_vocabulary）——首启部署 14.0s（基线 6.1s）、峰值 RSS 866MB（458MB）、table.bin 52MB（22MB）、用户目录 51MB（22MB）；10 组常用输入前 5 候选无质量增益（yijing 反把日进/日经排 2/3），长复合词覆盖更好（公共汽车总站、专业班）。阻断项不变：仓库 GPL-3.0 only，schema 依赖 librime-lua 20 处 hook（term-ime 不加载插件）。"
+  source: "2026-11-09 雾凇拼音调查"
   affects: [dictionary-repo-split]

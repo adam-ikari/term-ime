@@ -65,6 +65,9 @@ slice deps/librime/include/X11/keysymdef.h \
       1 47 X11-keysymdef.txt "*****/"
 # --- shipped rime data --------------------------------------------------------
 copy deps/librime/dict/LICENSE                              rime-dict-data.txt
+# THUOCL words ship inside thuocl.dict.yaml (MIT); rime-dict-data.txt names the
+# file, this copy is the upstream grant itself.
+copy deps/librime/dict/tools/thuocl-src/LICENSE             thuocl-MIT.txt
 copy deps/json/LICENSES/GPL-3.0-only.txt                    GPL-3.0.txt
 copy deps/json/LICENSES/GPL-3.0-only.txt                    GPL-3.0.txt
 
