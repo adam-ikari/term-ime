@@ -139,8 +139,8 @@ jobs:
         cp -r build/share/rime-data/* dist/term-ime/share/term-ime/rime-data/
         cp data/translations/*.json dist/term-ime/share/term-ime/translations/
         cp README.md dist/term-ime/
-        tar -czf term-ime-linux-x86_64.tar.gz -C dist term-ime
-        sha256sum term-ime-linux-x86_64.tar.gz > term-ime-linux-x86_64.tar.gz.sha256
+        tar -cJf term-ime-linux-x86_64.tar.xz -C dist term-ime
+        sha256sum term-ime-linux-x86_64.tar.xz > term-ime-linux-x86_64.tar.xz.sha256
 
     - name: Run installer and verify binary
       run: |
@@ -221,7 +221,7 @@ jobs:
         STAGE="$(mktemp -d)"
         mkdir -p "$STAGE/term-ime/bin"
         cp build/term-ime "$STAGE/term-ime/bin/ti"
-        (cd "$STAGE" && tar -czf term-ime-linux-x86_64.tar.gz term-ime)
+        (cd "$STAGE" && tar -cJf term-ime-linux-x86_64.tar.xz term-ime)
         # deliberately NO .sha256 sidecar for the flaky case, and a 404 one
         # for the "not published" case
         python3 -m http.server 8896 --directory "$STAGE" >/dev/null 2>&1 &
