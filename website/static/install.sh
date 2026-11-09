@@ -81,7 +81,7 @@ if [[ -z "$VERSION" ]]; then
         echo "       GitHub's API allows 60 unauthenticated requests per hour per IP," >&2
         echo "       so this is usually rate limiting (shared/NAT/CI IPs run out fast)." >&2
         echo "       Retry in a few minutes, or pin the version explicitly:" >&2
-        echo "           curl -fsSL <this script's URL> | bash -s -- --version v1.1.7" >&2
+        echo "           curl -fsSL <this script's URL> | bash -s -- --version <tag>" >&2
         exit 1
     fi
 fi
