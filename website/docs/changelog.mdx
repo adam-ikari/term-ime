@@ -6,6 +6,18 @@ sidebar_position: 9
 
 版本号沿用仓库的 Git tag。逐条提交与二进制下载见 [GitHub Releases](https://github.com/adam-ikari/term-ime/releases)。
 
+## v1.1.9
+
+**许可标注纠错，分支与发布流程收拢成规矩，librime 跟 fork 再走一段。**
+
+**`luna_pinyin.dict.yaml` 的授权标错了，已改。** 它此前标着 MIT / 本项目原创，实际派生自 [rime/rime-luna-pinyin](https://github.com/rime/rime-luna-pinyin)，应为 **LGPL-3.0**；同批随词库落盘的 `opencc/emoji*` 三件也是 LGPL-3.0（逐字副本自 rime/rime-emoji）。许可页、README 与随包逐文件声明一并更正，`LICENSES/` 由脚本重生成，无手抄文本。
+
+**librime 同步到 fork 最新（26 提交，上游底本未动）。** 引擎侧的小修：`common.h` 补回 `<algorithm>`（去 Boost 时把传递包含一起带走了）、pattern 载入补 `RIME_DLL`、signal 替身补分组 connect。另外 opencc 的 `SerializedValues.hpp` 直接用了 `uint16_t` 却没含 `<cstdint>`——libstdc++ 13 起不再从别的头传递引入，GCC 13 下编不过，已补。其余是 fork 自己的构建图收紧与插件 CI，term-ime 不加载插件，不受影响。词库多了一份 emoji 扩展词典（默认关，term-ime 未接线，仅随 `rime-data` 落盘）。
+
+**分支与发布有了成文规矩。** `master` / `release` / `pre-release` 锁成 PR-only（管理员一样），`develop` 日常直推；tag 带 `-` 自动标 prerelease，`releases/latest` 不会被 RC 顶掉。CI 只在 PR 触发（push 不再重复跑），e2e 失败自动重试一次并把重试才过的套件标 `FLAKY`，连挂两次才算红。
+
+**升 pin 的收尾清单固化成三条：** 许可页版本列跟随新 pin、数据文件授权表跟着改、重跑 `tools/collect-licenses.sh`。前两次升 pin 各漏过其中一条，都是发布后才看出来。
+
 ## v1.1.8
 
 **候选栏多了翻页提示器，拼音区按音节断开。**
