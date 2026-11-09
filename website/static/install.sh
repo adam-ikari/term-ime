@@ -95,7 +95,18 @@ case "$ARCH" in
     *) echo "error: unsupported architecture: $ARCH (prebuilt binaries are x86_64/aarch64 only; build from source for other archs)" >&2; exit 1 ;;
 esac
 
-ASSET="term-ime-${ASSET_ARCH}.tar.gz"
+# Release tarballs are xz-compressed (.tar.xz) since v1.2.1 — ~24% smaller
+# than the prior gzip archive. Extraction needs the `xz` binary (xz-utils),
+# which is standard on Debian/Ubuntu/Fedora/Arch but absent on some minimal
+# images (Alpine, BusyBox), so fail early with an actionable message.
+if ! command -v xz >/dev/null 2>&1; then
+    echo "error: 'xz' is required to extract the archive but was not found." >&2
+    echo "       Install it: Debian/Ubuntu 'sudo apt install xz-utils'," >&2
+    echo "       Fedora 'sudo dnf install xz', Alpine 'apk add xz'." >&2
+    exit 1
+fi
+
+ASSET="term-ime-${ASSET_ARCH}.tar.xz"
 # TERM_IME_DOWNLOAD_BASE lets CI / mirrors point at any HTTP(S) base holding
 # the asset + .sha256 (default: the GitHub release for this version).
 DOWNLOAD_BASE="${TERM_IME_DOWNLOAD_BASE:-https://github.com/${REPO}/releases/download/${VERSION}}"
@@ -129,7 +140,7 @@ else
 fi
 
 echo ">> Extracting"
-tar -xzf "${TMP}/${ASSET}" -C "$TMP"
+tar -xJf "${TMP}/${ASSET}" -C "$TMP"
 
 # Find the binary inside the extracted dir. Primary name is the short command `ti`.
 # `|| true` for the same reason as the version lookup above: if `find` itself

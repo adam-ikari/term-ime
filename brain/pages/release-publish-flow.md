@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [release, ci]
 created: "2026-09-29T00:41:51"
-updated: "2026-10-13T03:00:01"
+updated: "2026-11-10T01:36:49"
 ---
 
 <!-- compiled_truth -->
@@ -119,4 +119,10 @@ updated: "2026-10-13T03:00:01"
   kind: evidence
   summary: "PR #1（ci 触发器改造 + 分支治理落地）在新触发器下全绿：build 4m29s / e2e 9m35s / install-test / lint / website，rebase 合并进 master（5d2edfb、9e75a80、8e30e0c）。实测：ruleset 的 pull_request 规则对 release 连快进推送也拒（GH013），对齐必须走 PR；develop 无保护 FF 推送成功，构成保护范围的对照组。"
   source: "2026-10-13 分支治理落地"
+  affects: [release-publish-flow]
+
+- time: 2026-11-10T01:36:49
+  kind: decision
+  summary: "v1.2.1 起 release tarball 从 gzip(.tar.gz) 换成 xz(.tar.xz)，下载体积 6.3→4.7MB(−24%)；零功能改动。release.yml/ci.yml 打包步骤 tar -cJf、install.sh 资产名与解包 tar -xJf 同改；install.sh 在缺 xz-utils 时报安装提示而非裸报错。正文里残留的 .tar.gz 字样指 v1.2.1 前的历史形态。"
+  source: "2026-11-10 下载包瘦身"
   affects: [release-publish-flow]
