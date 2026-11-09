@@ -6,6 +6,20 @@ sidebar_position: 9
 
 版本号沿用仓库的 Git tag。逐条提交与二进制下载见 [GitHub Releases](https://github.com/adam-ikari/term-ime/releases)。
 
+## v1.2.0
+
+**词库补了一张长尾表：专名、术语和长复合词不再只能靠谐音猜。**
+
+**`thuocl.dict.yaml`，74938 条（MIT）。** 词表来自 [THUNLP/THUOCL](https://github.com/thunlp/THUOCL)，由 `luna_pinyin.dict.yaml` 的 `import_tables` 导入。此前 `feigongjingji` 给「绯红经济」、`xiaoweihanyang` 给「学位汗颜」、`wenqunadeqingruxu` 给「免去拿的侵入于」；现在分别是 非公经济 / 小尾寒羊 / 问渠哪得清如许，`chengbaojingyingquan` 承包经营权、`shixuexingxiuke` 失血性休克 同理。
+
+**只取 4 字以上、只补现有词表没有的词。** THUOCL 是语料切词产物，2–3 字里混着机构与行政碎片（一公司、内都、源通）；整表导入时它们的语料词频压过同键常用词，实测把 `guohou` 的 过后 换成 果后、`yuantong` 的 圆通 换成 源通。取 4 字后回退全部消失，收益不变。95613 个 4 字以上词里 20675 个已由 luna/essay 覆盖。
+
+**代价**：`table.bin` 22.0 → 25.7 MB，首次部署 6.1 → 7.0 s，部署峰值内存 438 → 482 MB；常用词候选顺序不变，热启动无可感差异。
+
+**拼音是生成的。** THUOCL 只有词和词频，注音由 pypinyin 生成、版本钉在词库的 `sources.lock`，版本不符时生成脚本直接拒绝产出——免得哪天依赖升级悄悄换掉一批多音字。词库 `make check` 复现门多比对一份产物，`make smoke` 新增两侧断言（长尾词必须出、碎片不得压过常用词），把产物清空时三条长尾探针立即变红。
+
+**授权**：THUOCL 是 MIT，与现有 LGPL-3.0 / Apache-2.0 数据并存无冲突；`LICENSES/` 增加 `thuocl-MIT.txt`（脚本生成，不是手抄），许可页与逐文件声明同步。
+
 ## v1.1.9
 
 **许可标注纠错，分支与发布流程收拢成规矩，librime 跟 fork 再走一段。**
