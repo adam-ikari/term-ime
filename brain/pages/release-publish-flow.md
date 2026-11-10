@@ -5,7 +5,7 @@ category: concept
 status: active
 tags: [release, ci]
 created: "2026-09-29T00:41:51"
-updated: "2026-11-10T01:36:49"
+updated: "2026-11-10T08:08:30"
 ---
 
 <!-- compiled_truth -->
@@ -125,4 +125,10 @@ updated: "2026-11-10T01:36:49"
   kind: decision
   summary: "v1.2.1 起 release tarball 从 gzip(.tar.gz) 换成 xz(.tar.xz)，下载体积 6.3→4.7MB(−24%)；零功能改动。release.yml/ci.yml 打包步骤 tar -cJf、install.sh 资产名与解包 tar -xJf 同改；install.sh 在缺 xz-utils 时报安装提示而非裸报错。正文里残留的 .tar.gz 字样指 v1.2.1 前的历史形态。"
   source: "2026-11-10 下载包瘦身"
+  affects: [release-publish-flow]
+
+- time: 2026-11-10T08:08:30
+  kind: evidence
+  summary: "v1.2.1 发布：tarball 换 xz 上线（latest=v1.2.1，非 prerelease）。下载 6.3→4.8MB(−23%，实测 x86_64 4778584B)。注意：tag 推送触发的 release.yml run 三个依赖 job（build-linux x2 + tests）全绿，但 GitHub 未调度 release job，run 判 failure 且无法 rerun（fix 应为一次性调度故障，workflow 结构与两次成功的 v1.2.0/v1.1.9 逐字节一致，仅 files: glob 从 .tar.gz 改 .tar.xz）。手动兜底：gh run download 取双 arch 产物→sha256 自洽→解包跑通（非公经济等候选完好）→gh release create + upload 分步建 release（一次性 create 带全资产会撞 uploads.github.com 408 超时，应按资产逐个 upload）。"
+  source: "2026-11-10 v1.2.1 发布"
   affects: [release-publish-flow]
